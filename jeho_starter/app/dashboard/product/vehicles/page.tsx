@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Search, X, Loader2, ArrowUpDown } from "lucide-react";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
@@ -11,13 +11,31 @@ import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCard
 import VehiclesEmptyState from "@/components/dashboard/products/vehicles/vehiclesEmptyState";
 import { useCategoryListings } from "@/hooks/use-category-listings";
 
+// ─── Debounce hook ────────────────────────────────────────────────────────────
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 type SortOption = "newest" | "price-low" | "price-high";
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function VehiclesPage() {
   const { formatPrice } = useCurrency();
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+
+  // FIX 1: Separate raw input state from the debounced value used for filtering.
+  // This prevents the filter/sort from running on every single keystroke.
+  const [searchInput, setSearchInput] = useState("");
+  const searchTerm = useDebouncedValue(searchInput, 300);
 
   const { listings, isLoading, isError } = useCategoryListings("vehicles");
 
@@ -42,6 +60,20 @@ export default function VehiclesPage() {
     });
   }, [listings, searchTerm, sortBy]);
 
+  // FIX 2: Stable callback reference so memoized cards don't re-render
+  // when the parent re-renders (e.g. while the user types in the search box).
+  const handleSelectProduct = useCallback((product: any) => {
+    setSelectedProduct(product);
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedProduct(null);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchInput("");
+  }, []);
+
   if (selectedProduct) {
     return (
       <DashboardShell>
@@ -49,7 +81,7 @@ export default function VehiclesPage() {
           <div className="flex items-center justify-between p-6 border-b bg-white top-0 z-10">
             <Button
               variant="ghost"
-              onClick={() => setSelectedProduct(null)}
+              onClick={handleClearSelection}
               className="text-teal-600 hover:text-teal-800 font-bold flex items-center gap-2 transition-colors"
             >
               ← Back to Inventory
@@ -85,13 +117,15 @@ export default function VehiclesPage() {
               <input
                 type="text"
                 placeholder="Search by model or brand..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                // FIX 1 (cont.): Input is bound to the raw (instant) state so
+                // the field feels responsive, while filtering uses the debounced value.
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 outline-none transition-all shadow-sm text-sm"
               />
-              {searchTerm && (
+              {searchInput && (
                 <button
-                  onClick={() => setSearchTerm("")}
+                  onClick={handleClearSearch}
                   className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-900"
                 >
                   <X size={16} />
@@ -134,7 +168,10 @@ export default function VehiclesPage() {
               <ProductItemCard
                 key={vehicle.id}
                 product={vehicle}
-                onSelect={setSelectedProduct}
+                // FIX 2 (cont.): Pass the stable callback. For this to fully
+                // prevent card re-renders, wrap ProductItemCard in React.memo()
+                // inside productItemCard.tsx.
+                onSelect={handleSelectProduct}
                 formatPrice={formatPrice}
               />
             ))}

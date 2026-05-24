@@ -1,108 +1,136 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
+import React, {
+  createContext, useContext, useState,
+  ReactNode, useCallback, useEffect,
+} from "react";
+import { useSelector } from "react-redux";
+import { selectCurrentUser, selectCurrentToken } from "@/lib/features/auth/authSlice";
 
-type CurrencyCode = "NGN" | "USD" | "GBP" | "EUR";
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-interface LocationData {
-  city: string;
-  region: string;
-  country_name: string;
-  latitude: number;
-  longitude: number;
-}
+type CurrencyCode = "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR" |
+                   "INR" | "NPR" | "CNY" | "CAD" | "AUD";
 
 interface CurrencyContextType {
-  currency: CurrencyCode;
-  setCurrency: (code: typeof window extends undefined ? "NGN" : CurrencyCode) => void;
-  formatPrice: (amount: number, originalCurrency?: string) => string;
-  location: LocationData | null; 
-  isLoadingLocation: boolean;
+  currency:     CurrencyCode;
+  countryCode:  string | null;
+  setCurrency:  (code: CurrencyCode) => void;
+  formatPrice:  (amount: number, originalCurrency?: string) => string;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const EXCHANGE_RATES: Record<string, number> = {
+  NGN: 1,
+  USD: 1550,
+  GBP: 1950,
+  EUR: 1680,
+  GHS: 105,
+  KES: 12,
+  ZAR: 82,
+  INR: 18.5,
+  NPR: 11.5,
+  CNY: 213,
+  CAD: 1140,
+  AUD: 1010,
+};
+
+const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
+  NG: "NGN", GH: "GHS", CM: "NGN", KE: "KES", ZA: "ZAR",
+  ZW: "USD", UG: "NGN", IN: "INR", NP: "NPR", CN: "CNY",
+  GB: "GBP", FR: "EUR", ES: "EUR", PT: "EUR", CY: "EUR",
+  US: "USD", CA: "CAD", AU: "AUD",
+};
+
+const SUPPORTED      = Object.keys(EXCHANGE_RATES) as CurrencyCode[];
+const DEFAULT: CurrencyCode = "NGN";
+const API_URL        = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+// ── Context ───────────────────────────────────────────────────────────────────
+
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
-const EXCHANGE_RATES: Record<CurrencyCode, number> = { NGN: 1, USD: 1550, GBP: 1950, EUR: 1680 };
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrency] = useState<CurrencyCode>("NGN");
-  const [location, setLocation] = useState<LocationData | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const user        = useSelector(selectCurrentUser);
+  const token       = useSelector(selectCurrentToken);
+  const [currency,    setCurrencyState] = useState<CurrencyCode>(DEFAULT);
+  const [countryCode, setCountryCode]   = useState<string | null>(null);
 
   useEffect(() => {
-    const detectUserCurrency = async () => {
-      const savedLocation = localStorage.getItem("user_location");
-      const savedCurrency = localStorage.getItem("user_currency");
+    if (!user || !token) return;
 
-      if (savedLocation && savedCurrency) {
-        setLocation(JSON.parse(savedLocation));
-        setCurrency(savedCurrency as CurrencyCode);
-        setIsLoadingLocation(false);
-        return; 
-      }
+    // ── Step 1: Use profile country immediately (instant, no network call) ──
+    const profileCountry = user.current_country || user.birth_country;
+    if (profileCountry) {
+      const profileCurrency = COUNTRY_TO_CURRENCY[profileCountry] ?? DEFAULT;
+      setCurrencyState(profileCurrency);
+      setCountryCode(profileCountry);
+    }
 
+    // ── Step 2: Call our own Django backend to detect location via IP ───────
+    // This updates PostGIS location and returns the detected country.
+    // Falls back silently — profile country is already set above.
+    const detectViaIP = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${API_URL}/api/users/location/detect/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
 
-        const response = await fetch("https://ipapi.co/json/", { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) throw new Error("API Limit Reached");
-
-        const data = await response.json();
-        const detectedCurrency = data.currency as CurrencyCode;
-        const supported: CurrencyCode[] = ["NGN", "USD", "GBP", "EUR"];
-
-        if (supported.includes(detectedCurrency)) {
-          setCurrency(detectedCurrency);
-          localStorage.setItem("user_currency", detectedCurrency);
+        const data = await res.json();
+        if (data.status === "ok" && data.country_code) {
+          const detected = COUNTRY_TO_CURRENCY[data.country_code] ?? DEFAULT;
+          setCurrencyState(detected);
+          setCountryCode(data.country_code);
         }
-
-        const locData = {
-          city: data.city,
-          region: data.region,
-          country_name: data.country_name,
-          latitude: data.latitude,
-          longitude: data.longitude,
-        };
-        
-        setLocation(locData);
-        localStorage.setItem("user_location", JSON.stringify(locData));
-
-      } catch (error) {
-        console.warn("Auto-detection blocked or failed. Defaulting to NGN.");
-        setCurrency("NGN");
-      } finally {
-        setIsLoadingLocation(false); 
+      } catch {
+        // Silent fail — profile country already applied above
       }
     };
 
-    detectUserCurrency();
+    detectViaIP();
+  }, [user?.id, token]); // only re-run when user changes
+
+  const setCurrency = useCallback((code: CurrencyCode) => {
+    if (SUPPORTED.includes(code)) setCurrencyState(code);
   }, []);
 
   const formatPrice = useCallback((amount: number, originalCurrency: string = "NGN") => {
-    const safeOriginal = (originalCurrency as CurrencyCode) || "NGN";
-    const originalRate = EXCHANGE_RATES[safeOriginal] || 1;
-    
-    const amountInBase = amount * originalRate;
-    const convertedAmount = amountInBase / (EXCHANGE_RATES[currency] || 1);
+    const safeOriginal = SUPPORTED.includes(originalCurrency as CurrencyCode)
+      ? originalCurrency : "NGN";
 
-    return new Intl.NumberFormat('en-GB', { 
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 2,
-    }).format(convertedAmount);
+    const rateFrom        = EXCHANGE_RATES[safeOriginal] ?? 1;
+    const rateTo          = EXCHANGE_RATES[currency]     ?? 1;
+    const amountInNGN     = amount * rateFrom;
+    const convertedAmount = amountInNGN / rateTo;
+
+    try {
+      return new Intl.NumberFormat("en-GB", {
+        style:                 "currency",
+        currency,
+        minimumFractionDigits: 2,
+      }).format(convertedAmount);
+    } catch {
+      return `${currency} ${convertedAmount.toFixed(2)}`;
+    }
   }, [currency]);
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatPrice, location, isLoadingLocation }}>
+    <CurrencyContext.Provider value={{ currency, countryCode, setCurrency, formatPrice }}>
       {children}
     </CurrencyContext.Provider>
   );
 }
 
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
 export function useCurrency() {
   const context = useContext(CurrencyContext);
-  if (context === undefined) throw new Error("useCurrency must be used within a CurrencyProvider.");
+  if (context === undefined) {
+    throw new Error("useCurrency must be used within a CurrencyProvider.");
+  }
   return context;
 }

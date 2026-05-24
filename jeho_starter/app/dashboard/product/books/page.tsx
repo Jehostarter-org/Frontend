@@ -6,12 +6,10 @@ import { Search, X, Loader2, ArrowUpDown } from "lucide-react";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { ProductItemCard } from "@/components/reuseables/productItemCard";
-import { ProductDetailView } from "@/components/reuseables/product-detail-view";
+import ProductDetailView from "@/components/reuseables/product-detail-view";
 import { BooksEmptyState } from "@/components/dashboard/products/books/booksEmptyState";
 import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCardSkeleton";
-import { useGetAllProductsQuery, useSearchProductsByTitleQuery } from "@/lib/api/productsApiSlice";
-
-
+import { useGetAllProductsQuery } from "@/lib/api/productsApiSlice";
 
 type BookCategory = "All" | "Textbooks" | "Fiction" | "Study Aids" | "Non-Fiction" | "Children";
 type SortOption = "newest" | "price-low" | "price-high";
@@ -33,41 +31,39 @@ export default function BookStore() {
   }, [searchTerm]);
 
   const isSearching = debouncedSearch.trim().length > 0;
-  const { data: allProducts, isLoading: isLoadingAll, isFetching: isFetchingAll } = useGetAllProductsQuery(undefined, { skip: isSearching });
-  const { data: searchResults, isLoading: isLoadingSearch, isFetching: isFetchingSearch } = useSearchProductsByTitleQuery(debouncedSearch, { skip: !isSearching });
-  const rawData = isSearching ? searchResults : allProducts;
-  const isLoading = isLoadingAll || isLoadingSearch;
-  const isFetching = isFetchingAll || isFetchingSearch;
+
+  const { data: rawData, isLoading, isFetching } = useGetAllProductsQuery(
+    isSearching ? { search: debouncedSearch } : {}
+  );
 
   const filteredBooks = useMemo(() => {
-    const dataArray = rawData?.content || (Array.isArray(rawData) ? rawData : []);
-    if (!Array.isArray(dataArray)) return [];
-  
+    const dataArray = Array.isArray(rawData) ? rawData : [];
+    if (!dataArray.length) return [];
+
     return dataArray
       .filter((item: any) => {
-        const isFashion = item.category === "BOOK_AND_STUDY_AIDS";
-        let matchesSubCat = true;   
+        const isBooks = item.category === "BOOK_AND_STUDY_AIDS";
+        let matchesSubCat = true;
         if (activeCategory !== "All") {
-          const babyKidsSub = (item.subCategory || "").toLowerCase().trim();
+          const bookSub = (item.subCategory || "").toLowerCase().trim();
           const selectedTab = activeCategory.toLowerCase().trim();
-          matchesSubCat = babyKidsSub === selectedTab;
+          matchesSubCat = bookSub === selectedTab;
         }
-        return isFashion && matchesSubCat;
+        return isBooks && matchesSubCat;
       })
-      .sort((a, b) => {
-        if (sortBy === "price-low") return a.price - b.price;
-        if (sortBy === "price-high") return b.price - a.price;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      .sort((a: any, b: any) => {
+        if (sortBy === "price-low") return parseFloat(a.price) - parseFloat(b.price);
+        if (sortBy === "price-high") return parseFloat(b.price) - parseFloat(a.price);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
   }, [rawData, activeCategory, sortBy]);
-
 
   if (selectedProduct) {
     return (
       <DashboardShell>
         <div className="min-h-screen bg-gray-50">
           <div className="flex items-center justify-between p-6 border-b bg-white top-0 z-10 custom-scrollbar">
-            <Button onClick={() => setSelectedProduct(null)} className="text-teal-600 hover:text-teal-800 font-bold flex items-center gap-2 transition-colors" >
+            <Button onClick={() => setSelectedProduct(null)} className="text-teal-600 hover:text-teal-800 font-bold flex items-center gap-2 transition-colors">
               ← Back to Library
             </Button>
             <h1 className="text-lg font-bold truncate max-w-xs md:max-w-md text-gray-800">{selectedProduct.title}</h1>
@@ -87,7 +83,7 @@ export default function BookStore() {
               <h1 className="text-4xl font-black text-gray-900 tracking-tight italic">Books & Study Aids</h1>
               <p className="text-muted-foreground mt-1">Expand your knowledge with community-listed books.</p>
             </div>
-            
+
             <div className="relative w-full md:w-96 group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 {isFetching ? (
@@ -96,7 +92,11 @@ export default function BookStore() {
                   <Search className="h-4 w-4 text-gray-400 group-focus-within:text-teal-600 transition-colors" />
                 )}
               </div>
-              <input type="text" placeholder="Search by title, author, or ISBN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              <input
+                type="text"
+                placeholder="Search by title, author, or ISBN..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 outline-none transition-all shadow-sm text-sm"
               />
               {searchTerm && (
@@ -109,9 +109,16 @@ export default function BookStore() {
 
           <nav className="flex items-center overflow-x-auto pb-2 no-scrollbar border-b border-gray-100">
             {CATEGORIES.map((books) => (
-              <Button key={books} variant="ghost" onClick={() => setActiveCategory(books)} className={`rounded-none pb-4 border-b-2 transition-all px-6 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${
-                  activeCategory === books ? "border-teal-600 text-teal-700 font-bold"  : "border-transparent text-gray-400 hover:text-gray-900"
-                }`} >
+              <Button
+                key={books}
+                variant="ghost"
+                onClick={() => setActiveCategory(books)}
+                className={`rounded-none pb-4 border-b-2 transition-all px-6 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${
+                  activeCategory === books
+                    ? "border-teal-600 text-teal-700 font-bold"
+                    : "border-transparent text-gray-400 hover:text-gray-900"
+                }`}
+              >
                 {books}
               </Button>
             ))}
@@ -122,10 +129,15 @@ export default function BookStore() {
           <p className="text-xs font-medium text-gray-400 uppercase tracking-widest">
             {filteredBooks.length} Items Available
           </p>
-          
+
           <div className="flex items-center gap-2">
             <ArrowUpDown size={14} className="text-gray-400" />
-            <select value={sortBy} aria-label="Sort books by" onChange={(e) => setSortBy(e.target.value as SortOption)} className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer" >
+            <select
+              value={sortBy}
+              aria-label="Sort books by"
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer"
+            >
               <option value="newest">Newest Additions</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
@@ -141,18 +153,18 @@ export default function BookStore() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredBooks.map((books: any) => (
               <ProductItemCard
-                key={books.id} 
-                books={books} 
-                onSelect={setSelectedProduct} 
+                key={books.id}
+                books={books}
+                onSelect={setSelectedProduct}
                 formatPrice={formatPrice}
               />
             ))}
           </div>
         ) : (
-          <BooksEmptyState 
-            category={activeCategory} 
-            isSearch={isSearching} 
-            onClear={() => { setSearchTerm(""); setActiveCategory("All"); }} 
+          <BooksEmptyState
+            category={activeCategory}
+            isSearch={isSearching}
+            onClear={() => { setSearchTerm(""); setActiveCategory("All"); }}
           />
         )}
       </div>

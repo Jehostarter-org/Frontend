@@ -8,7 +8,7 @@ import { useAuth } from "@/components/contexts/auth-context";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { ProductItemCard } from "@/components/reuseables/productItemCard";
-import { ProductDetailView } from "@/components/reuseables/product-detail-view";
+import ProductDetailView from "@/components/reuseables/product-detail-view";
 import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCardSkeleton";
 import { Search, X, Loader2, ArrowLeft, SearchX, Sparkles, RefreshCw } from "lucide-react";
 import { useGetAllProductsQuery, type ListingsParams } from "@/lib/api/productsApiSlice";

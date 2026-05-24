@@ -22,7 +22,6 @@ export const dynamic = 'force-dynamic';
 
 export default function DashboardShell({ children, onClose }: DashboardLayoutProps) {
   const { logout, user, isLoading } = useAuth();
-  console.log('DashboardShell rendering. User:', user, 'IsLoading:', isLoading);
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,7 +29,6 @@ export default function DashboardShell({ children, onClose }: DashboardLayoutPro
 
   const handleLogout = async () => {
     try {
-      console.log("Processing logout...");
       logout();
       router.push('/auth/login');
     } catch (error) {

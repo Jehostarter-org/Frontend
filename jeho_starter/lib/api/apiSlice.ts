@@ -36,6 +36,8 @@ export const apiSlice = createApi({
     'Listing',
     'Product',
     'Community',
+    'CommunityMessages',
+    'Post',
     'Service',
     'Membership',
   ],

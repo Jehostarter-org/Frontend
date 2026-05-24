@@ -5,6 +5,7 @@ import {
   useContext,
   useMemo,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -39,17 +40,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const token      = useSelector(selectCurrentToken);
   const isLoggedIn = useSelector(selectIsLoggedIn);
 
-  // Fetch /api/users/me/ whenever a token exists.
-  // This keeps the Redux user object fresh after page refresh — without this,
-  // user is null until the next login because Redux state doesn't persist.
+  // Track the last meData id we dispatched to avoid re-dispatching on every render
+  const lastDispatchedId = useRef<string | null>(null);
+
   const { data: meData, isLoading } = useGetMeQuery(undefined, {
-    skip: !token,  // don't call if logged out
+    skip: !token,
+    // Only refetch on mount and when token changes — not on every render
+    refetchOnMountOrArgChange: false,
+    refetchOnFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
+    // Guard: only dispatch if meData is new (different user id)
     if (!meData || !token) return;
+    if (lastDispatchedId.current === meData.id) return;
 
-    // meData is Django snake_case — map to the camelCase shape your UI expects
+    lastDispatchedId.current = meData.id;
+
     dispatch(
       setCredentials({
         token,
@@ -69,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           destinationCountry: meData.destination_country,
           city:               meData.city,
           migrationStatus:    meData.migration_status,
-          plan:               meData.membership_plan,   // used by dashboard-plan.tsx
+          plan:               meData.membership_plan,
           currency:           meData.currency,
           acceptedTerms:      meData.accepted_terms,
         },
@@ -78,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [meData, token, dispatch]);
 
   const logout = () => {
+    lastDispatchedId.current = null;
     dispatch(logOut());
   };
 

@@ -1,11 +1,4 @@
 // lib/graphql/client.ts
-//
-// Three communication channels to the Django backend:
-//
-//   gqlFetch              — HTTP POST /graphql/  for queries + mutations
-//   createGqlSubscription — WebSocket /ws/graphql/ for GraphQL subscriptions
-//   createNotificationSocket — WebSocket /ws/notifications/ for the bell
-//                             (lighter than full GraphQL, just JSON events)
 
 const API_URL  = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
 const HTTP_URL = `${API_URL}/graphql/`;
@@ -37,12 +30,12 @@ export async function gqlFetch<T = any>(
   return json.data as T;
 }
 
-// ── 2. GraphQL WebSocket subscription (graphql-transport-ws protocol) ─────────
-// Used for: community feed, service status updates, full notification objects
-// Endpoint: ws://127.0.0.1:8000/ws/graphql/
+// ── 2. GraphQL WebSocket subscription ────────────────────────────────────────
 
 type SubscriptionHandler<T> = (data: T) => void;
 export type UnsubscribeFn = () => void;
+
+const MAX_RETRIES = 3;
 
 export function createGqlSubscription<T = any>(
   query: string,
@@ -54,12 +47,16 @@ export function createGqlSubscription<T = any>(
   const url   = `${WS_BASE}/ws/graphql/`;
   let ws: WebSocket;
   let subscriptionId: string | null = null;
-  let closed = false;
+  let closed  = false;
+  let retries = 0;
 
   function connect() {
+    if (closed || retries >= MAX_RETRIES) return;
+
     ws = new WebSocket(url, 'graphql-transport-ws');
 
     ws.onopen = () => {
+      retries = 0; // reset on successful connection
       ws.send(JSON.stringify({
         type:    'connection_init',
         payload: token ? { Authorization: `Bearer ${token}` } : {},
@@ -90,8 +87,20 @@ export function createGqlSubscription<T = any>(
       }
     };
 
-    ws.onerror  = (e) => { onError?.(e); };
-    ws.onclose  = ()  => { if (!closed) setTimeout(connect, 3000); };
+    ws.onerror = (e) => { onError?.(e); };
+
+    ws.onclose = (e) => {
+      // 4400–4499 and 1008 are policy/auth errors — don't retry
+      // Code 1006 = abnormal closure (usually 404/connection refused)
+      if (closed) return;
+      if (e.code === 1008 || retries >= MAX_RETRIES) {
+        console.warn('[GQL WS] Max retries reached or policy error. Stopping reconnect.');
+        return;
+      }
+      retries++;
+      const delay = Math.min(1000 * 2 ** retries, 30_000); // exponential backoff
+      setTimeout(connect, delay);
+    };
   }
 
   connect();
@@ -107,14 +116,11 @@ export function createGqlSubscription<T = any>(
   };
 }
 
-// ── 3. Lightweight notification WebSocket (raw JSON) ─────────────────────────
-// Used by notification-context.tsx for the bell icon count.
-// Endpoint: ws://127.0.0.1:8000/ws/notifications/?token=<jwt>
-// No GraphQL overhead — just JSON events: new_notification, pong
+// ── 3. Lightweight notification WebSocket ─────────────────────────────────────
 
 export interface RawNotificationEvent {
-  type:           string;           // 'connection_established' | 'new_notification' | 'pong'
-  unread_count?:  number;           // sent on connection_established
+  type:           string;
+  unread_count?:  number;
   payload?: {
     notification_id: string;
     type:            string;
@@ -126,21 +132,24 @@ export interface RawNotificationEvent {
 
 export function createNotificationSocket(
   onEvent:  (event: RawNotificationEvent) => void,
-  onError?: (err: any) => void,
+  onClose?: (err: any) => void,
 ): UnsubscribeFn {
   const token = getToken();
-  if (!token) return () => {};          // not logged in — no-op
+  if (!token) return () => {};
 
   const url = `${WS_BASE}/ws/notifications/?token=${encodeURIComponent(token)}`;
   let ws: WebSocket;
   let closed  = false;
+  let retries = 0;
   let pingInterval: ReturnType<typeof setInterval>;
 
   function connect() {
+    if (closed || retries >= MAX_RETRIES) return;
+
     ws = new WebSocket(url);
 
     ws.onopen = () => {
-      // Keep-alive ping every 30 s
+      retries = 0; // reset on successful connection
       pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
@@ -155,10 +164,18 @@ export function createNotificationSocket(
       } catch {}
     };
 
-    ws.onerror  = (e) => { onError?.(e); };
-    ws.onclose  = ()  => {
+    ws.onerror = (e) => { onClose?.(e); };
+
+    ws.onclose = (e) => {
       clearInterval(pingInterval);
-      if (!closed) setTimeout(connect, 3000);   // auto-reconnect
+      if (closed) return;
+      if (retries >= MAX_RETRIES) {
+        console.warn('[Notification WS] Max retries reached. WebSocket offline — will use HTTP polling only.');
+        return;
+      }
+      retries++;
+      const delay = Math.min(1000 * 2 ** retries, 30_000);
+      setTimeout(connect, delay);
     };
   }
 
