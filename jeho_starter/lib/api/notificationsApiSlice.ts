@@ -1,54 +1,68 @@
+// lib/api/notificationsApiSlice.ts
+
 import { apiSlice } from './apiSlice';
 
-// Django notification endpoints (notifications/urls.py):
-//   GET  /api/notifications/               — list all, ?unread=true for unread only
-//   GET  /api/notifications/unread-count/  — { unread_count: N }
-//   POST /api/notifications/mark-all-read/ — marks everything read
-//   POST /api/notifications/<pk>/read/     — marks one notification read
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface Notification {
+  id:                string;
+  notification_type: string;
+  title:             string;
+  message:           string;
+  is_read:           boolean;
+  read_at:           string | null;
+  link:              string;
+  created_at:        string;
+  actor?:            string | null;
+}
+
+// ── Slice ─────────────────────────────────────────────────────────────────────
 
 export const notificationsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
 
-    // GET /api/notifications/unread-count/
-    // Polled every 30s by notification-context.tsx
-    getUnreadNotificationCount: builder.query<{ unread_count: number }, void>({
-      query: () => '/notifications/unread-count/',
-      providesTags: ['Notification'],
-    }),
-
-    // GET /api/notifications/
-    // Pass { unread: true } to fetch only unread ones
-    getNotifications: builder.query<any[], { unread?: boolean } | void>({
+    // GET /notifications/
+    getNotifications: builder.query<Notification[], { unread?: boolean } | void>({
       query: (params) => {
-        const qs = params?.unread ? '?unread=true' : '';
-        return `/notifications/${qs}`;
+        const unread = (params as any)?.unread;
+        return unread ? '/notifications/?unread=true' : '/notifications/';
       },
-      providesTags: ['Notification'],
+      transformResponse: (raw: any) =>
+        Array.isArray(raw) ? raw : (raw?.results ?? []),
+      providesTags: [{ type: 'Notification' as const, id: 'LIST' }],
     }),
 
-    // POST /api/notifications/mark-all-read/
-    markAllNotificationsRead: builder.mutation<void, void>({
-      query: () => ({
-        url: '/notifications/mark-all-read/',
-        method: 'POST',
-      }),
-      invalidatesTags: ['Notification'],
+    // GET /notifications/unread-count/
+    getUnreadCount: builder.query<number, void>({
+      query: () => '/notifications/unread-count/',
+      transformResponse: (raw: any) => raw?.unread_count ?? 0,
+      providesTags: [{ type: 'Notification' as const, id: 'COUNT' }],
     }),
 
-    // POST /api/notifications/<pk>/read/
-    markNotificationRead: builder.mutation<void, string>({
-      query: (pk) => ({
-        url: `/notifications/${pk}/read/`,
-        method: 'POST',
-      }),
-      invalidatesTags: ['Notification'],
+    // POST /notifications/<id>/read/
+    markRead: builder.mutation<void, string>({
+      query: (id) => ({ url: `/notifications/${id}/read/`, method: 'POST' }),
+      invalidatesTags: [
+        { type: 'Notification' as const, id: 'LIST' },
+        { type: 'Notification' as const, id: 'COUNT' },
+      ],
     }),
+
+    // POST /notifications/mark-all-read/
+    markAllRead: builder.mutation<void, void>({
+      query: () => ({ url: '/notifications/mark-all-read/', method: 'POST' }),
+      invalidatesTags: [
+        { type: 'Notification' as const, id: 'LIST' },
+        { type: 'Notification' as const, id: 'COUNT' },
+      ],
+    }),
+
   }),
 });
 
 export const {
-  useGetUnreadNotificationCountQuery,
   useGetNotificationsQuery,
-  useMarkAllNotificationsReadMutation,
-  useMarkNotificationReadMutation,
+  useGetUnreadCountQuery,
+  useMarkReadMutation,
+  useMarkAllReadMutation,
 } = notificationsApiSlice;

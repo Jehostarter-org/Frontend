@@ -12,9 +12,19 @@ import { selectCurrentUser, selectCurrentToken } from "@/lib/features/auth/authS
 type CurrencyCode = "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR" |
                    "INR" | "NPR" | "CNY" | "CAD" | "AUD";
 
+interface LocationInfo {
+  latitude: number;
+  longitude: number;
+  city?: string;
+  region?: string;
+  countryCode?: string;
+}
+
 interface CurrencyContextType {
   currency:     CurrencyCode;
   countryCode:  string | null;
+  location:     LocationInfo | null;
+  isLoadingLocation: boolean;
   setCurrency:  (code: CurrencyCode) => void;
   formatPrice:  (amount: number, originalCurrency?: string) => string;
 }
@@ -58,6 +68,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const token       = useSelector(selectCurrentToken);
   const [currency,    setCurrencyState] = useState<CurrencyCode>(DEFAULT);
   const [countryCode, setCountryCode]   = useState<string | null>(null);
+  const [location,    setLocation]      = useState<LocationInfo | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   useEffect(() => {
     if (!user || !token) return;
@@ -74,6 +86,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     // This updates PostGIS location and returns the detected country.
     // Falls back silently — profile country is already set above.
     const detectViaIP = async () => {
+      setIsLoadingLocation(true);
       try {
         const res = await fetch(`${API_URL}/api/users/location/detect/`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -85,9 +98,21 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
           const detected = COUNTRY_TO_CURRENCY[data.country_code] ?? DEFAULT;
           setCurrencyState(detected);
           setCountryCode(data.country_code);
+          if (typeof data.lat === "number" && typeof data.lng === "number") {
+            setLocation({
+              latitude: data.lat,
+              longitude: data.lng,
+              city: data.city,
+              region: data.country_code,
+              countryCode: data.country_code,
+            });
+          }
         }
       } catch {
         // Silent fail — profile country already applied above
+      }
+      finally {
+        setIsLoadingLocation(false);
       }
     };
 
@@ -119,7 +144,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, [currency]);
 
   return (
-    <CurrencyContext.Provider value={{ currency, countryCode, setCurrency, formatPrice }}>
+    <CurrencyContext.Provider value={{
+      currency,
+      countryCode,
+      location,
+      isLoadingLocation,
+      setCurrency,
+      formatPrice,
+    }}>
       {children}
     </CurrencyContext.Provider>
   );

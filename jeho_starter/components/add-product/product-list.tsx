@@ -26,10 +26,22 @@ interface Product {
 
 export function ProductList() {
   const [currentPage, setCurrentPage] = useState(0);
-  const { data, isLoading, isError, refetch } = useGetAllProductsQuery({undefined});
+  const { data: rawData = [], isLoading, isError, refetch } = useGetAllProductsQuery({ page: currentPage + 1 });
+  const data: any = rawData;
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
   const { formatPrice } = useCurrency();
-  const products = useMemo(() => data?.content || [], [data]);
+  const products = useMemo(() => data.map((item: any) => ({
+    id: item.id,
+    title: item.title,
+    price: Number(item.price ?? 0),
+    currency: item.currency,
+    location: item.city || item.shop_name || "Available nearby",
+    productLimit: item.productLimit ?? (item.is_available ? 1 : 0),
+    productImages: (item.images ?? []).map((image: any) =>
+      typeof image === "string" ? image : image.image
+    ),
+    category: item.category_name || item.category || "General",
+  })), [data]);
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to remove this item from your inventory?")) {

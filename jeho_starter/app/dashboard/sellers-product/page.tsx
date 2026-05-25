@@ -17,7 +17,7 @@ export default function SellersProductPage() {
   const router = useRouter();
   const { formatPrice } = useCurrency();
 
-  const { data: shop, isLoading: shopLoading, isError: noShop } = useGetMyShopQuery();
+  const { data: shop, isLoading: shopLoading, isError: noShop } = useGetMyShopQuery(undefined);
   const { data: myListings, isLoading: listingsLoading } = useGetAllProductsQuery(
     {},
     { skip: !shop }

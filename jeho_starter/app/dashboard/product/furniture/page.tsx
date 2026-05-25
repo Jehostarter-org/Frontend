@@ -34,7 +34,7 @@ export default function FurniturePage() {
   const rawData = allProducts;
 
   const filteredFurniture = useMemo(() => {
-    const dataArray = rawData?.content || (Array.isArray(rawData) ? rawData : []);
+    const dataArray = Array.isArray(rawData) ? rawData : [];
     if (!Array.isArray(dataArray)) return [];
 
     return dataArray

@@ -124,7 +124,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       pendingRequests: [],
       isPublic: true,
       location: "Lagos, Nigeria",
-      createdAt: community.timestamp,
+      createdAt: community.timestamp ?? new Date().toLocaleString(),
       category: "General",
       maxMembers: 100,
       tags: ["community", "social"]

@@ -36,7 +36,8 @@ const listingSchema = z.object({
   images:       z.array(z.instanceof(File)).min(1, "Please upload at least one image"),
 });
 
-type ListingFormData = z.infer<typeof listingSchema>;
+type ListingFormValues = z.input<typeof listingSchema>;
+type ListingFormData = z.output<typeof listingSchema>;
 
 const LISTING_TYPES = [
   { value: "sale",    label: "For Sale" },
@@ -59,7 +60,7 @@ export default function ItemForSaleForm() {
   const { data: categories, isLoading: categoriesLoading } = useGetCategoriesQuery(undefined);
   const [createListing] = useCreateListingMutation();
 
-  const form = useForm<ListingFormData>({
+  const form = useForm<ListingFormValues, any, ListingFormData>({
     resolver: zodResolver(listingSchema),
     defaultValues: {
       title:        "",
@@ -242,7 +243,7 @@ export default function ItemForSaleForm() {
                       <FormControl>
                         <Input
                           type="number" placeholder="0.00"
-                          value={field.value || ""}
+                          value={field.value == null ? "" : String(field.value)}
                           onChange={(e) => field.onChange(Number(e.target.value))}
                         />
                       </FormControl>

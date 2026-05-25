@@ -11,21 +11,30 @@ interface User {
   firstName?: string;
   lastName?: string;
   phone: string;
+  phoneNumber?: string;
   avatar: string | null;
   picture?: string | null;
   bio: string;
   is_verified: boolean;
+  isVerified?: boolean;
   birth_country: string;
+  birthCountry?: string;
   current_country: string;
+  currentCountry?: string;
   destination_country: string;
+  destinationCountry?: string;
   city: string;
   state_province: string;
+  stateProvince?: string;
   migration_status: string;
+  migrationStatus?: string;
   currency: string;
   membership_plan: 'free' | 'silver' | 'gold';
   plan?: 'free' | 'silver' | 'gold';
   accepted_terms: boolean;
+  acceptedTerms?: boolean;
   created_at: string;
+  createdAt?: string;
 }
 
 interface AuthState {
@@ -48,8 +57,17 @@ const normalizeUser = (user: User): User => ({
   ...user,
   firstName: user.firstName ?? user.first_name,
   lastName: user.lastName ?? user.last_name,
+  phoneNumber: user.phoneNumber ?? user.phone,
   picture: user.picture ?? user.avatar,
+  isVerified: user.isVerified ?? user.is_verified,
+  birthCountry: user.birthCountry ?? user.birth_country,
+  currentCountry: user.currentCountry ?? user.current_country,
+  destinationCountry: user.destinationCountry ?? user.destination_country,
+  stateProvince: user.stateProvince ?? user.state_province,
+  migrationStatus: user.migrationStatus ?? user.migration_status,
   plan: user.plan ?? user.membership_plan,
+  acceptedTerms: user.acceptedTerms ?? user.accepted_terms,
+  createdAt: user.createdAt ?? user.created_at,
 });
 
 const authSlice = createSlice({

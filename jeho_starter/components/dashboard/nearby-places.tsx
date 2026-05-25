@@ -37,19 +37,27 @@ const categoryConfigs: Record<PlaceCategory, CategoryConfig> = {
   }
 };
 
-export default function NearbyPlaces() {
+export default function NearbyPlaces({ userLocation }: { userLocation?: { lat: number; lng: number } }) {
   const { location, isLoadingLocation } = useCurrency();
+  const activeLocation = userLocation
+    ? {
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+        city: location?.city ?? 'your area',
+        region: location?.region ?? '',
+      }
+    : location;
   const [selectedCategory, setSelectedCategory] = useState<PlaceCategory>('healthcare');
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: placesData, isLoading, error } = useSearchNearbyPlacesQuery(
     {
-      location: location ? `${location.latitude},${location.longitude}` : '',
+      location: activeLocation ? `${activeLocation.latitude},${activeLocation.longitude}` : '',
       radius: 5000,
       type: categoryConfigs[selectedCategory].types[0],
     },
-    { skip: !location }
+    { skip: !activeLocation }
   );
 
   const { data: placeDetails, isLoading: isDetailsLoading } = useGetPlaceDetailsQuery(
@@ -63,11 +71,11 @@ export default function NearbyPlaces() {
   };
 
   const calculateDistance = (place: Place) => {
-    if (!location) return 0;
+    if (!activeLocation) return 0;
     const R = 6371; // Earth's radius in km
-    const dLat = (place.geometry.location.lat - location.latitude) * Math.PI / 180;
-    const dLng = (place.geometry.location.lng - location.longitude) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(location.latitude * Math.PI / 180) * Math.cos(place.geometry.location.lat * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+    const dLat = (place.geometry.location.lat - activeLocation.latitude) * Math.PI / 180;
+    const dLng = (place.geometry.location.lng - activeLocation.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(activeLocation.latitude * Math.PI / 180) * Math.cos(place.geometry.location.lat * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return Math.round(R * c * 10) / 10;
   };
@@ -83,7 +91,7 @@ export default function NearbyPlaces() {
     );
   }
 
-  if (!location) return null;
+  if (!activeLocation) return null;
 
   return (
     <div className="space-y-4">
@@ -106,7 +114,7 @@ export default function NearbyPlaces() {
               Nearby {categoryConfigs[selectedCategory].label}
             </div>
             <p className="text-xs font-normal text-muted-foreground flex items-center gap-1">
-               <MapPin className="h-3 w-3" /> Results near {location.city}, {location.region}
+               <MapPin className="h-3 w-3" /> Results near {activeLocation.city}, {activeLocation.region}
             </p>
           </CardTitle>
         </CardHeader>

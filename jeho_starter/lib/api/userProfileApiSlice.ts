@@ -51,14 +51,34 @@ export const userProfileApiSlice = apiSlice.injectEndpoints({
     }),
 
     saveGeolocation: builder.mutation({
-      query: (data: { city: string; current_country?: string }) => ({
-        url:    '/users/me/',
-        method: 'PATCH',
-        body: {
-          city:            data.city,
-          current_country: data.current_country,
-        },
-      }),
+      query: (data: {
+        city?: string;
+        current_country?: string;
+        latitude?: number;
+        longitude?: number;
+        source?: string;
+      }) => {
+        if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          return {
+            url:    '/users/location/',
+            method: 'POST',
+            body: {
+              latitude:  data.latitude,
+              longitude: data.longitude,
+              source:    data.source ?? 'gps',
+            },
+          };
+        }
+
+        return {
+          url:    '/users/me/',
+          method: 'PATCH',
+          body: {
+            city:            data.city,
+            current_country: data.current_country,
+          },
+        };
+      },
       invalidatesTags: ['User'],
     }),
   }),

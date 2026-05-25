@@ -30,7 +30,7 @@ function SearchableSelect({
   placeholder,
   error,
 }: {
-  options: { value: string; label: string }[];
+  options: readonly { readonly value: string; readonly label: string }[];
   value?: string;
   onChange: (val: string) => void;
   placeholder: string;

@@ -5,7 +5,7 @@ export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
     // All Django endpoints live at http://127.0.0.1:8000/api/
-    baseUrl: `${process.env.NEXT_PUBLIC_API_URL}/api`,
+    baseUrl: `${process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000'}/api`,
 
     // Attach JWT to every request.
     // On page refresh Redux is EMPTY until hydrateAuth runs in the layout,
@@ -40,6 +40,9 @@ export const apiSlice = createApi({
     'Post',
     'Service',
     'Membership',
+    'Plan',
+    'Property',
+    'Geolocation',
   ],
 
   endpoints: () => ({}),

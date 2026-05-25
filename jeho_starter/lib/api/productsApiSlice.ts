@@ -119,11 +119,11 @@ export const productsApiSlice = apiSlice.injectEndpoints({
     }),
 
     createListing: builder.mutation({
-      query: (body: FormData) => ({
+      query: (body: FormData | Record<string, any>) => ({
         url:      '/shops/listings/',
         method:   'POST',
         body,
-        formData: true,
+        ...(body instanceof FormData && { formData: true }),
       }),
       invalidatesTags: [{ type: 'Product', id: 'LIST' }],
     }),

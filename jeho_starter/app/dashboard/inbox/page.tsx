@@ -1,49 +1,110 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import React, { useState, useMemo } from "react";
 import EmptyInbox from "@/components/inbox/EmptyInbox";
 import MessageItem from "@/components/inbox/MessageItem";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
-
-
-import { mockMessages } from "./inbox-stats";
-import type { Message } from "@/components/types/types";
+import { Plus, Search, Loader2, CheckCheck } from "lucide-react";
 import { TabButton } from "@/components/reuseables/tabsButton";
+import type { Message } from "@/components/types/types";
+
+import {
+  useGetNotificationsQuery,
+  useMarkReadMutation,
+  useMarkAllReadMutation,
+  type Notification,
+} from "@/lib/api/notificationsApiSlice";
+
+// ── Map backend Notification → frontend Message shape ─────────────────────────
+
+function toMessage(n: Notification): Message {
+  const isGroupRelated =
+    n.notification_type === "community_post" ||
+    n.notification_type === "community_invite" ||
+    n.notification_type === "mention";
+
+  const isCommunityRequest = n.notification_type === "community_invite";
+
+  return {
+    id:           n.id,
+    senderId:     n.actor ?? "system",
+    senderName:   n.title,
+    senderAvatar: "",                        // backend doesn't send avatar yet
+    type:         isGroupRelated ? "group" : "direct",
+    content:      n.message,
+    timestamp:    new Date(n.created_at).toLocaleString([], {
+      month:  "short",
+      day:    "numeric",
+      hour:   "2-digit",
+      minute: "2-digit",
+    }),
+    isRead:             n.is_read,
+    unreadCount:        n.is_read ? 0 : 1,
+    isCommunityRequest: isCommunityRequest,
+    link:               n.link || undefined,
+  };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function InboxPage() {
-  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab]           = useState<"all" | "unread">("all");
+  const [searchQuery, setSearchQuery]       = useState("");
   const [showCreateCommunity, setShowCreateCommunity] = useState(false);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
 
-  const unreadCount = useMemo(() => messages.filter((msg) => !msg.isRead).length, [messages]);
+  // ── Data ───────────────────────────────────────────────────────────────────
+  const { data: notifications = [], isLoading } = useGetNotificationsQuery();
+  const [markRead]    = useMarkReadMutation();
+  const [markAllRead] = useMarkAllReadMutation();
+
+  const messages: Message[] = useMemo(
+    () => notifications.map(toMessage),
+    [notifications]
+  );
+
+  const unreadCount = useMemo(
+    () => messages.filter((m) => !m.isRead).length,
+    [messages]
+  );
 
   const filteredMessages = useMemo(() => {
     let result = messages;
-
-    if (activeTab === "unread") {
-      result = result.filter((msg) => !msg.isRead);
-    }
-  
+    if (activeTab === "unread") result = result.filter((m) => !m.isRead);
     if (searchQuery.trim()) {
       const term = searchQuery.toLowerCase();
-      result = result.filter(msg => 
-        msg.senderName.toLowerCase().includes(term) || 
-        msg.content.toLowerCase().includes(term)
+      result = result.filter(
+        (m) =>
+          m.senderName.toLowerCase().includes(term) ||
+          m.content.toLowerCase().includes(term)
       );
     }
-
     return result;
   }, [activeTab, messages, searchQuery]);
 
-  const handleRemoveMessage = (id: string) => {
-    setMessages((prev) => prev.filter((msg) => msg.id !== id));
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleAction = async (id: string) => {
+    try {
+      await markRead(id).unwrap();
+    } catch {
+      toast.error("Failed to update notification.");
+    }
   };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllRead().unwrap();
+      toast.success("All notifications marked as read.");
+    } catch {
+      toast.error("Failed to mark all as read.");
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <DashboardShell>
@@ -55,12 +116,29 @@ export default function InboxPage() {
                 Messages
               </h1>
               <p className="text-gray-500 font-medium">
-                You have <span className="text-teal-600 font-bold">{unreadCount} unread</span> conversations
+                You have{" "}
+                <span className="text-teal-600 font-bold">
+                  {unreadCount} unread
+                </span>{" "}
+                conversations
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={() => setShowCreateCommunity(true)} className="bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg px-5 shadow-lg shadow-teal-600/20 transition-all active:scale-95" >
+              {unreadCount > 0 && (
+                <Button
+                  onClick={handleMarkAllRead}
+                  variant="outline"
+                  className="font-bold rounded-lg px-5 transition-all active:scale-95"
+                >
+                  <CheckCheck className="mr-2 h-4 w-4" />
+                  Mark all read
+                </Button>
+              )}
+              <Button
+                onClick={() => setShowCreateCommunity(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg px-5 shadow-lg shadow-teal-600/20 transition-all active:scale-95"
+              >
                 <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
                 Create Community
               </Button>
@@ -71,15 +149,15 @@ export default function InboxPage() {
         <div className="max-w-6xl mx-auto px-6 md:px-10 py-6">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-4 mb-8">
             <div className="flex bg-gray-100 p-1 rounded-2xl w-full lg:w-auto">
-              <TabButton 
-                active={activeTab === "all"} 
+              <TabButton
+                active={activeTab === "all"}
                 onClick={() => setActiveTab("all")}
-                label="All Messages" 
+                label="All Messages"
               />
-              <TabButton 
-                active={activeTab === "unread"} 
+              <TabButton
+                active={activeTab === "unread"}
                 onClick={() => setActiveTab("unread")}
-                label="Unread" 
+                label="Unread"
                 count={unreadCount}
                 variant="unread"
               />
@@ -87,22 +165,29 @@ export default function InboxPage() {
 
             <div className="relative w-full lg:max-w-sm group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-teal-600 transition-colors" />
-              <Input placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              <Input
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-11 pr-4 py-6 bg-white border-gray-100 rounded-2xl shadow-sm focus:ring-4 focus:ring-teal-500/5 outline-none transition-all"
               />
             </div>
           </div>
 
           <div className="pb-20">
-            {filteredMessages.length === 0 ? (
+            {isLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+              </div>
+            ) : filteredMessages.length === 0 ? (
               <EmptyInbox isSearch={!!searchQuery} />
             ) : (
               <div className="grid gap-3">
                 {filteredMessages.map((msg) => (
-                  <MessageItem 
-                    key={msg.id} 
-                    message={msg} 
-                    onAction={handleRemoveMessage} 
+                  <MessageItem
+                    key={msg.id}
+                    message={msg}
+                    onAction={handleAction}
                   />
                 ))}
               </div>
@@ -110,9 +195,9 @@ export default function InboxPage() {
           </div>
         </div>
 
-        <CreateCommunityDialog 
-          isOpen={showCreateCommunity} 
-          onOpenChange={setShowCreateCommunity} 
+        <CreateCommunityDialog
+          isOpen={showCreateCommunity}
+          onOpenChange={setShowCreateCommunity}
         />
       </div>
     </DashboardShell>

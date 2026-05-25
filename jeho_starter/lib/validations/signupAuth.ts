@@ -55,17 +55,17 @@ export const signupSchema = z
 
     birthCountry: z
       .enum(SUPPORTED_COUNTRIES, {
-        errorMap: () => ({ message: 'Please select your country of birth' }),
+        message: 'Please select your country of birth',
       }),
 
     currentCountry: z
       .enum(SUPPORTED_COUNTRIES, {
-        errorMap: () => ({ message: 'Please select your current country' }),
+        message: 'Please select your current country',
       }),
 
     destinationCountry: z
       .enum(SUPPORTED_COUNTRIES, {
-        errorMap: () => ({ message: 'Please select your destination country' }),
+        message: 'Please select your destination country',
       })
       .optional(),
 
@@ -77,7 +77,7 @@ export const signupSchema = z
 
     migrationStatus: z
       .enum(MIGRATION_STATUSES, {
-        errorMap: () => ({ message: 'Please select your migration status' }),
+        message: 'Please select your migration status',
       })
       .optional(),
 
