@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import {
   Bell, MessageSquare, Heart, ShoppingCart,
@@ -13,8 +13,6 @@ import {
   DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNotifications, type GqlNotification } from "@/components/contexts/notification-context";
-import { gqlFetch } from "@/lib/graphql/client";
-import { GET_MY_NOTIFICATIONS } from "@/lib/graphql/notifications";
 import { formatDistanceToNow } from "date-fns";
 
 // ── Icon map ──────────────────────────────────────────────────────────────────
@@ -166,30 +164,15 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function NotificationPage() {
-  const { markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, isLoading, markAsRead, markAllAsRead } = useNotifications();
 
-  const [filter,        setFilter]        = useState<"all" | "unread">("all");
-  const [notifications, setNotifications] = useState<GqlNotification[]>([]);
-  const [isLoading,     setIsLoading]     = useState(true);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
 
-  // Fetch full notification list from GraphQL on mount
-  useEffect(() => {
-    async function load() {
-      try {
-        setIsLoading(true);
-        const data = await gqlFetch<{ myNotifications: GqlNotification[] }>(
-          GET_MY_NOTIFICATIONS,
-          { unreadOnly: false, limit: 50 },
-        );
-        setNotifications(data.myNotifications ?? []);
-      } catch (err) {
-        console.error("Failed to load notifications:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    load();
-  }, []);
+  const visibleNotifications = useMemo(
+    () => notifications.filter((n) => !hiddenIds.has(n.id)),
+    [notifications, hiddenIds],
+  );
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,

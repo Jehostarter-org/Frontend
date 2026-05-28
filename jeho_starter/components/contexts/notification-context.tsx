@@ -1,218 +1,287 @@
 "use client";
 
-// components/contexts/notification-context.tsx
-//
-// Real-time notification bell powered by the lightweight WebSocket at
-// ws://127.0.0.1:8000/ws/notifications/?token=<jwt>
-//
-// The heavy GraphQL subscription (ws/graphql/) is reserved for full
-// notification payloads on the /dashboard/notification page itself.
-//
-// This context only needs to:
-//   - Show the unread count badge on the bell icon
-//   - Increment the count when a new notification arrives
-//   - Decrement when the user marks one or all read (via GraphQL mutations)
-
 import React, {
-  createContext, useContext, useState, useEffect,
-  useCallback, useMemo, useRef, ReactNode,
-} from 'react';
-import { useAuth } from '@/components/contexts/auth-context';
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAuth } from "@/components/contexts/auth-context";
 import {
   createNotificationSocket,
-  gqlFetch,
   type UnsubscribeFn,
-} from '@/lib/graphql/client';
+} from "@/lib/graphql/client";
 import {
-  GET_UNREAD_COUNT,
-  MARK_NOTIFICATION_READ,
-  MARK_ALL_NOTIFICATIONS_READ,
-} from '@/lib/graphql/notifications';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+  useGetNotificationsQuery,
+  useMarkAllReadMutation,
+  useMarkReadMutation,
+  type Notification,
+} from "@/lib/api/notificationsApiSlice";
 
 export interface GqlNotification {
-  id:               string;
+  id: string;
   notificationType: string;
-  title:            string;
-  message:          string;
-  isRead:           boolean;
-  link:             string;
-  createdAt:        string;
-  actor?:           { username: string; avatar?: string } | null;
+  title: string;
+  message: string;
+  isRead: boolean;
+  link: string;
+  createdAt: string;
+  actor?: { username: string; avatar?: string } | null;
 }
 
 interface NotificationContextType {
-  notifications:        GqlNotification[];
-  totalUnreadCount:     number;
-  isConnected:          boolean;
-  getInboxCount:        () => number;
+  notifications: GqlNotification[];
+  totalUnreadCount: number;
+  isConnected: boolean;
+  isLoading: boolean;
+  getInboxCount: () => number;
   getNotificationCount: () => number;
-  getCommunityCount:    () => number;
+  getCommunityCount: () => number;
   refreshNotifications: () => void;
-  markAsRead:           (source: 'notifications' | 'inbox' | 'community', id: string) => void;
-  markAllAsRead:        (source: 'notifications' | 'inbox' | 'community') => void;
-  addNotification:      (source: 'notifications' | 'inbox' | 'community', item: any) => void;
+  markAsRead: (
+    source: "notifications" | "inbox" | "community",
+    id: string,
+  ) => Promise<void>;
+  markAllAsRead: (
+    source: "notifications" | "inbox" | "community",
+  ) => Promise<void>;
+  addNotification: (
+    source: "notifications" | "inbox" | "community",
+    item: any,
+  ) => void;
 }
-
-// ── Context ───────────────────────────────────────────────────────────────────
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+const INBOX_TYPES = new Set([
+  "community_post",
+  "community_invite",
+  "mention",
+  "comment",
+]);
+
+function toContextNotification(n: Notification): GqlNotification {
+  return {
+    id: n.id,
+    notificationType: n.notification_type,
+    title: n.title,
+    message: n.message,
+    isRead: n.is_read,
+    link: n.link,
+    createdAt: n.created_at,
+    actor: n.actor_username ? { username: n.actor_username } : null,
+  };
+}
+
+function mergeById(items: GqlNotification[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, token } = useAuth();
-
-  const [notifications,   setNotifications]   = useState<GqlNotification[]>([]);
-  const [backendUnread,   setBackendUnread]    = useState(0);
-  const [inboxUnread,     setInboxUnread]      = useState(0);
-  const [communityUnread, setCommunityUnread]  = useState(0);
-  const [isConnected,     setIsConnected]      = useState(false);
+  const [liveNotifications, setLiveNotifications] = useState<GqlNotification[]>([]);
+  const [localInboxUnread, setLocalInboxUnread] = useState(0);
+  const [communityUnread, setCommunityUnread] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
 
   const unsubRef = useRef<UnsubscribeFn | null>(null);
 
-  const totalUnreadCount = backendUnread + inboxUnread + communityUnread;
+  const {
+    data: restNotifications = [],
+    isLoading,
+    refetch,
+  } = useGetNotificationsQuery(undefined, {
+    skip: !token,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
 
-  // ── Fetch initial unread count via GraphQL HTTP ───────────────────────────
+  const [markReadRequest] = useMarkReadMutation();
+  const [markAllReadRequest] = useMarkAllReadMutation();
 
-  const fetchUnreadCount = useCallback(async () => {
-    if (!token) return;
-    try {
-      const data = await gqlFetch<{ unreadNotificationCount: number }>(GET_UNREAD_COUNT);
-      setBackendUnread(data.unreadNotificationCount ?? 0);
-    } catch {
-      // Silently fail — WS will keep the count updated
-    }
-  }, [token]);
+  const backendNotifications = useMemo(
+    () => restNotifications.map(toContextNotification),
+    [restNotifications],
+  );
 
-  // ── Open lightweight WebSocket ────────────────────────────────────────────
+  const notifications = useMemo(
+    () => mergeById([...liveNotifications, ...backendNotifications]),
+    [liveNotifications, backendNotifications],
+  );
+
+  const backendUnread = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications],
+  );
+
+  const inboxUnread = useMemo(
+    () =>
+      notifications.filter(
+        (n) => !n.isRead && INBOX_TYPES.has(n.notificationType),
+      ).length + localInboxUnread,
+    [notifications, localInboxUnread],
+  );
+
+  const totalUnreadCount = backendUnread + communityUnread;
 
   const openSocket = useCallback(() => {
     if (!token) return;
+
     unsubRef.current?.();
 
     const unsub = createNotificationSocket(
       (event) => {
-        if (event.type === 'connection_established') {
-          // Server sends current unread count on connect
-          setBackendUnread(event.unread_count ?? 0);
+        if (event.type === "connection_established") {
           setIsConnected(true);
-        } else if (event.type === 'new_notification' && event.payload) {
-          // New notification pushed from Django _broadcast()
+          return;
+        }
+
+        if (event.type === "new_notification" && event.payload) {
           const n: GqlNotification = {
-            id:               event.payload.notification_id,
+            id: event.payload.notification_id,
             notificationType: event.payload.type,
-            title:            event.payload.title,
-            message:          event.payload.message,
-            isRead:           false,
-            link:             '',
-            createdAt:        event.payload.created_at,
+            title: event.payload.title,
+            message: event.payload.message,
+            isRead: false,
+            link: "",
+            createdAt: event.payload.created_at,
           };
-          setNotifications((prev) => [n, ...prev]);
-          setBackendUnread((c) => c + 1);
+          setLiveNotifications((prev) => mergeById([n, ...prev]));
         }
       },
       () => setIsConnected(false),
     );
 
     unsubRef.current = unsub;
-    setIsConnected(true);
   }, [token]);
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user || !token) {
       unsubRef.current?.();
       unsubRef.current = null;
-      setNotifications([]);
-      setBackendUnread(0);
-      setInboxUnread(0);
+      setLiveNotifications([]);
+      setLocalInboxUnread(0);
       setCommunityUnread(0);
       setIsConnected(false);
       return;
     }
 
-    fetchUnreadCount();   // immediate HTTP fetch so count shows before WS opens
-    openSocket();         // open WebSocket for real-time updates
+    openSocket();
 
     return () => {
       unsubRef.current?.();
     };
-  }, [user, token]);     // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, token, openSocket]);
 
-  // ── Mark read (GraphQL mutations over HTTP) ───────────────────────────────
+  const refreshNotifications = useCallback(() => {
+    if (token) refetch();
+  }, [refetch, token]);
 
-  const markAsRead = useCallback(async (
-    source: 'notifications' | 'inbox' | 'community',
-    id: string,
-  ) => {
-    if (source === 'notifications') {
+  const markAsRead = useCallback(
+    async (source: "notifications" | "inbox" | "community", id: string) => {
+      if (source === "community") {
+        setCommunityUnread((n) => Math.max(0, n - 1));
+        return;
+      }
+
+      if (source === "inbox") {
+        setLocalInboxUnread((n) => Math.max(0, n - 1));
+      }
+
       try {
-        await gqlFetch(MARK_NOTIFICATION_READ, { notificationId: id });
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+        await markReadRequest(id).unwrap();
+        setLiveNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
         );
-        setBackendUnread((n) => Math.max(0, n - 1));
       } catch (err) {
-        console.error('[Notifications] markAsRead failed:', err);
+        console.error("[Notifications] markAsRead failed:", err);
       }
-    } else if (source === 'inbox') {
-      setInboxUnread((n) => Math.max(0, n - 1));
-    } else {
-      setCommunityUnread((n) => Math.max(0, n - 1));
-    }
-  }, []);
+    },
+    [markReadRequest],
+  );
 
-  const markAllAsRead = useCallback(async (
-    source: 'notifications' | 'inbox' | 'community',
-  ) => {
-    if (source === 'notifications') {
+  const markAllAsRead = useCallback(
+    async (source: "notifications" | "inbox" | "community") => {
+      if (source === "community") {
+        setCommunityUnread(0);
+        return;
+      }
+
+      if (source === "inbox") {
+        setLocalInboxUnread(0);
+      }
+
       try {
-        await gqlFetch(MARK_ALL_NOTIFICATIONS_READ);
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-        setBackendUnread(0);
+        await markAllReadRequest().unwrap();
+        setLiveNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       } catch (err) {
-        console.error('[Notifications] markAllAsRead failed:', err);
+        console.error("[Notifications] markAllAsRead failed:", err);
       }
-    } else if (source === 'inbox') {
-      setInboxUnread(0);
-    } else {
-      setCommunityUnread(0);
-    }
-  }, []);
+    },
+    [markAllReadRequest],
+  );
 
-  // ── Add locally (from community WS or other sources) ─────────────────────
+  const addNotification = useCallback(
+    (source: "notifications" | "inbox" | "community", item: any) => {
+      if (source === "community") {
+        setCommunityUnread((n) => n + 1);
+        return;
+      }
 
-  const addNotification = useCallback((
-    source: 'notifications' | 'inbox' | 'community',
-    item: any,
-  ) => {
-    if (source === 'notifications') {
-      setNotifications((prev) => [{ ...item, isRead: false }, ...prev]);
-      setBackendUnread((n) => n + 1);
-    } else if (source === 'inbox') {
-      setInboxUnread((n) => n + 1);
-    } else {
-      setCommunityUnread((n) => n + 1);
-    }
-  }, []);
+      if (source === "inbox") {
+        setLocalInboxUnread((n) => n + 1);
+      }
 
-  const refreshNotifications = useCallback(() => fetchUnreadCount(), [fetchUnreadCount]);
-  const getNotificationCount = useCallback(() => backendUnread,   [backendUnread]);
-  const getInboxCount        = useCallback(() => inboxUnread,     [inboxUnread]);
-  const getCommunityCount    = useCallback(() => communityUnread, [communityUnread]);
+      if (source === "notifications") {
+        setLiveNotifications((prev) =>
+          mergeById([{ ...item, isRead: false }, ...prev]),
+        );
+      }
+    },
+    [],
+  );
 
-  const value = useMemo(() => ({
-    notifications, totalUnreadCount, isConnected,
-    getInboxCount, getNotificationCount, getCommunityCount,
-    refreshNotifications, markAsRead, markAllAsRead, addNotification,
-  }), [
-    notifications, totalUnreadCount, isConnected,
-    getInboxCount, getNotificationCount, getCommunityCount,
-    refreshNotifications, markAsRead, markAllAsRead, addNotification,
-  ]);
+  const getNotificationCount = useCallback(() => backendUnread, [backendUnread]);
+  const getInboxCount = useCallback(() => inboxUnread, [inboxUnread]);
+  const getCommunityCount = useCallback(() => communityUnread, [communityUnread]);
+
+  const value = useMemo(
+    () => ({
+      notifications,
+      totalUnreadCount,
+      isConnected,
+      isLoading,
+      getInboxCount,
+      getNotificationCount,
+      getCommunityCount,
+      refreshNotifications,
+      markAsRead,
+      markAllAsRead,
+      addNotification,
+    }),
+    [
+      notifications,
+      totalUnreadCount,
+      isConnected,
+      isLoading,
+      getInboxCount,
+      getNotificationCount,
+      getCommunityCount,
+      refreshNotifications,
+      markAsRead,
+      markAllAsRead,
+      addNotification,
+    ],
+  );
 
   return (
     <NotificationContext.Provider value={value}>
@@ -221,10 +290,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useNotifications() {
   const ctx = useContext(NotificationContext);
-  if (!ctx) throw new Error('useNotifications must be used within a NotificationProvider');
+  if (!ctx) throw new Error("useNotifications must be used within a NotificationProvider");
   return ctx;
 }

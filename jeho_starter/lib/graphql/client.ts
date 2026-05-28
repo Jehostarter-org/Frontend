@@ -25,6 +25,13 @@ export async function gqlFetch<T = any>(
     body: JSON.stringify({ query, variables }),
   });
 
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      `GraphQL endpoint returned non-JSON response (${res.status}). Is the backend running?`
+    );
+  }
+
   const json = await res.json();
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;

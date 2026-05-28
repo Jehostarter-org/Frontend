@@ -13,6 +13,7 @@ export interface CommunityItem {
   description?: string
   memberCount?: number
   isPrivate?: boolean
+  creator?: string
 }
 
 export interface CommunityGroupsResponse {

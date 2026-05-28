@@ -14,6 +14,7 @@ export interface Notification {
   link:              string;
   created_at:        string;
   actor?:            string | null;
+  actor_username?:   string | null;
 }
 
 // ── Slice ─────────────────────────────────────────────────────────────────────

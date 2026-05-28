@@ -48,7 +48,7 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white rounded-[2.5rem] shadow-2xl">
         {/* Header Visual */}
-        <div className="h-32 bg-gradient-to-br from-teal-500 to-emerald-600 relative">
+        <div className="h-32 bg-gradient-to-br from-blue-500 to-sky-500 relative">
           <div className="absolute -bottom-10 left-8 p-1 bg-white rounded-[1.8rem] shadow-xl">
             <SafeImage
               src={group.avatar}
@@ -79,14 +79,14 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
           {/* Group Stats & Rules */}
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 text-teal-600 mb-1">
+              <div className="flex items-center gap-2 text-blue-600 mb-1">
                 <Users size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Members</span>
               </div>
               <p className="text-lg font-black text-slate-900">{group.memberCount || "1.2k"}+</p>
             </div>
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 text-teal-600 mb-1">
+              <div className="flex items-center gap-2 text-blue-600 mb-1">
                 <Zap size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Activity</span>
               </div>
@@ -98,11 +98,11 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
             <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] px-1">Community Guidelines</h4>
             <ul className="space-y-2">
               <li className="flex items-center gap-3 text-xs font-bold text-slate-600 bg-slate-50/50 p-2 rounded-xl">
-                <ShieldCheck size={14} className="text-teal-500" />
+                <ShieldCheck size={14} className="text-blue-500" />
                 Respect all community members
               </li>
               <li className="flex items-center gap-3 text-xs font-bold text-slate-600 bg-slate-50/50 p-2 rounded-xl">
-                <ShieldCheck size={14} className="text-teal-500" />
+                <ShieldCheck size={14} className="text-blue-500" />
                 No spam or self-promotion
               </li>
             </ul>
@@ -116,7 +116,7 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
           <Button 
             onClick={handleJoin} 
             disabled={isJoining}
-            className="bg-teal-600 hover:bg-teal-700 text-white font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl shadow-teal-600/20 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95"
           >
             {isJoining ? "Joining..." : "Request to Join"}
           </Button>
