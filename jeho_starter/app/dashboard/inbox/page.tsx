@@ -24,6 +24,7 @@ import {
 function toMessage(n: Notification): Message {
   const isGroupRelated =
     n.notification_type === "community_post" ||
+    n.notification_type === "community_message" ||
     n.notification_type === "community_invite" ||
     n.notification_type === "mention";
 

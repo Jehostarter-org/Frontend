@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, ChevronDown, Check } from 'lucide-react';
@@ -144,7 +143,6 @@ function GoogleIcon() {
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function SignupPage() {
   const { handleRegister, isLoading } = useRegister();
-  const router = useRouter();
   const [showPassword,        setShowPassword]        = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -172,7 +170,6 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupInput) => {
     await handleRegister(data);
-    router.push('/dashboard');
   };
 
   const handleNextStep = async () => {

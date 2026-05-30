@@ -58,6 +58,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const INBOX_TYPES = new Set([
   "community_post",
+  "community_message",
   "community_invite",
   "mention",
   "comment",
@@ -152,7 +153,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             title: event.payload.title,
             message: event.payload.message,
             isRead: false,
-            link: "",
+            link: event.payload.link ?? "",
             createdAt: event.payload.created_at,
           };
           setLiveNotifications((prev) => mergeById([n, ...prev]));

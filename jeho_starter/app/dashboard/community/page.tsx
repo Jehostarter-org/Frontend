@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
 import type { CommunityItem } from "@/components/types/community";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import {
   Search,
@@ -33,7 +34,6 @@ import {
   useJoinCommunityMutation,
   useGetCommunityMessagesQuery,
   useSendCommunityMessageMutation,
-
   type CommunityMessage,
 } from "@/lib/api/communityApiSlice";
 
@@ -51,12 +51,31 @@ function getCurrentUserId(): string | null {
   return null;
 }
 
+// ── Helper: make a relative media URL absolute ────────────────────────────────
+// Django REST Framework returns cover_image as a relative path like
+// "/media/community_covers/xyz.jpg". We resolve it against the API base so
+// <SafeImage> gets a fully-qualified URL regardless of deployment domain.
+
+function resolveMediaUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
+    return url;
+  }
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
+    "http://127.0.0.1:8000";
+  return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
 // ── WebSocket hook ────────────────────────────────────────────────────────────
 
 function useCommunityChat(communityId: string | null) {
   const [liveMessages, setLiveMessages] = useState<CommunityMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  // ── NEW: track which user_ids are currently connected to this room ─────────
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -83,6 +102,7 @@ function useCommunityChat(communityId: string | null) {
   useEffect(() => {
     seededRef.current = false;
     setLiveMessages([]);
+    setOnlineUsers(new Set());
   }, [communityId]);
 
   useEffect(() => {
@@ -100,7 +120,10 @@ function useCommunityChat(communityId: string | null) {
     const ws = new WebSocket(`${wsBase}/ws/community/${communityId}/?token=${token}`);
     wsRef.current = ws;
 
-    ws.onopen = () => setIsConnected(true);
+    ws.onopen = () => {
+      setIsConnected(true);
+      setOnlineUsers(new Set());
+    };
 
     ws.onmessage = (event) => {
       try {
@@ -128,7 +151,6 @@ function useCommunityChat(communityId: string | null) {
           setTypingUsers((prev) => prev.filter((u) => u !== data.sender_username));
         }
 
-        // ── Handle real-time deletion broadcast ──
         if (data.type === "message_deleted") {
           setLiveMessages((prev) => prev.filter((m) => m.id !== data.message_id));
         }
@@ -144,11 +166,28 @@ function useCommunityChat(communityId: string | null) {
             3000,
           );
         }
+
+        // ── NEW: presence events ─────────────────────────────────────────────
+        if (data.type === "user_joined") {
+          setOnlineUsers((prev) => new Set([...prev, data.user_id]));
+        }
+
+        if (data.type === "user_left") {
+          setOnlineUsers((prev) => {
+            const next = new Set(prev);
+            next.delete(data.user_id);
+            return next;
+          });
+        }
+
       } catch { }
     };
 
     ws.onerror = () => setIsConnected(false);
-    ws.onclose = () => setIsConnected(false);
+    ws.onclose = () => {
+      setIsConnected(false);
+      setOnlineUsers(new Set());
+    };
 
     return () => {
       ws.close();
@@ -172,7 +211,6 @@ function useCommunityChat(communityId: string | null) {
     }
   }, []);
 
-  /** Send delete request over WebSocket (real-time broadcast to room) */
   const sendDeleteMessage = useCallback((messageId: string) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -188,7 +226,6 @@ function useCommunityChat(communityId: string | null) {
     );
   }, []);
 
-  /** Optimistically remove a message from local state */
   const removeMessage = useCallback((messageId: string) => {
     setLiveMessages((prev) => prev.filter((m) => m.id !== messageId));
   }, []);
@@ -198,6 +235,7 @@ function useCommunityChat(communityId: string | null) {
     isConnected,
     isLoadingHistory,
     typingUsers,
+    onlineUsers,          // ← NEW export
     sendMessage,
     sendTyping,
     sendDeleteMessage,
@@ -214,15 +252,17 @@ function apiToCommunityItem(c: any): CommunityItem {
   return {
     id: c.id,
     title: c.name,
-    avatar: c.cover_image ?? "",
+    // ── FIX: resolve relative media URLs so <SafeImage> always gets an
+    //         absolute URL, even after an admin uploads a new cover image.
+    avatar: resolveMediaUrl(c.cover_image),
     message: c.description ?? "",
     unreadCount: c.unread_count || 0,
     type: c.is_member ? "active_group" : "discovery",
     description: c.description,
     memberCount: c.member_count,
     isPrivate: c.visibility === "private",
-    creator: c.creator,   // user PK string from serializer
-    isAdmin: c.is_admin,  // ← comes from the new serializer field
+    creator: c.creator,
+    isAdmin: c.is_admin,
   };
 }
 
@@ -260,8 +300,11 @@ interface ContextMenu {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CommunityPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>("groups");
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
+    () => searchParams.get("group"),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isInfoBarOpen, setIsInfoBarOpen] = useState(false);
@@ -269,7 +312,6 @@ export default function CommunityPage() {
   const [selectedDiscoGroup, setSelectedDiscoGroup] = useState<CommunityItem | null>(null);
   const [messageReadStates, setMessageReadStates] = useState<Record<string, "sent" | "delivered" | "read">>({});
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
-  // The message currently being replied to (shown as a preview above the input)
   const [replyingTo, setReplyingTo] = useState<{ id: string; sender_username: string; content: string } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -281,10 +323,17 @@ export default function CommunityPage() {
     currentUserIdRef.current = getCurrentUserId();
   }, []);
 
+  useEffect(() => {
+    const groupId = searchParams.get("group");
+    if (groupId) {
+      setSelectedGroupId(groupId);
+      setActiveTab("groups");
+    }
+  }, [searchParams]);
+
   const { data: apiCommunities = [], isLoading } = useGetCommunitiesQuery();
   const [joinCommunity] = useJoinCommunityMutation();
   const [sendCommunityMessage, { isLoading: isUploadingFile }] = useSendCommunityMessageMutation();
-
 
   const isDM = selectedGroupId?.startsWith("dm-") ?? false;
   const wsGroupId = selectedGroupId && !isDM ? selectedGroupId : null;
@@ -294,6 +343,7 @@ export default function CommunityPage() {
     isConnected,
     isLoadingHistory,
     typingUsers,
+    onlineUsers,        // ← NEW
     sendMessage,
     sendTyping,
     sendDeleteMessage,
@@ -306,7 +356,6 @@ export default function CommunityPage() {
     [apiCommunities],
   );
 
-  // Is the current user an admin of the selected group?
   const selectedGroup = useMemo(
     () => communities.find((c) => c.id === selectedGroupId),
     [communities, selectedGroupId],
@@ -323,7 +372,6 @@ export default function CommunityPage() {
     });
   }, [communities, activeTab, searchQuery]);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(
@@ -333,7 +381,6 @@ export default function CommunityPage() {
     }
   }, [messages]);
 
-  // Read-tick simulation
   useEffect(() => {
     messages.forEach((msg) => {
       if (!messageReadStates[msg.id]) {
@@ -344,7 +391,6 @@ export default function CommunityPage() {
     });
   }, [messages]);
 
-  // Close context menu on outside click
   useEffect(() => {
     const handler = () => setContextMenu(null);
     document.addEventListener("click", handler);
@@ -357,6 +403,7 @@ export default function CommunityPage() {
     const group = communities.find((c) => c.id === selectedGroupId);
     return {
       title: group?.title || "Community",
+      // group.avatar is already resolved to absolute by apiToCommunityItem
       avatar: group?.avatar || "",
       status: isConnected ? `${group?.memberCount || 12} members • Active` : "Connecting…",
       isDM: false,
@@ -410,11 +457,7 @@ export default function CommunityPage() {
     }
   };
 
-  /** Right-click on a message bubble → show context menu */
-  const handleMessageContextMenu = (
-    e: React.MouseEvent,
-    messageId: string,
-  ) => {
+  const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();
     setContextMenu({ messageId, x: e.clientX, y: e.clientY });
   };
@@ -429,16 +472,10 @@ export default function CommunityPage() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  /** Confirm delete — WS only (consumer handles DB write + broadcasts to all clients) */
   const handleDeleteMessage = (messageId: string) => {
     setContextMenu(null);
     if (!wsGroupId) return;
-
-    // Optimistic: remove instantly from this user's view
     removeMessage(messageId);
-
-    // WS consumer soft-deletes in DB then broadcasts message_deleted
-    // to every connected client — their liveMessages handler removes it too
     sendDeleteMessage(messageId);
   };
 
@@ -582,7 +619,6 @@ export default function CommunityPage() {
                               className={`flex w-full mb-0.5 ${isMe ? "justify-end" : "justify-start"} ${isConsecutive ? "mt-0.5" : "mt-2.5"} group/msg`}
                               onContextMenu={(e) => handleMessageContextMenu(e, msg.id)}
                             >
-                              {/* Avatar for received messages */}
                               {!isMe && !isConsecutive && (
                                 <div className="h-8 w-8 shrink-0 mr-2 self-end">
                                   <SafeImage src={msg.sender_avatar} alt={msg.sender_username} width={32} height={32} className="rounded-full object-cover" />
@@ -591,11 +627,10 @@ export default function CommunityPage() {
                               {!isMe && isConsecutive && <div className="w-10 shrink-0" />}
 
                               <div className={`relative flex flex-col max-w-[70%] sm:max-w-[60%] md:max-w-[50%] p-2 rounded-lg shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] ${isMe
-                                  ? `bg-blue-50 text-slate-900 rounded-tr-none ${isConsecutive ? "rounded-tr-lg" : ""}`
-                                  : `bg-white text-slate-900 rounded-tl-none ${isConsecutive ? "rounded-tl-lg" : ""}`
+                                ? `bg-blue-50 text-slate-900 rounded-tr-none ${isConsecutive ? "rounded-tr-lg" : ""}`
+                                : `bg-white text-slate-900 rounded-tl-none ${isConsecutive ? "rounded-tl-lg" : ""}`
                                 }`}>
 
-                                {/* CSS tail */}
                                 {!isConsecutive && (
                                   <div className={`absolute top-0 w-2.5 h-3 overflow-hidden ${isMe ? "right-[-10px]" : "left-[-10px]"}`}>
                                     <div className={`w-3 h-3 rotate-45 transform origin-top-left ${isMe ? "bg-blue-50" : "bg-white"}`} />
@@ -608,7 +643,6 @@ export default function CommunityPage() {
                                   </p>
                                 )}
 
-                                {/* ── Reply preview ── */}
                                 {msg.reply_to && (
                                   <div className={`mb-1.5 px-2 py-1.5 rounded-md border-l-[3px] border-blue-400 text-[12px] leading-snug cursor-pointer select-none ${isMe ? "bg-blue-100/60" : "bg-slate-100"}`}>
                                     <p className="font-bold text-blue-600 truncate">{msg.reply_to.sender_username}</p>
@@ -632,7 +666,6 @@ export default function CommunityPage() {
                                   </a>
                                 )}
 
-                                {/* Timestamp + ticks */}
                                 <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none">
                                   <span className="text-[9px] text-slate-500 font-normal leading-none">
                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -646,9 +679,7 @@ export default function CommunityPage() {
                                   )}
                                 </div>
 
-                                {/* Hover action buttons */}
                                 <div className={`absolute -top-2 ${isMe ? "-left-16" : "-right-16"} opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 flex items-center gap-1`}>
-                                  {/* Reply button — always visible on hover */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleReplyToMessage(msg); }}
                                     className="h-6 w-6 flex items-center justify-center rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-blue-500 hover:border-blue-200"
@@ -656,7 +687,6 @@ export default function CommunityPage() {
                                   >
                                     <Reply size={12} />
                                   </button>
-                                  {/* Delete button — own messages or admin */}
                                   {canDelete && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
@@ -674,7 +704,6 @@ export default function CommunityPage() {
                       </div>
                     )}
 
-                    {/* Typing indicator */}
                     {typingUsers.length > 0 && (
                       <div className="flex items-center gap-2.5 bg-white/95 py-2 px-4 rounded-xl shadow-md w-fit select-none animate-in slide-in-from-bottom-2 duration-300 ml-2">
                         <div className="flex gap-1">
@@ -690,7 +719,6 @@ export default function CommunityPage() {
 
                 {/* Input Area */}
                 <footer className="bg-white py-2.5 px-4 flex flex-col shrink-0 relative z-20 select-none border-t border-slate-200">
-                  {/* Reply preview banner */}
                   {replyingTo && (
                     <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
                       <Reply size={14} className="text-blue-400 shrink-0" />
@@ -749,12 +777,13 @@ export default function CommunityPage() {
             )}
           </div>
 
-          {/* Group details sidebar */}
+          {/* Group details sidebar — now receives onlineUsers */}
           <GroupInfoSidebar
             isOpen={isInfoBarOpen}
             onClose={() => setIsInfoBarOpen(false)}
             group={communities.find((c) => c.id === selectedGroupId)}
             currentUserId={currentUserIdRef.current}
+            onlineUsers={onlineUsers}
           />
         </main>
       </div>

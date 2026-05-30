@@ -44,7 +44,7 @@ export function ProductItemCard({ product, tool, item, babyKids, electronics, pr
         <div className="flex items-center gap-1.5 text-gray-400 border-t pt-1">
           <MapPin size={14} className="text-teal-500 shrink-0" />
           <span className="truncate text-xs font-bold tracking-wider">
-            {data.location || data.shop_name || "Available nearby"}
+            {data.city || data.location || data.shop_name || "Available nearby"}
           </span>
         </div>
       </CardContent>

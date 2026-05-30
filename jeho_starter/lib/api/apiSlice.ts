@@ -73,6 +73,11 @@ export const apiSlice = createApi({
     'Plan',
     'Property',
     'Geolocation',
+    'MyShop',                  // ← add
+    'MyShopApprovalStatus',    // ← add
+    'AdminPendingShops',       // ← add
+    'AdminShopDetail',         // ← add
+    'SavedListing',
   ],
 
   endpoints: () => ({}),

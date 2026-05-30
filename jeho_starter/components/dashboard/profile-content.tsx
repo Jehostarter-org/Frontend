@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   useGetUserProfileQuery,
-  useSavePersonalInformationMutation,
+  useUpdateUserProfileMutation,
 } from "@/lib/api/userProfileApiSlice";
 import { useUploadAvatarMutation } from "@/lib/api/authApiSlice";
 import {
@@ -51,7 +51,7 @@ export function ProfileContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: profile, isLoading: isFetching, refetch } = useGetUserProfileQuery(undefined);
-  const [saveProfile,  { isLoading: isUpdating }]       = useSavePersonalInformationMutation();
+  const [saveProfile,  { isLoading: isUpdating }]       = useUpdateUserProfileMutation();
   const [uploadAvatar, { isLoading: isUploadingAvatar }] = useUploadAvatarMutation();
 
   const [isEditing,     setIsEditing]     = useState(false);
@@ -72,17 +72,17 @@ export function ProfileContent() {
   useEffect(() => {
     if (profile) {
       setForm({
-        firstName:          profile.firstName          || "",
-        lastName:           profile.lastName           || "",
-        phoneNumber:        profile.phoneNumber        || "",
-        bio:                profile.bio                || "",
-        city:               profile.city               || "",
-        stateProvince:      profile.stateProvince      || "",
-        currentCountry:     profile.currentCountry     || "",
-        destinationCountry: profile.destinationCountry || "",
-        migrationStatus:    profile.migrationStatus    || "",
+        firstName:          profile.first_name          || "",
+        lastName:           profile.last_name           || "",
+        phoneNumber:        profile.phone_number        || "",
+        bio:                profile.bio                 || "",
+        city:               profile.city                || "",
+        stateProvince:      profile.state_province      || "",
+        currentCountry:     profile.current_country     || "",
+        destinationCountry: profile.destination_country || "",
+        migrationStatus:    profile.migration_status    || "",
       });
-      setAvatarPreview(profile.avatarUrl || "/woman-profile.png");
+      setAvatarPreview(profile.avatar || "/woman-profile.png");
     }
   }, [profile]);
 
@@ -111,7 +111,13 @@ export function ProfileContent() {
 
   const handleSave = async () => {
     try {
-      await saveProfile(form).unwrap();
+      await saveProfile({
+        first_name:          form.firstName,
+        last_name:           form.lastName,
+        phone_number:        form.phoneNumber,
+        current_country:     form.currentCountry,
+        destination_country: form.destinationCountry,
+      }).unwrap();
       toast.success("Profile updated!");
       setIsEditing(false);
       refetch();
@@ -123,15 +129,15 @@ export function ProfileContent() {
   const handleCancel = () => {
     if (profile) {
       setForm({
-        firstName:          profile.firstName          || "",
-        lastName:           profile.lastName           || "",
-        phoneNumber:        profile.phoneNumber        || "",
-        bio:                profile.bio                || "",
-        city:               profile.city               || "",
-        stateProvince:      profile.stateProvince      || "",
-        currentCountry:     profile.currentCountry     || "",
-        destinationCountry: profile.destinationCountry || "",
-        migrationStatus:    profile.migrationStatus    || "",
+        firstName:          profile.first_name          || "",
+        lastName:           profile.last_name           || "",
+        phoneNumber:        profile.phone_number        || "",
+        bio:                profile.bio                 || "",
+        city:               profile.city                || "",
+        stateProvince:      profile.state_province      || "",
+        currentCountry:     profile.current_country     || "",
+        destinationCountry: profile.destination_country || "",
+        migrationStatus:    profile.migration_status    || "",
       });
     }
     setIsEditing(false);
@@ -197,9 +203,9 @@ export function ProfileContent() {
                   </h1>
                 )}
                 <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mt-1">
-                  {profile?.membershipPlan || "Free"} Member
+                  {profile?.membership_plan || "Free"} Member
                 </p>
-                {profile?.isVerified && (
+                {profile?.is_verified && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-600 mt-1">
                     <Check className="h-3 w-3" /> Verified
                   </span>

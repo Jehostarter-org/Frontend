@@ -1,115 +1,194 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { toast } from "sonner"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Mail, ArrowRight, Clock, Inbox } from "lucide-react"
-// import { useResendVerificationEmailMutation } from "@/lib/api/authApi"
+import Link from "next/link";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import logo2 from "@/public/images/small logo WHITE.png";
+import { useAuth } from "@/components/contexts/auth-context";
+import { useVerifyEmail } from "@/hooks/use-verify-email";
+
+const OTP_LENGTH = 6;
 
 export default function VerifyEmailPage() {
-  const [emailResent, setEmailResent] = useState(false)
-//   const [resendEmail, { isLoading }] = useResendVerificationEmailMutation()
+  const router = useRouter();
+  const { user, token, isLoggedIn, isLoading: authLoading } = useAuth();
+  const { handleVerify, handleResend, isVerifying, isResending } = useVerifyEmail();
 
-  const handleResendEmail = async () => {
-    try {
-      const email = localStorage.getItem("signup_email")
-      if (!email) {
-        toast.error("No email found. Please sign up again.");
-        return
-      }
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-    //   await resendEmail({ email }).unwrap()
-      setEmailResent(true)
-      toast.success("Verification email resent successfully");
-      setTimeout(() => setEmailResent(false), 3000)
-    } catch (error) {
-      console.error("Failed to resend email:", error)
-      toast.error("Failed to resend verification email. Please try again.");
+  const email = user?.email ?? "";
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isLoggedIn || !token) {
+      router.replace("/auth/login");
+      return;
     }
+    if (user?.is_verified || user?.isVerified) {
+      router.replace("/dashboard");
+    }
+  }, [authLoading, isLoggedIn, token, user, router]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const code = digits.join("");
+
+  const submitCode = useCallback(async () => {
+    if (!token || code.length !== OTP_LENGTH) return;
+    await handleVerify(code, token);
+  }, [code, token, handleVerify]);
+
+  const updateDigit = (index: number, value: string) => {
+    const char = value.replace(/\D/g, "").slice(-1);
+    const next = [...digits];
+    next[index] = char;
+    setDigits(next);
+    if (char && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === "Enter" && code.length === OTP_LENGTH) {
+      submitCode();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    if (!pasted) return;
+    const next = Array(OTP_LENGTH).fill("");
+    pasted.split("").forEach((c, i) => { next[i] = c; });
+    setDigits(next);
+    const focusIndex = Math.min(pasted.length, OTP_LENGTH - 1);
+    inputRefs.current[focusIndex]?.focus();
+  };
+
+  const onResend = async () => {
+    if (resendCooldown > 0) return;
+    await handleResend();
+    setResendCooldown(60);
+  };
+
+  if (authLoading || !token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-700" />
+      </div>
+    );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-background via-background to-muted px-4 py-8 sm:py-12">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 right-10 w-48 h-48 sm:w-72 sm:h-72 bg-primary/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 left-10 w-64 h-64 sm:w-96 sm:h-96 bg-accent/5 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-xs sm:max-w-sm md:max-w-md">
-        <div className="bg-card rounded-2xl shadow-lg border border-border p-6 sm:p-8 md:p-10">
-          <div className="flex justify-center mb-6 sm:mb-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-md"></div>
-              <div className="relative bg-primary/10 p-3 sm:p-4 rounded-full">
-                <Mail className="w-6 h-6 sm:w-8 sm:h-8 text-primary bg-teal-700" strokeWidth={1.5} />
-              </div>
-            </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-20 px-4 sm:px-8 py-8">
+        <section className="hidden lg:flex flex-col items-center justify-center space-y-8 text-center max-w-sm">
+          <Image src={logo2} alt="Jehostarter" className="w-24 h-auto" priority />
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-gray-900">Almost there</h2>
+            <p className="text-gray-600 text-sm px-4">
+              We sent a 6-digit code to your email. Enter it below to secure your account.
+            </p>
           </div>
+        </section>
 
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center text-foreground mb-2 sm:mb-3">
-            Check your email
-          </h1>
-          <p className="text-sm sm:text-base text-center text-muted-foreground mb-6 sm:mb-8">
-            We`ve sent you a verification link to complete your onboarding. Please check your inbox.
-          </p>
+        <section className="w-full max-w-md space-y-6">
+          <header className="text-center space-y-2">
+            <div className="mx-auto w-14 h-14 rounded-full bg-teal-50 flex items-center justify-center">
+              <Mail className="w-7 h-7 text-teal-700" />
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Verify your email</h1>
+            <p className="text-sm text-gray-500">
+              Code sent to{" "}
+              <span className="font-semibold text-gray-800">{email}</span>
+            </p>
+          </header>
 
-          {emailResent && (
-            <div className="mb-6 p-3 sm:p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg">
-              <p className="text-xs sm:text-sm text-green-800 dark:text-green-200 font-medium">
-                ✓ Verification email resent successfully
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-3 mb-6 sm:mb-8 bg-muted/50 rounded-xl p-4 sm:p-5">
-            <div className="flex gap-3 sm:gap-4">
-              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-foreground">Takes a minute</p>
-                <p className="text-xs text-muted-foreground">The verification link expires in 24 hours</p>
-              </div>
-            </div>
-            <div className="flex gap-3 sm:gap-4">
-              <Inbox className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-foreground">Check spam folder</p>
-                <p className="text-xs text-muted-foreground">Sometimes our emails end up there</p>
-              </div>
-            </div>
+          <div
+            className="flex justify-center gap-2 sm:gap-3"
+            onPaste={handlePaste}
+          >
+            {digits.map((digit, index) => (
+              <Input
+                key={index}
+                ref={(el) => { inputRefs.current[index] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => updateDigit(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                className="w-11 h-14 sm:w-12 sm:h-14 text-center text-xl font-bold border-gray-200 focus:border-teal-500 focus:ring-teal-100"
+                aria-label={`Digit ${index + 1}`}
+              />
+            ))}
           </div>
 
           <Button
-            onClick={handleResendEmail}
-            // disabled={isLoading}
-            variant="outline"
-            className="w-full mb-4 bg-transparent text-sm sm:text-base"
-          >   
-            {/* {isLoading ? "Sending..." : "Resend verification email"} */}
-            Resend verification email
+            type="button"
+            disabled={code.length !== OTP_LENGTH || isVerifying}
+            onClick={submitCode}
+            className="w-full h-12 bg-teal-900 hover:bg-teal-800 text-white disabled:opacity-50"
+          >
+            {isVerifying ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              "Verify email"
+            )}
           </Button>
 
-          <div className="flex items-center gap-3 mb-6 sm:mb-6">
-            <div className="flex-1 h-px bg-border"></div>
-            <span className="text-xs text-muted-foreground">or</span>
-            <div className="flex-1 h-px bg-border"></div>
+          <div className="text-center space-y-3">
+            <p className="text-xs text-gray-500">Didn&apos;t receive the code?</p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isResending || resendCooldown > 0}
+              onClick={onResend}
+              className="w-full h-11"
+            >
+              {isResending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {resendCooldown > 0
+                    ? `Resend in ${resendCooldown}s`
+                    : "Resend code"}
+                </>
+              )}
+            </Button>
           </div>
 
-          <Link href="/auth/login" className="block">
-            <Button variant="ghost" className="w-full group text-sm sm:text-base">
+          <p className="text-center text-sm text-gray-600">
+            <Link
+              href="/auth/login"
+              className="inline-flex items-center gap-1 text-teal-600 font-semibold hover:underline"
+            >
+              <ArrowLeft className="w-4 h-4" />
               Back to login
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
-        </div>
-
-        <p className="text-center text-xs sm:text-sm text-muted-foreground mt-6 sm:mt-8">
-          Having trouble?{" "}
-          <Link href="/support" className="text-primary hover:underline font-medium">
-            Contact support
-          </Link>
-        </p>
-      </div>
-    </main>
-  )
+            </Link>
+          </p>
+        </section>
+      </main>
+    </div>
+  );
 }

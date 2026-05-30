@@ -3,10 +3,13 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { MessageCircle, Bookmark, Share2, ChevronLeft, ChevronRight, ShieldCheck, MapPin } from "lucide-react";
+import { useAuth } from "@/components/contexts/auth-context";
+import { useCart } from "@/components/contexts/cart-context";
 
 interface ProductDetailViewProps {
   product: any; // accepts both old shape and new API shape
@@ -14,7 +17,12 @@ interface ProductDetailViewProps {
 
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { isLoggedIn } = useAuth();
+  const { isInCart, toggleBookmark } = useCart();
+
+  const listingId = product?.id ?? '';
+  const isSaved = listingId ? isInCart(listingId) : false;
 
   // ── Normalise field names ─────────────────────────────────────────────────
   // API returns: images (array of {id, image}), shop_name, created_at, city, price (string)
@@ -70,6 +78,23 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [createdAt]);
 
   const currentImage = images[currentImageIndex] || "/placeholder.svg";
+
+  const handleBookmark = async () => {
+    if (!listingId) return;
+    if (!isLoggedIn) {
+      toast.error('Sign in to save items to your cart');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await toggleBookmark(product);
+      toast.success(isSaved ? 'Removed from cart' : 'Added to your cart');
+    } catch {
+      toast.error('Could not update your cart');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto lg:p-6 animate-in fade-in duration-500 bg-white border border-gray-300 rounded-b-2xl lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
@@ -134,7 +159,13 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 )}
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => setIsSaved(!isSaved)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={isSaving}
+                  onClick={handleBookmark}
+                  aria-label={isSaved ? 'Remove from cart' : 'Save to cart'}
+                >
                   <Bookmark className={cn("h-5 w-5", isSaved && "fill-teal-600 text-teal-600")} />
                 </Button>
                 <Button variant="ghost" size="icon"><Share2 className="h-5 w-5" /></Button>

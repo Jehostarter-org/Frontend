@@ -11,9 +11,9 @@ import { ProductItemCard } from "@/components/reuseables/productItemCard";
 import ProductDetailView from "@/components/reuseables/product-detail-view";
 import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCardSkeleton";
 import { Search, X, Loader2, ArrowLeft, SearchX, Sparkles, RefreshCw } from "lucide-react";
-import { useGetAllProductsQuery, type ListingsParams } from "@/lib/api/productsApiSlice";
+import { useCategoryListings } from "@/hooks/use-category-listings";
+import type { Product } from "@/lib/api/productsApiSlice";
 
-// Stable one-time shuffle — runs once per data identity, not per render
 function shuffleOnce<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -28,13 +28,12 @@ export default function MarketPlacePage() {
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const isAuthenticated = !!user;
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Stable shuffled cache — only recomputed when productsData reference changes
-  const shuffledRef = useRef<any[]>([]);
-  const lastDataRef = useRef<any>(null);
+  const shuffledRef = useRef<Product[]>([]);
+  const lastDataRef = useRef<Product[] | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
@@ -43,36 +42,27 @@ export default function MarketPlacePage() {
 
   const isSearching = debouncedSearch.trim().length > 0;
 
-  const queryParams: ListingsParams = useMemo(() => {
-    if (isSearching) return { search: debouncedSearch };
-    return {};
-  }, [isSearching, debouncedSearch]);
-
   const {
-    data: productsData,
-    isLoading: isLoadingAll,
-    isFetching: isFetchingSearch,
-    isError: isErrorAll,
+    listings,
+    isLoading,
+    isFetching,
+    isError,
     refetch,
-  } = useGetAllProductsQuery(queryParams);
+  } = useCategoryListings("marketplace", { search: debouncedSearch });
 
   const displayProducts = useMemo(() => {
-    const items = Array.isArray(productsData) ? productsData : [];
-    if (items.length === 0) return [];
+    if (listings.length === 0) return [];
+    if (isSearching) return listings;
 
-    // When searching, return as-is (relevance order)
-    if (isSearching) return items;
-
-    // Only re-shuffle when the data reference actually changes
-    if (productsData !== lastDataRef.current) {
-      lastDataRef.current = productsData;
-      shuffledRef.current = shuffleOnce(items);
+    if (listings !== lastDataRef.current) {
+      lastDataRef.current = listings;
+      shuffledRef.current = shuffleOnce(listings);
     }
 
     return shuffledRef.current;
-  }, [isSearching, productsData]);
+  }, [isSearching, listings]);
 
-  const handleProductClick = (product: any) => {
+  const handleProductClick = (product: Product) => {
     if (!isAuthenticated) {
       router.push("/login");
       return;
@@ -112,13 +102,13 @@ export default function MarketPlacePage() {
                 Explore <span className="text-teal-600 not-italic px-3">JEHOSTARTER SHOP</span>
               </h1>
               <p className="text-gray-500 font-medium max-w-xl text-sm leading-relaxed">
-                Discover items across all categories, randomly curated for you every time you visit.
+                Browse live listings from verified shops across every category.
               </p>
             </div>
 
             <div className="relative w-full lg:max-w-md group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                {isFetchingSearch ? (
+                {isFetching ? (
                   <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
                 ) : (
                   <Search className="h-5 w-5 text-gray-400 group-focus-within:text-teal-600 transition-colors" />
@@ -140,22 +130,22 @@ export default function MarketPlacePage() {
           </div>
         </header>
 
-        {isErrorAll && (
+        {isError && (
           <div className="p-6 mb-10 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-between">
-            <p className="text-rose-600 font-bold text-sm uppercase tracking-tight">Syncing error. Showing cached results if available.</p>
+            <p className="text-rose-600 font-bold text-sm uppercase tracking-tight">Could not load listings from the server.</p>
             <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-full border-rose-200 text-rose-600">
-              <RefreshCw size={14} className="mr-2" /> Retry Sync
+              <RefreshCw size={14} className="mr-2" /> Retry
             </Button>
           </div>
         )}
 
-        {isLoadingAll ? (
+        {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[...Array(15)].map((_, i) => <ProductItemCardSkeleton key={i} />)}
           </div>
         ) : displayProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {displayProducts.map((product: any) => (
+            {displayProducts.map((product) => (
               <ProductItemCard
                 key={product.id}
                 product={product}
@@ -172,7 +162,7 @@ export default function MarketPlacePage() {
   );
 }
 
-function EmptyState({ term, onClear }: any) {
+function EmptyState({ term, onClear }: { term: string; onClear: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2rem] border border-dashed border-gray-100 shadow-inner">
       <div className="bg-teal-50 p-8 rounded-full mb-8 text-teal-600 animate-bounce">
@@ -180,7 +170,7 @@ function EmptyState({ term, onClear }: any) {
       </div>
       <h3 className="text-3xl font-black text-gray-900 uppercase italic tracking-tighter">No Luck!</h3>
       <p className="text-gray-400 max-w-sm text-center mt-3 px-6 text-sm font-bold uppercase tracking-widest leading-loose">
-        {term ? `Nothing found for "${term}"` : "The marketplace is currently resting."}
+        {term ? `Nothing found for "${term}"` : "No listings yet. Check back soon."}
       </p>
       <Button
         onClick={onClear}

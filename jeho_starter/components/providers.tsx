@@ -10,6 +10,7 @@ import { AuthProvider } from "@/components/contexts/auth-context";
 import { NotificationProvider } from "@/components/contexts/notification-context";
 import { CartProvider } from "@/components/contexts/cart-context";
 import { CurrencyProvider } from "@/components/contexts/currencyContext";
+import { EmailVerificationGuard } from "@/components/auth/EmailVerificationGuard";
 import { LocationPermissionBanner } from "@/components/location/LocationPermissionBanner";
 
 // ── Hydrates auth synchronously then gates children until ready ───────────────
@@ -52,7 +53,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <CurrencyProvider>
               <CartProvider>
                 <NotificationProvider>
-                  {children}
+                  <EmailVerificationGuard>
+                    {children}
+                  </EmailVerificationGuard>
                   <Toaster position="top-right" richColors />
                   <LocationPermissionBanner />
                 </NotificationProvider>

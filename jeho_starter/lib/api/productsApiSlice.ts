@@ -15,6 +15,7 @@ export interface Product {
   currency:      string;
   category:      string;
   category_name: string;
+  category_slug: string;
   shop_name:     string;
   shop_id:       string;
   images:        ProductImage[];
@@ -34,14 +35,14 @@ export interface ListingsParams {
 }
 
 export const CATEGORY_SLUGS: Record<string, string> = {
-  'marketplace':     '',
-  'vehicles':        'vehicles',
-  'housing':         'housing',
-  'fashion':         'fashion',
-  'electronics':     'electronics',
-  'furniture':       'furniture',
+  marketplace:     'marketplace',
+  vehicles:        'vehicles',
+  housing:         'housing',
+  fashion:         'fashion',
+  electronics:     'electronics',
+  furniture:       'furniture',
   'baby-kids-store': 'baby-kids',
-  'books':           'books',
+  books:           'books',
   'equipment-tools': 'equipment-tools',
 };
 
@@ -54,6 +55,7 @@ function normalise(item: any): Product {
     currency:      item.currency       ?? item.shop?.currency ?? 'USD',
     category:      item.category       ?? '',
     category_name: item.category_name  ?? item.category ?? 'Marketplace',
+    category_slug: item.category_slug  ?? item.category?.slug ?? '',
     shop_name:     item.shop?.name     ?? item.shop_name ?? '',
     shop_id:       item.shop?.id       ?? item.shop_id   ?? '',
     images:        item.images         ?? [],
@@ -119,13 +121,12 @@ export const productsApiSlice = apiSlice.injectEndpoints({
     }),
 
     createListing: builder.mutation({
-      query: (body: FormData | Record<string, any>) => ({
-        url:      '/shops/listings/',
-        method:   'POST',
+      query: (body: FormData | Record<string, unknown>) => ({
+        url:    '/shops/listings/',
+        method: 'POST',
         body,
-        ...(body instanceof FormData && { formData: true }),
       }),
-      invalidatesTags: [{ type: 'Product', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Product', id: 'LIST' }, 'Shop'],
     }),
 
     updateListing: builder.mutation({

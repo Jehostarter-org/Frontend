@@ -13,6 +13,22 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
     }),
 
+    verifyEmail: builder.mutation<{ detail: string; is_verified: boolean }, { code: string }>({
+      query: (body) => ({
+        url: '/users/verify-email/',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
+    resendVerificationEmail: builder.mutation<{ detail: string }, void>({
+      query: () => ({
+        url: '/users/resend-verification/',
+        method: 'POST',
+      }),
+    }),
+
     loginUser: builder.mutation({
       query: (credentials) => ({
         url: '/users/login/',
@@ -102,6 +118,8 @@ export const authApiSlice = apiSlice.injectEndpoints({
 
 export const {
   useRegisterUserMutation,
+  useVerifyEmailMutation,
+  useResendVerificationEmailMutation,
   useLoginUserMutation,
   useGoogleLoginMutation,
   useRefreshTokenMutation,

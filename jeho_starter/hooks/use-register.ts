@@ -59,15 +59,10 @@ export const useRegister = () => {
       }));
 
       toast.success('Account created!', {
-        description: 'Welcome to Jehostarter.',
+        description: 'Check your email for a verification code.',
       });
 
-      // Step 5 — Redirect to accept terms if not yet accepted
-      if (!user.accepted_terms) {
-        setTimeout(() => router.push('/auth/accept-terms'), 500);
-      } else {
-        setTimeout(() => router.push('/dashboard'), 500);
-      }
+      setTimeout(() => router.push('/auth/verify-email'), 500);
 
     } catch (err: any) {
       // Django returns field-level errors as { field: ["error message"] }

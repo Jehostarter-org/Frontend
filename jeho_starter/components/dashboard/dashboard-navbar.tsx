@@ -91,12 +91,12 @@ export default function DashboardNavbar({ onMenuClick }: HeaderProps) {
           <Link href="/dashboard/profile">
             <Avatar className='w-8 h-8 sm:w-10 sm:h-10'>
               <AvatarImage
-                src={profile?.avatarUrl || ""}
-                alt={profile?.firstName || user?.firstName || "User"}
+                src={profile?.avatar || ""}
+                alt={profile?.first_name || user?.firstName || "User"}
                 className="object-cover"
               />
               <AvatarFallback className='bg-orange-500 text-white text-sm'>
-                {profile?.firstName?.charAt(0) || user?.firstName?.charAt(0) || "U"}
+                {profile?.first_name?.charAt(0) || user?.firstName?.charAt(0) || "U"}
               </AvatarFallback>
             </Avatar>
           </Link>

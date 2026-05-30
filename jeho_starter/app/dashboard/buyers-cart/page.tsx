@@ -1,26 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { CartItem as MockCartData } from "./cart-stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCart } from "@/components/contexts/cart-context";
-import { Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingCart, Loader2 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 
 export default function BuyersCart() {
-  const { cartItems, updateQuantity, removeFromCart, addToCart } = useCart();
-  const initialized = useRef(false);
+  const { cartItems, updateQuantity, removeFromCart, isLoading } = useCart();
 
-  useEffect(() => {
-    if (!initialized.current) {
-      MockCartData.forEach(item => {
-        addToCart(item);
-      });
-      initialized.current = true;
-    }
-  }, [addToCart]);
+  const handleRemove = async (id: string) => {
+    await removeFromCart(id);
+  };
 
   return (
     <DashboardShell onClose={() => {}}>
@@ -29,7 +21,16 @@ export default function BuyersCart() {
           <main className='flex-1 p-8'>
             <div className='mb-8'>
               <h1 className='text-3xl font-bold text-gray-900'>Your Cart</h1>
+              <p className='text-sm text-gray-500 mt-1'>
+                Items you bookmark while browsing appear here.
+              </p>
             </div>
+
+            {isLoading && cartItems.length === 0 && (
+              <div className='flex justify-center py-12'>
+                <Loader2 className='w-8 h-8 animate-spin text-teal-600' />
+              </div>
+            )}
 
             <div className='space-y-6'>
               {cartItems.map((item) => (
@@ -110,7 +111,7 @@ export default function BuyersCart() {
                           <Button
                             variant='ghost'
                             size='sm'
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => handleRemove(item.id)}
                             className='text-red-500 hover:text-red-700 hover:bg-red-50'
                           >
                             <Trash2 className='w-4 h-4 mr-2' />
@@ -124,13 +125,15 @@ export default function BuyersCart() {
               ))}
             </div>
 
-            {cartItems.length === 0 && (
+            {!isLoading && cartItems.length === 0 && (
               <div className='text-center py-12'>
                 <ShoppingCart className='w-16 h-16 text-gray-300 mx-auto mb-4' />
                 <h3 className='text-xl font-semibold text-gray-900 mb-2'>
                   Your cart is empty
                 </h3>
-                <p className='text-gray-500'>Add some items to get started</p>
+                <p className='text-gray-500'>
+                  Bookmark products while browsing to add them here
+                </p>
               </div>
             )}
           </main>

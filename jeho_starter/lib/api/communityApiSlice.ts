@@ -1,5 +1,4 @@
 // lib/api/communityApiSlice.ts
-// Full replacement — adds deleteMessage mutation and is_admin field.
 
 import { apiSlice } from './apiSlice';
 
@@ -10,7 +9,7 @@ export interface Community {
   name: string;
   slug: string;
   description: string;
-  creator: string;          // user PK as string
+  creator: string;
   creator_username: string;
   country_code: string;
   visibility: 'public' | 'private';
@@ -21,7 +20,7 @@ export interface Community {
   member_count: number;
   post_count: number;
   is_member: boolean;
-  is_admin: boolean;         // ← new: true when user holds admin/moderator role
+  is_admin: boolean;
   created_at: string;
 }
 
@@ -32,7 +31,6 @@ export interface CommunityMessage {
   sender_username: string;
   sender_avatar: string | null;
   content: string;
-  // Nested preview of the message being replied to (null for top-level messages)
   reply_to: { id: string; sender_username: string; content: string } | null;
   attachment: string | null;
   attachment_url: string | null;
@@ -55,6 +53,18 @@ export interface Post {
   likes_count: number;
   is_liked: boolean;
   created_at: string;
+}
+
+export interface InviteLink {
+  invite_url: string;
+  token: string;
+  expires_at: string;
+}
+
+export interface InviteEmailResult {
+  sent: string[];
+  skipped: string[];
+  detail: string;
 }
 
 // ── API slice ─────────────────────────────────────────────────────────────────
@@ -107,6 +117,46 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       query: (id) => `/community/${id}/members/`,
       transformResponse: (raw: any) =>
         Array.isArray(raw) ? raw : (raw?.results ?? []),
+      providesTags: (_r, _e, id) => [{ type: 'CommunityMembers' as const, id }],
+    }),
+
+    // ── Admin: remove a member ─────────────────────────────────────────────
+    removeCommunityMember: builder.mutation<void, { communityId: string; userId: string }>({
+      query: ({ communityId, userId }) => ({
+        url: `/community/${communityId}/members/${userId}/remove/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_r, _e, { communityId }) => [
+        { type: 'CommunityMembers' as const, id: communityId },
+        { type: 'Community' as const, id: communityId },
+        { type: 'Community' as const, id: 'LIST' },
+      ],
+    }),
+
+    // ── Admin: generate shareable invite link ──────────────────────────────
+    generateInviteLink: builder.mutation<InviteLink, string>({
+      query: (communityId) => ({
+        url: `/community/${communityId}/invite/link/`,
+        method: 'POST',
+      }),
+    }),
+
+    // ── Admin: send invite emails ──────────────────────────────────────────
+    inviteByEmail: builder.mutation<InviteEmailResult, { communityId: string; emails: string[] }>({
+      query: ({ communityId, emails }) => ({
+        url: `/community/${communityId}/invite/email/`,
+        method: 'POST',
+        body: { emails },
+      }),
+    }),
+
+    // ── Public: accept invite token ────────────────────────────────────────
+    acceptInvite: builder.mutation<{ detail: string; community_id: string }, string>({
+      query: (token) => ({
+        url: `/community/invite/${token}/accept/`,
+        method: 'POST',
+      }),
+      invalidatesTags: [{ type: 'Community' as const, id: 'LIST' }],
     }),
 
     getCommunityMessages: builder.query<CommunityMessage[], string>({
@@ -121,17 +171,11 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [{ type: 'CommunityMessages' as const, id }],
     }),
 
-    /**
-     * DELETE /community/<communityId>/messages/<messageId>/delete/
-     * Works for own messages (any member) and any message (admin/moderator).
-     */
     deleteCommunityMessage: builder.mutation<void, { communityId: string; messageId: string }>({
       query: ({ communityId, messageId }) => ({
         url: `/community/${communityId}/messages/${messageId}/delete/`,
         method: 'DELETE',
       }),
-      // No cache invalidation needed — the WebSocket message_deleted event
-      // removes the message from liveMessages in real time.
     }),
 
     getCommunityFeed: builder.query<Post[], void>({
@@ -159,6 +203,10 @@ export const {
   useJoinCommunityMutation,
   useLeaveCommunityMutation,
   useGetCommunityMembersQuery,
+  useRemoveCommunityMemberMutation,
+  useGenerateInviteLinkMutation,
+  useInviteByEmailMutation,
+  useAcceptInviteMutation,
   useGetCommunityMessagesQuery,
   useSendCommunityMessageMutation,
   useDeleteCommunityMessageMutation,

@@ -5,15 +5,15 @@ import { cn } from "@/lib/utils";
 import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { useSaveGeolocationMutation } from "@/lib/api/userProfileApiSlice";
+import { useUpdateUserProfileMutation } from "@/lib/api/userProfileApiSlice";
 import { useAuth } from "@/components/contexts/auth-context";
 
 export default function LocationSection() {
   const { user } = useAuth();
   const { requestLocation, isLocating, location, error } = useGeolocation();
 
-  // PATCH /api/users/me/ with { city, current_country }
-  const [saveGeolocation, { isLoading: isSaving }] = useSaveGeolocationMutation();
+  // PATCH /api/users/me/ with { current_country }
+  const [updateUserProfile, { isLoading: isSaving }] = useUpdateUserProfileMutation();
 
   const isLoading = isLocating || isSaving;
 
@@ -28,8 +28,7 @@ export default function LocationSection() {
     }
 
     try {
-      await saveGeolocation({
-        city:            data.city,
+      await updateUserProfile({
         current_country: data.country_code || user?.currentCountry,
       }).unwrap();
 
@@ -44,12 +43,12 @@ export default function LocationSection() {
 
   const addressToDisplay =
     location?.address ||
-    (user?.city && user?.currentCountry
-      ? `${user.city}, ${user.currentCountry}`
+    (user?.currentCountry
+      ? user.currentCountry
       : "Click to set your location");
 
-  const lastUpdated = user?.city
-    ? `Based on your profile — ${user.city}`
+  const lastUpdated = user?.currentCountry
+    ? `Based on your profile — ${user.currentCountry}`
     : null;
 
   return (

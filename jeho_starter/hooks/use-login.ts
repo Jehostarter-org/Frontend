@@ -46,10 +46,19 @@ export const useLogin = () => {
       }));
 
       toast.success('Login successful', {
-        description: 'Redirecting to your dashboard...',
+        description: 'Redirecting...',
       });
 
-      // Small delay so the toast is visible before redirect
+      if (!user.is_verified) {
+        setTimeout(() => router.push('/auth/verify-email'), 500);
+        return;
+      }
+
+      if (!user.accepted_terms) {
+        setTimeout(() => router.push('/auth/accept-terms'), 500);
+        return;
+      }
+
       setTimeout(() => router.push('/dashboard'), 500);
 
     } catch (err: any) {
