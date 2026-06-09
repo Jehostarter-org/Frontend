@@ -213,7 +213,7 @@ export default function ItemForSaleForm() {
                               type="number"
                               placeholder="0.00"
                               className="pl-9 h-11 border-gray-200 focus-visible:ring-teal-500/20 focus-visible:border-teal-500 transition-all font-semibold"
-                              value={field.value || ""}
+                              value={String(field.value ?? '')}
                               onChange={(e) => field.onChange(Number(e.target.value) || 0)}
                             />
                           </div>

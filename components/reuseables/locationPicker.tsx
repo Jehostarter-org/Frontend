@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { MapPin, Search } from "lucide-react";
-import { LOCATIONS } from "@/app/(dashboard)/airport-pickup/driver-details";
+import { LOCATIONS } from "@/components/dashboard/airport-pickup/drivers-pickup/driver details";
 
 interface LocationPickerProps {
   value: string;

@@ -95,7 +95,7 @@ function MessageBubble({
 <div className={ `flex flex-col gap-1 max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}` }>
 {
     message.service_card && (
-        <ServiceCardBubble card={ message.service_card as Record<string, unknown> } />
+        <ServiceCardBubble card={ message.service_card } />
         )}
 
 {

@@ -59,6 +59,8 @@ export const DRIVER_FLOW = [
     component: StepZeroRoleSelection,
     hasGlobalButton: true,
     showProgress: false,
+    progress: 0,
+    stepLabel: "",
   },
   {
     id: "driver-registration",
@@ -97,6 +99,8 @@ export const RIDER_FLOW = [
     component: StepZeroRoleSelection,
     hasGlobalButton: true,
     showProgress: false,
+    progress: 0,
+    stepLabel: "",
   },
   // Rider steps will be added here
 ];

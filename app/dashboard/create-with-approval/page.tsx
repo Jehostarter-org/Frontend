@@ -210,7 +210,7 @@ export default function ShopCreateWithApproval() {
             whatsapp: "", website: "",
             business_name: user?.first_name ? `${user.first_name}'s Business` : "",
             registration_number: "", tax_number: "",
-            business_address: "", business_phone: user?.phone_number ?? "",
+            business_address: "", business_phone: user?.phoneNumber ?? user?.phone ?? "",
             business_email: user?.email ?? "",
             business_description: "",
             years_in_business: 0, employee_count: 1,
@@ -477,14 +477,14 @@ export default function ShopCreateWithApproval() {
                                         <FormField control={form.control} name="years_in_business" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Years in Business</FormLabel>
-                                                <FormControl><Input type="number" min={0} {...field} /></FormControl>
+                                                <FormControl><Input type="number" min={0} {...field} value={String(field.value ?? '')} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="employee_count" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Number of Employees</FormLabel>
-                                                <FormControl><Input type="number" min={1} {...field} /></FormControl>
+                                                <FormControl><Input type="number" min={1} {...field} value={String(field.value ?? '')} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

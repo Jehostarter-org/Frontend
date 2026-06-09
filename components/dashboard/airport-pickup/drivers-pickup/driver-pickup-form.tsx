@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useReducer } from "react";
 import { Button } from "@/components/ui/button";
 import { DRIVER_FLOW, RIDER_FLOW, INITIAL_DATA } from "./driver-pickup-form-stats";
+import type { ComponentType } from "react";
 
 
 type UserRole = "driver" | "rider"
@@ -96,7 +97,7 @@ export default function AirportPickupForm() {
     return commonProps
   }
   
-  const StepComponent = currentStepConfig.component
+  const StepComponent = currentStepConfig.component as ComponentType<Record<string, unknown>>
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -116,7 +117,7 @@ export default function AirportPickupForm() {
           <div className="mb-6 max-w-md mx-auto">
             <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
               <div className="bg-[#4a90a4] h-full rounded-full transition-all duration-300"
-                style={{ width: `${currentStepConfig.progress}%` }}
+                style={{ width: `${currentStepConfig.progress ?? 0}%` }}
               />
               </div>
             {currentStepConfig.stepLabel && (

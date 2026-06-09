@@ -3,10 +3,10 @@
 "use client";
 
 import { useState } from "react";
-import BasicInfoStep from "./steps/basic-info";
-import FeaturesStep from "./steps/features";
-import AvailabilityStep from "./steps/availability";
-import ReviewStep from "./steps/tenants-screaning";
+import BasicInfoStep from "./owners-setup/basic-info";
+import FeaturesStep from "./owners-setup/features";
+import AvailabilityStep from "./owners-setup/availability";
+import ReviewStep from "./owners-setup/tenants-screaning";
 import { propertyApi } from "@/lib/api/propertyApi";
 
 type Step = 1 | 2 | 3 | 4;
@@ -87,7 +87,6 @@ export default function PropertyOnboarding() {
                     onNext={handleStep2Next}
                     onBack={() => setCurrentStep(1)}
                     initialData={formData}
-                    propertyId={propertyId}
                 />
             )}
             {currentStep === 3 && (
@@ -95,7 +94,6 @@ export default function PropertyOnboarding() {
                     onNext={handleStep3Next}
                     onBack={() => setCurrentStep(2)}
                     initialData={formData}
-                    propertyId={propertyId}
                 />
             )}
             {currentStep === 4 && (

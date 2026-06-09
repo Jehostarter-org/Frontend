@@ -74,15 +74,17 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
 
       // Prepare payload matching Django serializer expectations EXACTLY
       const payload = {
-        service_type: "airport_pickup",
+        service_type: "airport_pickup" as const,
         description: `Airport pickup from ${data.airport} to ${data.destination || "TBD"}`,
         country_code: user?.current_country || "NG",
+        destination: data.destination || "",
         notes: data.destination,
         airport_pickup_details: {
           airport: data.airport,
           terminal: data.terminal || "",
           pickup_point: data.pickupPoint || "",
-          arrival_datetime: arrivalDatetime,  // single ISO datetime string
+          arrival_date: data.arrivalDate,
+          estimated_arrival_time: data.arrivalTime,
           num_passengers: 1,
           num_bags: 1,
           flight_number: "",
@@ -348,7 +350,6 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
               render={({ field }) => (
                 <LocationSearch
                   label="Drop-off Location"
-                  placeholder="Enter your destination address"
                   value={field.value}
                   onChange={field.onChange}
                   error={errors.destination?.message}
