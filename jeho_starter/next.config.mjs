@@ -2,6 +2,7 @@
 const nextConfig = {
   images: {
     remotePatterns: [
+      // ── Local development ─────────────────────────────────────────────────
       {
         protocol: "http",
         hostname: "127.0.0.1",
@@ -14,9 +15,10 @@ const nextConfig = {
         port: "8000",
         pathname: "/**",
       },
+      // ── Production backend (Render) ───────────────────────────────────────
       {
         protocol: "https",
-        hostname: "api.yourdomain.com", // ← replace with your real production domain
+        hostname: "jehostarter-backend.onrender.com",
         pathname: "/**",
       },
       // ── Avatar / placeholder services ─────────────────────────────────────
@@ -36,12 +38,12 @@ const nextConfig = {
         pathname: "/**",
       },
       // ── Wildcard: any HTTPS host (covers future third-party image URLs) ───
-      // Remove this once you know all your image sources.
-      {
-        protocol: "https",
-        hostname: "**",
-        pathname: "/**",
-      },
+      // Add specific hostnames here instead of using wildcard
+      // {
+      //   protocol: "https",
+      //   hostname: "**",
+      //   pathname: "/**",
+      // },
     ],
   },
 };

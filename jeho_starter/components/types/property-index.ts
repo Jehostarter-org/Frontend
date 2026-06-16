@@ -16,7 +16,7 @@ export interface PropertyData {
   furnished: boolean;
   parking: boolean;
   amenities: string[]; // e.g., ["WiFi", "Pool", "Gym"]
-  images: File[]; // For handling uploads
+  images: (File | string)[]; // File objects before upload, URLs after
 
   // Step 3: Availability & Terms
   availableFrom: string;

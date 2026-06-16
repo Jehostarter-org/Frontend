@@ -7,8 +7,7 @@ import React, { useState, useMemo } from "react";
 import EmptyInbox from "@/components/inbox/EmptyInbox";
 import MessageItem from "@/components/inbox/MessageItem";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
-import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
-import { Plus, Search, Loader2, CheckCheck } from "lucide-react";
+import { Search, Loader2, CheckCheck } from "lucide-react";
 import { TabButton } from "@/components/reuseables/tabsButton";
 import type { Message } from "@/components/types/types";
 
@@ -31,35 +30,34 @@ function toMessage(n: Notification): Message {
   const isCommunityRequest = n.notification_type === "community_invite";
 
   return {
-    id:           n.id,
-    senderId:     n.actor ?? "system",
-    senderName:   n.title,
+    id: n.id,
+    senderId: n.actor ?? "system",
+    senderName: n.title,
     senderAvatar: "",                        // backend doesn't send avatar yet
-    type:         isGroupRelated ? "group" : "direct",
-    content:      n.message,
-    timestamp:    new Date(n.created_at).toLocaleString([], {
-      month:  "short",
-      day:    "numeric",
-      hour:   "2-digit",
+    type: isGroupRelated ? "group" : "direct",
+    content: n.message,
+    timestamp: new Date(n.created_at).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
       minute: "2-digit",
     }),
-    isRead:             n.is_read,
-    unreadCount:        n.is_read ? 0 : 1,
+    isRead: n.is_read,
+    unreadCount: n.is_read ? 0 : 1,
     isCommunityRequest: isCommunityRequest,
-    link:               n.link || undefined,
+    link: n.link || undefined,
   };
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function InboxPage() {
-  const [activeTab, setActiveTab]           = useState<"all" | "unread">("all");
-  const [searchQuery, setSearchQuery]       = useState("");
-  const [showCreateCommunity, setShowCreateCommunity] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data: notifications = [], isLoading } = useGetNotificationsQuery();
-  const [markRead]    = useMarkReadMutation();
+  const [markRead] = useMarkReadMutation();
   const [markAllRead] = useMarkAllReadMutation();
 
   const messages: Message[] = useMemo(
@@ -136,13 +134,6 @@ export default function InboxPage() {
                   Mark all read
                 </Button>
               )}
-              <Button
-                onClick={() => setShowCreateCommunity(true)}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg px-5 shadow-lg shadow-teal-600/20 transition-all active:scale-95"
-              >
-                <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
-                Create Community
-              </Button>
             </div>
           </div>
         </header>
@@ -195,11 +186,6 @@ export default function InboxPage() {
             )}
           </div>
         </div>
-
-        <CreateCommunityDialog
-          isOpen={showCreateCommunity}
-          onOpenChange={setShowCreateCommunity}
-        />
       </div>
     </DashboardShell>
   );

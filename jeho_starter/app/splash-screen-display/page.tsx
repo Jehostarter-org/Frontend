@@ -7,10 +7,10 @@ import logo from "@/public/images/big logo BLACK.png";
 export default function SplashScreenDisplay() {
   const [isVisible, setIsVisible] = useState(true);
 
-  useEffect(() => {
+    useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 3800);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -22,7 +22,7 @@ export default function SplashScreenDisplay() {
       }`}
     >
       <div className='flex flex-col items-center justify-center'>
-        <Image src={logo} alt='logo' className='w-20 h-100' />
+        <Image src={logo} alt='logo' className='w-20 h-24' />
       </div>
     </div>
   );

@@ -4,12 +4,13 @@ import React, { useRef, useState } from "react";
 import {
   X, Users, Lock, Globe, Camera, Loader2, Crown,
   LogOut, UserMinus, Link2, Mail, Copy, Check,
-  Send, Share2, UserPlus,
+  Send, Share2, UserPlus, MessageCircle, Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
 import type { CommunityItem } from "@/components/types/community";
+import type { Participant } from "@/lib/api/messagesApiSlice";
 import {
   useGetCommunityMembersQuery,
   useUpdateCommunityMutation,
@@ -25,6 +26,7 @@ interface GroupInfoSidebarProps {
   group: CommunityItem | undefined;
   currentUserId: string | null;
   onlineUsers?: Set<string>;
+  dmParticipant?: Participant | null; // Add this for DM view
 }
 
 type AdminModal = "share" | "addMember" | null;
@@ -35,6 +37,7 @@ export function GroupInfoSidebar({
   group,
   currentUserId,
   onlineUsers = new Set(),
+  dmParticipant,
 }: GroupInfoSidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export function GroupInfoSidebar({
 
   const { data: members = [], isLoading: isLoadingMembers } = useGetCommunityMembersQuery(
     group?.id ?? "",
-    { skip: !group?.id || !isOpen },
+    { skip: !group?.id || !isOpen || !!dmParticipant }, // Skip if showing DM info
   );
 
   const isAdmin = group?.isAdmin ?? false;
@@ -65,6 +68,131 @@ export function GroupInfoSidebar({
     const mid = String(m.user?.id ?? m.id ?? "");
     return onlineUsers.has(mid);
   }).length;
+
+  if (!isOpen && dmParticipant) return null;
+
+  // If showing DM info
+  if (dmParticipant) {
+    const isOnline = onlineUsers.has(String(dmParticipant.id));
+
+    return (
+      <>
+        {/* Mobile backdrop */}
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-20 md:hidden"
+          onClick={onClose}
+        />
+
+        <aside className="w-full md:w-[300px] flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden z-30 h-full absolute right-0 top-0 md:relative shadow-xl md:shadow-none">
+          {/* Header */}
+          <div className="h-[60px] flex items-center justify-between px-4 border-b border-slate-200 shrink-0">
+            <h3 className="text-sm font-semibold text-slate-700">User Info</h3>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-8 w-8 text-slate-400 hover:text-slate-700">
+              <X size={18} />
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {/* Avatar & Basic Info */}
+            <div className="flex flex-col items-center pt-8 pb-5 px-4 bg-gradient-to-b from-slate-50 to-white border-b border-slate-100">
+              <div className="relative">
+                <div className="h-24 w-24 rounded-full overflow-hidden ring-4 ring-slate-100 shadow-md">
+                  <SafeImage
+                    src={dmParticipant.avatar_url}
+                    alt={dmParticipant.full_name}
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                {isOnline && (
+                  <div className="absolute bottom-2 right-2 h-4 w-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                )}
+              </div>
+
+              <h2 className="mt-4 text-lg font-bold text-slate-900 text-center">
+                {dmParticipant.full_name}
+              </h2>
+
+              <div className="flex items-center gap-1.5 mt-1">
+                {dmParticipant.is_gold && (
+                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                    <Star size={11} className="text-amber-500 fill-amber-500" />
+                    <span className="text-[10px] font-semibold text-amber-600">Gold Member</span>
+                  </div>
+                )}
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border ${isOnline ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-100 border-slate-200'}`}>
+                  <div className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span className={`text-[10px] font-medium ${isOnline ? 'text-emerald-600' : 'text-slate-500'}`}>
+                    {isOnline ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 w-full bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Mail size={14} className="text-slate-400" />
+                  <span className="text-[12px] text-slate-600 truncate flex-1">
+                    {dmParticipant.email}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="px-4 py-4 space-y-2">
+              <Button
+                onClick={() => {
+                  navigator.clipboard.writeText(dmParticipant.email);
+                  toast.success("Email copied to clipboard!");
+                }}
+                className="w-full gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-xl text-[13px] font-medium"
+              >
+                <Mail size={15} />
+                Copy Email Address
+              </Button>
+
+              {/* You could add a report button here if needed */}
+              {/* <Button
+                variant="ghost"
+                className="w-full gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-xl text-[13px] font-medium"
+              >
+                <Flag size={15} />
+                Report User
+              </Button> */}
+            </div>
+
+            {/* Stats */}
+            <div className="px-4 py-4 border-t border-slate-100">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                Conversation Info
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-slate-500">Started</span>
+                  <span className="text-slate-700 font-medium">
+                    Recently
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-slate-500">Status</span>
+                  <span className="text-slate-700 font-medium flex items-center gap-1">
+                    <MessageCircle size={12} className="text-blue-500" />
+                    Active
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </>
+    );
+  }
+
+  // Original group info sidebar (unchanged below)
+  if (!isOpen || !group) return null;
+
+  const displayAvatar = previewUrl ?? group.avatar;
 
   // ── Avatar upload ──────────────────────────────────────────────────────────
   const handleAvatarClick = () => { if (isAdmin) fileInputRef.current?.click(); };
@@ -161,10 +289,6 @@ export function GroupInfoSidebar({
     }
   };
 
-  if (!isOpen || !group) return null;
-
-  const displayAvatar = previewUrl ?? group.avatar;
-
   return (
     <>
       {/* Mobile backdrop */}
@@ -243,8 +367,8 @@ export function GroupInfoSidebar({
                 <button
                   onClick={() => setActiveModal(activeModal === "share" ? null : "share")}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${activeModal === "share"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:text-blue-600"
                     }`}
                 >
                   <Share2 size={13} /> Share
@@ -252,8 +376,8 @@ export function GroupInfoSidebar({
                 <button
                   onClick={() => setActiveModal(activeModal === "addMember" ? null : "addMember")}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${activeModal === "addMember"
-                      ? "bg-teal-600 text-white border-teal-600"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:text-teal-600"
+                    ? "bg-teal-600 text-white border-teal-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:text-teal-600"
                     }`}
                 >
                   <UserPlus size={13} /> Add Member
@@ -368,7 +492,6 @@ export function GroupInfoSidebar({
 
                   return (
                     <li key={memberId} className="flex items-center gap-3">
-                      {/* Avatar with online indicator */}
                       <div className="h-9 w-9 shrink-0 relative">
                         <SafeImage
                           src={member.profile_picture ?? member.user?.profile_picture ?? null}
@@ -397,7 +520,6 @@ export function GroupInfoSidebar({
                         )}
                       </div>
 
-                      {/* Remove button — always visible for admin */}
                       {canRemove && (
                         <button
                           onClick={() => handleRemoveMember(memberId, username)}

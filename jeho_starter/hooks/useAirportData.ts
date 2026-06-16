@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
-import { AIRPORTS_WITH_COORDS } from '@/lib/gps-utils';
+"use client";
 
-// Mock data for terminals - in a real app this would come from an API
+import { useMemo } from "react";
+import { useGetAirportsQuery, Airport } from "@/lib/api/riderApiSlice";
+import { AIRPORTS_WITH_COORDS } from "@/lib/gps-utils";
+
+// Terminals are generic — they don't change per airport
 const TERMINALS = [
   { id: "domestic", label: "Domestic Terminal", value: "Domestic Terminal" },
   { id: "international", label: "International Terminal", value: "International Terminal" },
@@ -9,7 +12,7 @@ const TERMINALS = [
   { id: "private", label: "Private Aviation Terminal", value: "Private Aviation Terminal" },
 ];
 
-// Mock data for pickup zones - in a real app this would come from an API
+// Pickup zones are generic airport meeting points
 const PICKUP_ZONES = [
   { id: "arrival-hall", label: "Arrival Hall", value: "Arrival Hall" },
   { id: "baggage-claim", label: "Baggage Claim Area", value: "Baggage Claim Area" },
@@ -18,18 +21,34 @@ const PICKUP_ZONES = [
   { id: "vip-lounge", label: "VIP Lounge", value: "VIP Lounge" },
 ];
 
+// Fallback airports used only if the API is unreachable
+const FALLBACK_AIRPORTS = AIRPORTS_WITH_COORDS.map((a) => ({
+  ...a,
+  country: "NG",
+}));
+
 export function useAirportData() {
-  // In a real implementation, this would fetch data from an API
-  // For now, we'll return static data
-  const airports = useMemo(() => AIRPORTS_WITH_COORDS, []);
-  const terminals = useMemo(() => TERMINALS, []);
-  const pickupZones = useMemo(() => PICKUP_ZONES, []);
-  const isLoading = false; // Static data, so no loading state
+  const { data, isLoading, isError } = useGetAirportsQuery();
+
+  const airports = useMemo(() => {
+    if (data?.airports && data.airports.length > 0) {
+      return data.airports as Airport[];
+    }
+    // Fallback to local hardcoded data when the API is unavailable
+    return FALLBACK_AIRPORTS;
+  }, [data]);
+
+  const supportedCountries = useMemo(
+    () => data?.supported_countries ?? [],
+    [data],
+  );
 
   return {
     airports,
-    terminals,
-    pickupZones,
+    terminals: TERMINALS,
+    pickupZones: PICKUP_ZONES,
+    supportedCountries,
     isLoading,
+    isError,
   };
 }

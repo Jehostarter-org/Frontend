@@ -10,6 +10,7 @@ import { ProductList } from "@/components/add-product/product-list";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { CurrencyProvider } from "@/components/contexts/currencyContext";
 import { ProductInsights } from "@/components/add-product/product-insights";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
  

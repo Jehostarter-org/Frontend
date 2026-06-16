@@ -18,13 +18,30 @@ export const userProfileApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["User"],
     }),
+    // ── Save geolocation (GPS coordinates) ──────────────────────────────────
+    saveGeolocation: builder.mutation<
+      { status: string; lat: number; lng: number; source: string },
+      { latitude: number; longitude: number; address?: string; timestamp?: string }
+    >({
+      query: (body) => ({
+        url: "users/location/",
+        method: "POST",
+        body: {
+          latitude: body.latitude,
+          longitude: body.longitude,
+          source: "gps",
+        },
+      }),
+      invalidatesTags: ["User"],
+    }),
   }),
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
 export const {
   useGetUserProfileQuery,
   useUpdateUserProfileMutation,
+  useSaveGeolocationMutation,
 } = userProfileApi;
 
 // ── Types ─────────────────────────────────────────────────────────────────────

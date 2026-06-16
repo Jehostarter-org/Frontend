@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { useGetMyShopQuery } from "@/lib/api/productsApiSlice";
-import { useGetAllProductsQuery } from "@/lib/api/productsApiSlice";
+import { useGetMyProductsQuery } from "@/lib/api/productsApiSlice";
 import { ProductItemCard } from "@/components/reuseables/productItemCard";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import {
@@ -18,7 +18,7 @@ export default function SellersProductPage() {
   const { formatPrice } = useCurrency();
 
   const { data: shop, isLoading: shopLoading, isError: noShop } = useGetMyShopQuery(undefined);
-  const { data: myListings, isLoading: listingsLoading } = useGetAllProductsQuery(
+  const { data: myListings, isLoading: listingsLoading } = useGetMyProductsQuery(
     {},
     { skip: !shop }
   );

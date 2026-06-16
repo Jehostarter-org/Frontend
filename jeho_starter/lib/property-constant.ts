@@ -1,7 +1,9 @@
+// /lib/property-constant.ts
+
 export const PROPERTY_TYPES = [
   { value: "apartment", label: "Apartment" },
   { value: "house", label: "House" },
-  { value: "house", label: "Duplex" },
+  { value: "duplex", label: "Duplex" },      // Fixed: changed from "house" to "duplex"
   { value: "studio", label: "Studio" },
   { value: "villa", label: "Villa" },
   { value: "condo", label: "Condo" },

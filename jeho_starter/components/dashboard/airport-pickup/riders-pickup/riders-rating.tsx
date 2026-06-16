@@ -5,64 +5,105 @@ import { cn } from "@/lib/utils";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star, MessageSquare } from "lucide-react";
+import { useSubmitReviewMutation } from "@/lib/api/riderApiSlice";
+import { ArrowLeft, Star, MessageSquare, Loader2 } from "lucide-react";
 
+/**
+ * Step 6 — Rate your driver.
+ *
+ * FIX: Calls POST /api/services/<serviceRequestId>/review/
+ * with { rating, comment } — matching the ServiceReviewSerializer exactly.
+ * serviceRequestId is resolved from prop or sessionStorage.
+ */
 
 export interface RatingData {
-  rating: number
-  feedback: string
+  rating: number;
+  feedback: string;
 }
 
 interface StepSixRatingProps {
-  onBack?: () => void
-  onSubmitSuccess?: (data: RatingData) => void 
-  driverName?: string 
+  onBack?: () => void;
+  onSubmitSuccess?: (data: RatingData) => void;
+  driverName?: string;
+  serviceRequestId?: string;
 }
 
-export default function StepSixRating({ onSubmitSuccess, driverName = "your driver" }: StepSixRatingProps) {
-  const router = useRouter()
-  const [rating, setRating] = useState(0)
-  const [hoveredRating, setHoveredRating] = useState(0)
-  const [feedback, setFeedback] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export default function StepSixRating({
+  onSubmitSuccess,
+  driverName = "your driver",
+  serviceRequestId,
+}: StepSixRatingProps) {
+  const router = useRouter();
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [feedback, setFeedback] = useState("");
+
+  const [submitReview, { isLoading }] = useSubmitReviewMutation();
+
+  // Resolve the ID — from prop or sessionStorage (set in step 3)
+  const resolvedId =
+    serviceRequestId ||
+    (typeof window !== "undefined"
+      ? sessionStorage.getItem("activeServiceRequestId") ?? ""
+      : "");
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      toast.error("Please select a star rating")
-      return
+      toast.error("Please select a star rating");
+      return;
+    }
+    if (!resolvedId) {
+      toast.error("Could not find your trip. Please try again.");
+      return;
     }
 
-    setIsSubmitting(true)
+    try {
+      await submitReview({
+        serviceId: resolvedId,
+        rating,
+        comment: feedback,
+      }).unwrap();
 
-    await new Promise(resolve => setTimeout(resolve, 800))
+      // Clean up the stored ID after a successful review
+      sessionStorage.removeItem("activeServiceRequestId");
 
-    const data = { rating, feedback }
-    console.log("Rating Submitted:", data)
+      toast.success("Thank you for your feedback!");
+      const data = { rating, feedback };
 
-    if (onSubmitSuccess) {
-      onSubmitSuccess(data)
-    } else {
-      toast.success("Thank you for your feedback!")
-      router.push("/dashboard") 
+      if (onSubmitSuccess) {
+        onSubmitSuccess(data);
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (error: any) {
+      const errorMsg =
+        error?.data?.detail ||
+        error?.data?.non_field_errors?.[0] ||
+        "Failed to submit review. Please try again.";
+      toast.error(errorMsg);
     }
-    
-    setIsSubmitting(false)
-  }
+  };
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="py-1">
-        <Button variant="ghost" className="mb-6 md:-ml-60 bg-gray-200  hover:bg-gray-400 text-gray-700" onClick={() => router.back()}>
+        <Button
+          variant="ghost"
+          className="mb-6 md:-ml-60 bg-gray-200 hover:bg-gray-400 text-gray-700"
+          onClick={() => router.back()}
+        >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
       </div>
 
       <div className="space-y-10 bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-        
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-bold text-gray-900">Rate your trip</h2>
-          <p className="text-gray-500">How was your ride with <span className="font-semibold text-gray-800">{driverName}</span>?</p>
+          <p className="text-gray-500">
+            How was your ride with{" "}
+            <span className="font-semibold text-gray-800">{driverName}</span>?
+          </p>
         </div>
 
         <div className="flex flex-col items-center gap-4">
@@ -80,8 +121,8 @@ export default function StepSixRating({ onSubmitSuccess, driverName = "your driv
                 <Star
                   className={cn(
                     "w-12 h-12 transition-all duration-200",
-                    star <= (hoveredRating || rating) 
-                      ? "fill-yellow-400 stroke-yellow-400 scale-110 drop-shadow-sm" 
+                    star <= (hoveredRating || rating)
+                      ? "fill-yellow-400 stroke-yellow-400 scale-110 drop-shadow-sm"
                       : "fill-gray-50 stroke-gray-300 group-hover:stroke-yellow-200"
                   )}
                 />
@@ -89,7 +130,11 @@ export default function StepSixRating({ onSubmitSuccess, driverName = "your driv
             ))}
           </div>
           <p className="h-6 text-sm font-medium text-teal-700 transition-opacity duration-300">
-             {rating > 0 ? getRatingLabel(rating) : (hoveredRating > 0 ? getRatingLabel(hoveredRating) : "")}
+            {rating > 0
+              ? getRatingLabel(rating)
+              : hoveredRating > 0
+                ? getRatingLabel(hoveredRating)
+                : ""}
           </p>
         </div>
 
@@ -109,22 +154,28 @@ export default function StepSixRating({ onSubmitSuccess, driverName = "your driv
 
         <Button
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isLoading || rating === 0}
           className={cn(
             "w-full py-7 text-lg font-semibold rounded-xl shadow-md transition-all",
             "bg-teal-800 hover:bg-teal-900 text-white",
             "disabled:opacity-70 disabled:cursor-not-allowed"
           )}
         >
-          {isSubmitting ? "Submitting..." : "Submit Feedback"}
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" /> Submitting…
+            </span>
+          ) : (
+            "Submit Feedback"
+          )}
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 function getRatingLabel(star: number) {
-  switch(star) {
+  switch (star) {
     case 1: return "Terrible 😞";
     case 2: return "Bad 🙁";
     case 3: return "Okay 😐";

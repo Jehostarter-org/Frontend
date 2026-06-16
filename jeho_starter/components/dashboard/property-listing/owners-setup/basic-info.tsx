@@ -1,6 +1,8 @@
+// /components/dashboard/property-listing/owners-setup/basic-info.tsx
+
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import FormSection from "../../form-section";
@@ -13,17 +15,22 @@ import { ArrowLeft, Loader2, Building2, MapPin } from "lucide-react";
 import { ownerStep1Schema, OwnerStep1Values } from "@/components/types/schemas/property-scehma";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { useCreatePropertyMutation } from "@/lib/api/propertyApiSlice";
-
+import { useCreatePropertyMutation, useUpdatePropertyMutation } from "@/lib/api/propertyApiSlice";
 
 interface OwnerStep1Props {
-  onNext: (data: OwnerStep1Values) => void;
+  onNext: (data: OwnerStep1Values, propertyId?: string) => void;
   onBack: () => void;
   initialData: Partial<OwnerStep1Values>;
+  propertyId?: string;
 }
 
-export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep1Props) {
-  // const [createProperty, { isLoading: isPosting }] = useCreatePropertyMutation();
+export default function BasicInfoStep({ onNext, onBack, initialData, propertyId }: OwnerStep1Props) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Use RTK Query hooks
+  const [createProperty] = useCreatePropertyMutation();
+  const [updateProperty] = useUpdatePropertyMutation();
 
   const defaultValues = useMemo(() => ({
     propertyTitle: initialData.propertyTitle || "",
@@ -39,24 +46,42 @@ export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep
   const form = useForm<OwnerStep1Values>({
     resolver: zodResolver(ownerStep1Schema),
     defaultValues,
-    mode: "onTouched", 
+    mode: "onTouched",
   });
 
   const onSubmit = async (data: OwnerStep1Values) => {
+    setIsSaving(true);
+    setError(null);
+
     try {
-      onNext(data);
-    } catch (error) {
-      console.error("Failed to sync property info:", error);
+      let savedPropertyId = propertyId;
+
+      if (propertyId) {
+        // Update existing property
+        await updateProperty({ id: propertyId, body: data }).unwrap();
+      } else {
+        // Create new property
+        const newProperty = await createProperty(data).unwrap();
+        savedPropertyId = newProperty.id;
+      }
+
+      // Move to next step with property ID
+      onNext(data, savedPropertyId);
+    } catch (err: any) {
+      console.error("Failed to save property:", err);
+      setError(err.data?.detail || err.message || "Failed to save property");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500" >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="bg-gray-200 p-6 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" type="button" onClick={onBack} className="h-10 w-10 p-0 rounded-full hover:bg-white hover:shadow-sm transition-all" >
+              <Button variant="ghost" type="button" onClick={onBack} className="h-10 w-10 p-0 rounded-full hover:bg-white hover:shadow-sm transition-all">
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </Button>
               <div>
@@ -65,12 +90,12 @@ export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep
               </div>
             </div>
             <div className="hidden sm:block">
-               <Building2 className="w-8 h-8 text-teal-600 " />
+              <Building2 className="w-8 h-8 text-teal-600" />
             </div>
           </div>
 
           <div className="p-6 sm:p-8 space-y-10">
-            <FormSection title="Property Details" description="Basic information about the apartment or house." >
+            <FormSection title="Property Details" description="Basic information about the apartment or house.">
               <div className="md:flex grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-10">
                 <FormField
                   control={form.control}
@@ -95,7 +120,7 @@ export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl className="justify-start mb-5 md:mb-0">
                           <SelectTrigger className="h-11 px-12 py-5">
-                            <SelectValue placeholder="Select property type"/>
+                            <SelectValue placeholder="Select property type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -134,22 +159,22 @@ export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep
                 />
               </div>
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2 lg:col-span-3">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Tell tenants what makes your place special..." className="resize-none min-h-[120px] focus:ring-teal-500" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2 lg:col-span-3">
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Tell tenants what makes your place special..." className="resize-none min-h-[120px] focus:ring-teal-500" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </FormSection>
 
-            <FormSection title="Location Details" description="Help tenants find your property easily." >
+            <FormSection title="Location Details" description="Help tenants find your property easily.">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -216,17 +241,25 @@ export default function BasicInfoStep({ onNext, onBack, initialData }: OwnerStep
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
         <div className="flex items-center justify-end bg-gray-100 p-4 gap-6">
-          <Button type="button" variant="ghost" onClick={onBack} className="text-black border px-6 py-5 hover:bg-gray-200" >
+          <Button type="button" variant="ghost" onClick={onBack} className="text-black border px-6 py-5 hover:bg-gray-200">
             Cancel
           </Button>
-          <div className="flex gap-3">
-            <Button type="submit" 
-            // disabled={isPosting} 
-            className="bg-teal-600 hover:bg-teal-700 text-white px-10 h-11 shadow-sm transition-all" >
-              {/* {isPosting ? ( <>  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...  </> ) : (  "Next"  )} */}Next
-            </Button>
-          </div>
+          <Button type="submit" disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white px-10 h-11 shadow-sm transition-all">
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              "Next"
+            )}
+          </Button>
         </div>
       </form>
     </Form>

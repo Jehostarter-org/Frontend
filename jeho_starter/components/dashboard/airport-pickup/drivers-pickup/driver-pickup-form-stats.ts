@@ -1,126 +1,108 @@
-import StepOneChooseOption from "../airport-pickup";
+// driver-pickup-form-stats.ts - Complete version
+
+"use client";
+
+// Import all step components
+import { StepZeroRoleSelection } from "./driver-pickup-role";
+import { StepTwoRegistration, RegistrationData } from "./driver-pickup-registration";
 import StepThreeDetails from "./driver-pickup-details";
-import { StepSixRating } from "./driver-pickup-ratings";
 import { StepFourNavigation } from "./driver-pickup-navigation";
-import { StepTwoRegistration } from "./driver-pickup-registration";
 import { StepFiveConfirmation } from "./driver-pickup-confirmation";
+import { StepSixRating } from "./driver-pickup-ratings";
 
-import StepSixRiderRating from "../riders-pickup/riders-rating";
-import StepFiveArrival from "../riders-pickup/riders-destination";
-import StepOneBookPickup from "../riders-pickup/riders-pickup-form";
-import StepThreeDirections from "../riders-pickup/riders-direction";
-import StepFourDriverArrived from "../riders-pickup/riders-driver-arrival";
-import StepTwoVehicleSelection from "../riders-pickup/vehicle-selection";
-
-type UserRole = "driver" | "rider";
-
-interface StepConfig {
-  id: string
-  component: React.ElementType
-  title: string
-  progress: number
-  stepLabel: string 
-  showProgress: boolean
-  hasGlobalButton: boolean
-}
-
-export const SHARED_STEP: StepConfig = {
-  id: "role-selection",
-  component: StepOneChooseOption,
-  title: "Airport Pickup Form",
-  progress: 25,
-  stepLabel: "Step 1 of 4",
-  showProgress: true,
-  hasGlobalButton: true,
-}
-
-export const DRIVER_FLOW: StepConfig[] = [
-  SHARED_STEP,
-  {
-    id: "driver-registration",
-    component: StepTwoRegistration,
-    title: "Airport Pickup Form",
-    progress: 50,
-    stepLabel: "Step 2 of 4",
-    showProgress: true,
-    hasGlobalButton: true,
-  },
-  {
-    id: "driver-details",
-    component: StepThreeDetails,
-    title: "Airport Pickup Form",
-    progress: 75,
-    stepLabel: "Step 3 of 4",
-    showProgress: true,
-    hasGlobalButton: true,
-  },
-  {
-    id: "driver-nav",
-    component: StepFourNavigation,
-    title: "Navigate to Airport",
-    progress: 75,
-    stepLabel: "",
-    showProgress: false,
-    hasGlobalButton: true,
-  },
-  {
-    id: "driver-confirm",
-    component: StepFiveConfirmation,
-    title: "Airport Pickup Form",
-    progress: 100,
-    stepLabel: "Step 4 of 4",
-    showProgress: true,
-    hasGlobalButton: true,
-  },
-  {
-    id: "driver-rating",
-    component: StepSixRating,
-    title: "Rating and feedback",
-    progress: 100,
-    stepLabel: "",
-    showProgress: false,
-    hasGlobalButton: true, 
-  },
-]
-
-export const RIDER_FLOW: StepConfig[] = [
-  SHARED_STEP,
-  { id: "rider-book", component: StepOneBookPickup, title: "Airport Pickup Form", progress: 25, stepLabel: "Step 1 of 4", showProgress: true, hasGlobalButton: false },
-  { id: "rider-vehicle", component: StepTwoVehicleSelection, title: "Airport Pickup Form", progress: 50, stepLabel: "Step 2 of 4", showProgress: true, hasGlobalButton: false },
-  { id: "rider-direction", component: StepThreeDirections, title: "Directions", progress: 50, stepLabel: "", showProgress: false, hasGlobalButton: false },
-  { id: "rider-arrived", component: StepFourDriverArrived, title: "Driver has arrived", progress: 75, stepLabel: "", showProgress: false, hasGlobalButton: false },
-  { id: "rider-dest", component: StepFiveArrival, title: "", progress: 100, stepLabel: "", showProgress: false, hasGlobalButton: false },
-  { id: "rider-rating", component: StepSixRiderRating, title: "Rating and feedback", progress: 100, stepLabel: "", showProgress: false, hasGlobalButton: false },
-]
-
+// Initial data structure
 export const INITIAL_DATA = {
-  selectedOption: "driver" as UserRole,
+  // Role selection
+  selectedOption: null as "driver" | "rider" | null,
+
+  // Step 2 - Registration
   firstName: "",
   lastName: "",
-  nationalIdentityNumber: "",
-  licensePlateNumber: "",
   emergencyContact: "",
+  nationalIdentityNumber: "",
+  licenseNumber: "",
+  licensePlateNumber: "",
   licenseStateCountry: "",
   licenseExpirationDate: "",
   vehicleModel: "",
   vehicleYear: "",
-  licenseNumber: "",
   vehicleColour: "",
   vin: "",
-  pickupLocation: "",
-  availabilitySchedule: "",
   driverLicenseImage: null as File | null,
   frontViewPicture: null as File | null,
   backViewPicture: null as File | null,
+  sideViewPicture: null as File | null,
+  interiorPicture: null as File | null,
   plateNumberFrontViewPicture: null as File | null,
   plateNumberBackViewPicture: null as File | null,
 
-  rideId: "00345",
-  passengerName: "Olasupo Emmanuel",
-  contactNumber: "+234 701...",
-  pickupLocationFinal: "MMA 1 Domestic airport",
-  dropoffLocation: "No 33b carrot street...",
-  estimatedArrival: "2:00am WST",
+  // Step 3 - Details
+  availabilitySchedule: "",
+  pickupLocation: "",
+
+  // Step 5 - Confirmation (for ride requests)
+  rideId: "",
+  passengerName: "",
+  contactNumber: "",
+  pickupLocationFinal: "",
+  dropoffLocation: "",
+  estimatedArrival: "",
+
+  // Step 6 - Rating
   rating: 0,
   feedback: "",
-}
+};
+
+// Driver flow steps
+export const DRIVER_FLOW = [
+  {
+    id: "role-selection",
+    title: "Choose Your Role",
+    component: StepZeroRoleSelection,
+    hasGlobalButton: true,
+    showProgress: false,
+    progress: 0,
+    stepLabel: "",
+  },
+  {
+    id: "driver-registration",
+    title: "Become a Driver",
+    component: StepTwoRegistration,
+    hasGlobalButton: true,
+    showProgress: true,
+    progress: 33,
+    stepLabel: "Step 1 of 3: Registration",
+  },
+  {
+    id: "driver-details",
+    title: "Driver's Details",
+    component: StepThreeDetails,
+    hasGlobalButton: true,
+    showProgress: true,
+    progress: 66,
+    stepLabel: "Step 2 of 3: Schedule & Location",
+  },
+  {
+    id: "driver-confirm",
+    title: "Driver's Information",
+    component: StepFiveConfirmation,
+    hasGlobalButton: true,
+    showProgress: true,
+    progress: 100,
+    stepLabel: "Step 3 of 3: Confirmation",
+  },
+];
+
+// Rider flow (to be implemented later)
+export const RIDER_FLOW = [
+  {
+    id: "role-selection",
+    title: "Choose Your Role",
+    component: StepZeroRoleSelection,
+    hasGlobalButton: true,
+    showProgress: false,
+    progress: 0,
+    stepLabel: "",
+  },
+  // Rider steps will be added here
+];

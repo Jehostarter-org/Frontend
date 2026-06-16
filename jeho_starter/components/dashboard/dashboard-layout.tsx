@@ -18,8 +18,6 @@ interface DashboardLayoutProps {
   onClose?: () => void;
 }
 
-export const dynamic = 'force-dynamic';
-
 export default function DashboardShell({ children, onClose }: DashboardLayoutProps) {
   const { logout, user, isLoading } = useAuth();
   const router = useRouter();

@@ -14,6 +14,7 @@ export interface CommunityItem {
   memberCount?: number
   isPrivate?: boolean
   creator?: string
+  isAdmin?: boolean
 }
 
 export interface CommunityGroupsResponse {

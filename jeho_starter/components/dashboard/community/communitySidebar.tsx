@@ -11,8 +11,9 @@
  */
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
-import { Users, Lock } from "lucide-react";
+import { Users, Lock, Plus } from "lucide-react";
 
 export interface SidebarItemData {
   id: string;
@@ -31,13 +32,40 @@ interface SidebarItemProps {
   isDM?: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CommunitySidebarHeader — drop this above your groups list in the community
+// page. It owns the "New Community" button so the inbox page no longer needs it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CommunitySidebarHeaderProps {
+  onCreateCommunity: () => void;
+}
+
+export function CommunitySidebarHeader({ onCreateCommunity }: CommunitySidebarHeaderProps) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
+      <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+        Your Groups
+      </span>
+      <Button
+        onClick={onCreateCommunity}
+        size="sm"
+        className="h-7 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg px-3 shadow-sm shadow-blue-600/20"
+      >
+        <Plus size={13} />
+        New
+      </Button>
+    </div>
+  );
+}
+
 export function SidebarItem({ item, isActive, onClick, isDM = false }: SidebarItemProps) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-3 py-3 px-4 transition-all duration-200 border-b border-slate-100 cursor-pointer text-left ${isActive
-          ? "bg-blue-50 border-l-4 border-blue-500"
-          : "hover:bg-slate-50"
+        ? "bg-blue-50 border-l-4 border-blue-500"
+        : "hover:bg-slate-50"
         }`}
     >
       <div className="h-12 w-12 flex-shrink-0 relative">

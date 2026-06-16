@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 import { FaUserFriends } from "react-icons/fa";
 import { useCreateCommunityMutation } from "@/lib/api/communityApiSlice";
 
@@ -23,10 +24,12 @@ export default function CreateCommunityDialog({
   isOpen,
   onOpenChange,
 }: CreateCommunityDialogProps) {
+  const router = useRouter();
   const [communityName, setCommunityName] = useState("");
-  const [description, setDescription]     = useState("");
-  const [coverImage, setCoverImage]       = useState<File | null>(null);
-  const [coverPreview, setCoverPreview]   = useState<string | null>(null);
+  const [description, setDescription] = useState("");
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [createCommunity, { isLoading: isSubmitting }] = useCreateCommunityMutation();
 
@@ -37,11 +40,29 @@ export default function CreateCommunityDialog({
       setDescription("");
       setCoverImage(null);
       setCoverPreview(null);
+      setIsUploading(false);
     }
   }, [isOpen]);
 
+  // Create preview URL when file is selected
   useEffect(() => {
-    if (!coverImage) return;
+    if (!coverImage) {
+      setCoverPreview(null);
+      return;
+    }
+
+    // Validate file type and size
+    if (!coverImage.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      setCoverImage(null);
+      return;
+    }
+
+    if (coverImage.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      setCoverImage(null);
+      return;
+    }
 
     const previewUrl = URL.createObjectURL(coverImage);
     setCoverPreview(previewUrl);
@@ -51,38 +72,78 @@ export default function CreateCommunityDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!communityName.trim()) {
+      toast.error("Community name is required");
+      return;
+    }
+
+    setIsUploading(true);
+
     try {
       const formData = new FormData();
       formData.append("name", communityName.trim());
       formData.append("description", description.trim());
       formData.append("visibility", "public");
-      if (coverImage) formData.append("cover_image", coverImage);
 
-      await createCommunity(formData).unwrap();
+      // Only append cover_image if a file was selected
+      if (coverImage) {
+        formData.append("cover_image", coverImage);
+      }
+
+      const created = await createCommunity(formData).unwrap();
 
       toast.success("Community Launched! 🚀", {
         description: `${communityName} is now live.`,
       });
+
       onOpenChange(false);
+
+      // Navigate to the new community
+      router.push(`/dashboard/community?group=${created.id}`);
+
+      // Optional: refresh the page to show the new community in the list
+      setTimeout(() => {
+        router.refresh();
+      }, 500);
+
     } catch (err: any) {
-      const detail =
-        err?.data?.detail ||
-        err?.data?.name?.[0] ||
-        "Something went wrong. Please try again.";
-      toast.error("Failed to create community", { description: detail });
+      console.error("Create community error:", err);
+
+      // Handle different error formats
+      let errorMessage = "Something went wrong. Please try again.";
+
+      if (err?.data?.detail) {
+        errorMessage = err.data.detail;
+      } else if (err?.data?.name) {
+        errorMessage = Array.isArray(err.data.name) ? err.data.name[0] : err.data.name;
+      } else if (err?.data?.cover_image) {
+        errorMessage = Array.isArray(err.data.cover_image) ? err.data.cover_image[0] : err.data.cover_image;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      toast.error("Failed to create community", { description: errorMessage });
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setCoverImage(file);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-lg shadow-2xl bg-slate-50">
-        <div className="bg-blue-600 p-8 text-white relative">
+        <div className="bg-teal-900 p-8 text-white relative">
           <Sparkles className="absolute top-4 right-4 opacity-20 w-12 h-12 rotate-12" />
           <DialogHeader className="text-left">
             <DialogTitle className="text-2xl font-black tracking-tight">
               Start a Community
             </DialogTitle>
-            <DialogDescription className="text-blue-50 font-medium">
+            <DialogDescription className="text-teal-100 font-medium">
               Create a space for others to discuss, trade, and connect.
             </DialogDescription>
           </DialogHeader>
@@ -93,13 +154,13 @@ export default function CreateCommunityDialog({
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Name
+                  Name *
                 </Label>
                 <Input
                   placeholder="The Tech Hub"
                   value={communityName}
                   onChange={(e) => setCommunityName(e.target.value)}
-                  className="bg-slate-50 border-none rounded-xl focus:ring-blue-500/10"
+                  className="bg-slate-50 border-none rounded-xl focus:ring-teal-500/10"
                   required
                 />
               </div>
@@ -112,7 +173,7 @@ export default function CreateCommunityDialog({
                   placeholder="Short description..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value.slice(0, 200))}
-                  className="bg-slate-50 border-none rounded-xl focus:ring-blue-500/10 resize-none"
+                  className="bg-slate-50 border-none rounded-xl focus:ring-teal-500/10 resize-none"
                   rows={3}
                 />
               </div>
@@ -121,8 +182,8 @@ export default function CreateCommunityDialog({
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                   Group Picture
                 </Label>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600 hover:bg-slate-100">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
                     <ImagePlus size={18} />
                   </span>
                   <span className="min-w-0 flex-1 truncate">
@@ -132,20 +193,28 @@ export default function CreateCommunityDialog({
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
+                    onChange={handleFileChange}
                   />
                 </label>
+                {coverImage && (
+                  <p className="text-[10px] text-teal-600 mt-1">
+                    ✓ Image ready to upload ({(coverImage.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
               </div>
             </div>
 
             <DialogFooter className="pt-4">
               <Button
                 type="submit"
-                disabled={!communityName.trim() || isSubmitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl h-12 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                disabled={!communityName.trim() || isSubmitting || isUploading}
+                className="w-full bg-teal-900 hover:bg-teal-800 text-white font-black rounded-xl h-12 shadow-lg shadow-teal-900/20 transition-all active:scale-95"
               >
-                {isSubmitting ? (
-                  <Loader2 className="animate-spin" />
+                {(isSubmitting || isUploading) ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    Creating...
+                  </>
                 ) : (
                   "Launch"
                 )}
@@ -161,9 +230,13 @@ export default function CreateCommunityDialog({
 
             <div className="w-full max-w-[240px] bg-white rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white transition-all duration-500 transform hover:scale-105">
               {coverPreview ? (
-                <img src={coverPreview} alt="" className="h-16 w-16 rounded-xl object-cover mb-4 ring-4 ring-blue-500/5" />
+                <img
+                  src={coverPreview}
+                  alt="Community cover preview"
+                  className="h-16 w-16 rounded-xl object-cover mb-4 ring-4 ring-teal-500/5"
+                />
               ) : (
-                <div className="h-12 w-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 mb-4 ring-4 ring-blue-500/5">
+                <div className="h-12 w-12 bg-teal-50 rounded-lg flex items-center justify-center text-teal-700 mb-4 ring-4 ring-teal-500/5">
                   <FaUserFriends size={40} />
                 </div>
               )}

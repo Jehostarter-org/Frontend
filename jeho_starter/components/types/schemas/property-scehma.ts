@@ -16,7 +16,7 @@ export const ownerStep2Schema = z.object({
   bedrooms: z.string().min(1, "At least 1 bedroom is required"),
   bathrooms: z.string().min(1, "At least 1 bathroom is required"),
   amenities: z.array(z.string()).optional(),
-  images: z.array(z.instanceof(File)).min(1, "Please upload at least one image"),
+  images: z.array(z.union([z.instanceof(File), z.string()])).min(1, "Please upload at least one image"),
 });
 
 

@@ -79,14 +79,52 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       providesTags: [{ type: 'Community' as const, id: 'LIST' }],
     }),
 
+    getMyCommunities: builder.query<Community[], void>({
+      query: () => '/community/mine/',
+      transformResponse: (raw: any) =>
+        Array.isArray(raw) ? raw : (raw?.results ?? []),
+      providesTags: [{ type: 'Community' as const, id: 'MINE' }],
+    }),
+
     getCommunity: builder.query<Community, string>({
       query: (id) => `/community/${id}/`,
       providesTags: (_r, _e, id) => [{ type: 'Community' as const, id }],
     }),
 
     createCommunity: builder.mutation<Community, Partial<Community> | FormData>({
-      query: (body) => ({ url: '/community/', method: 'POST', body }),
-      invalidatesTags: [{ type: 'Community' as const, id: 'LIST' }],
+      query: (body) => ({
+        url: '/community/',
+        method: 'POST',
+        body,
+        ...(body instanceof FormData ? { formData: true as const } : {}),
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const enriched: Community = {
+            ...data,
+            is_member: true,
+            is_admin: true,
+          };
+          const upsert = (draft: Community[]) => {
+            const idx = draft.findIndex((c) => c.id === enriched.id);
+            if (idx >= 0) draft[idx] = enriched;
+            else draft.unshift(enriched);
+          };
+          dispatch(
+            communityApiSlice.util.updateQueryData('getCommunities', undefined, upsert),
+          );
+          dispatch(
+            communityApiSlice.util.updateQueryData('getMyCommunities', undefined, upsert),
+          );
+        } catch {
+          /* create failed */
+        }
+      },
+      invalidatesTags: [
+        { type: 'Community' as const, id: 'LIST' },
+        { type: 'Community' as const, id: 'MINE' },
+      ],
     }),
 
     updateCommunity: builder.mutation<Community, { id: string; body: Partial<Community> | FormData }>({
@@ -102,6 +140,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Community' as const, id },
         { type: 'Community' as const, id: 'LIST' },
+        { type: 'Community' as const, id: 'MINE' },
       ],
     }),
 
@@ -110,6 +149,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Community' as const, id },
         { type: 'Community' as const, id: 'LIST' },
+        { type: 'Community' as const, id: 'MINE' },
       ],
     }),
 
@@ -156,7 +196,10 @@ export const communityApiSlice = apiSlice.injectEndpoints({
         url: `/community/invite/${token}/accept/`,
         method: 'POST',
       }),
-      invalidatesTags: [{ type: 'Community' as const, id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Community' as const, id: 'LIST' },
+        { type: 'Community' as const, id: 'MINE' },
+      ],
     }),
 
     getCommunityMessages: builder.query<CommunityMessage[], string>({
@@ -197,6 +240,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
 
 export const {
   useGetCommunitiesQuery,
+  useGetMyCommunitiesQuery,
   useGetCommunityQuery,
   useCreateCommunityMutation,
   useUpdateCommunityMutation,

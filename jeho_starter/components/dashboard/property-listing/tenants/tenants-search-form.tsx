@@ -1,11 +1,13 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { useSelector } from "react-redux";
+import { selectCurrentUser } from "@/lib/features/auth/authSlice";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Wallet, CheckSquare, Search, Home, Clock } from "lucide-react";
+import { Calendar, Wallet, CheckSquare, Search, Home, Clock, MapPin } from "lucide-react";
 import { AMENITIES_LIST, DURATION_TYPES, PROPERTY_TYPES } from "@/lib/property-constant";
 import { tenantSearchSchema, TenantSearchData } from "@/components/types/schemas/tenants-scehma";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,14 +20,16 @@ interface TenantSearchFormProps {
 }
 
 export function TenantSearchForm({ onSearch, isLoading }: TenantSearchFormProps) {
+  const user = useSelector(selectCurrentUser);
   const form = useForm<TenantSearchData>({
     resolver: zodResolver(tenantSearchSchema),
-    defaultValues: { 
-      moveInDate: "", 
-      budget: 0, 
-      amenities: [], 
-      propertyType: "", 
-      duration: "" 
+    defaultValues: {
+      city: user?.city || "",
+      moveInDate: "",
+      budget: 0,
+      amenities: [],
+      propertyType: "",
+      duration: ""
     },
   });
 
@@ -33,6 +37,25 @@ export function TenantSearchForm({ onSearch, isLoading }: TenantSearchFormProps)
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSearch)} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2 text-gray-700 font-semibold">
+                  <MapPin className="w-4 h-4 text-teal-600" /> Location / City
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g. Lagos, Abuja, Accra..."
+                    className="h-12 bg-gray-50 border-gray-200 focus:bg-white"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="propertyType"

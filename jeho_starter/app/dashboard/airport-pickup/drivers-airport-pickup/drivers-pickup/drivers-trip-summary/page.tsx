@@ -1,20 +1,68 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Star, DollarSign, MapPin, Clock } from "lucide-react";
+import { CheckCircle2, Star, DollarSign, MapPin, Clock, Loader2 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
+import { useGetDriverServiceRequestQuery, useRatePassengerMutation } from "@/lib/api/riderApiSlice";
 
 export default function TripCompletion() {
   const router = useRouter();
   const [rating, setRating] = useState(0);
+  const [serviceRequestId, setServiceRequestId] = useState("");
+
+  useEffect(() => {
+    const id = sessionStorage.getItem("activeDriverServiceId") || "";
+    setServiceRequestId(id);
+  }, []);
+
+  const { data: sr, isLoading } = useGetDriverServiceRequestQuery(serviceRequestId, {
+    skip: !serviceRequestId,
+  });
+
+  const [ratePassenger, { isLoading: isSubmitting }] = useRatePassengerMutation();
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      toast.error("Please rate the passenger");
+      return;
+    }
+    try {
+      await ratePassenger({ serviceId: serviceRequestId, rating }).unwrap();
+      toast.success("Rating submitted!");
+    } catch {
+      toast.error("Failed to submit rating");
+    }
+  };
+
+  const price = sr?.price
+    ? new Intl.NumberFormat("en", {
+        style: "currency",
+        currency: sr.currency || "NGN",
+        minimumFractionDigits: 0,
+      }).format(Number(sr.price))
+    : "—";
+
+  const distance = sr?.distance_km ? `${Number(sr.distance_km).toFixed(1)} km` : "—";
+  const duration = sr?.estimated_duration_min ? `${sr.estimated_duration_min} min` : "—";
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
       <div className="max-w-2xl mx-auto p-5 py-10">
         <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden text-center">
-          
+
           {/* Success Header */}
           <div className="bg-[#f0f9f9] py-12 flex flex-col items-center">
             <div className="bg-green-100 p-4 rounded-full mb-4">
@@ -30,18 +78,18 @@ export default function TripCompletion() {
               <div className="text-center">
                 <p className="text-sm text-gray-500 uppercase font-semibold">Total Fare</p>
                 <div className="text-2xl font-bold text-gray-900 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5" /> 45.50
+                  <DollarSign className="h-5 w-5" /> {price}
                 </div>
               </div>
               <div className="h-10 w-[1px] bg-gray-200" />
               <div className="text-center">
                 <p className="text-sm text-gray-500 uppercase font-semibold">Distance</p>
-                <p className="text-2xl font-bold text-gray-900">12.4 km</p>
+                <p className="text-2xl font-bold text-gray-900">{distance}</p>
               </div>
               <div className="h-10 w-[1px] bg-gray-200" />
               <div className="text-center">
                 <p className="text-sm text-gray-500 uppercase font-semibold">Duration</p>
-                <p className="text-2xl font-bold text-gray-900">28 min</p>
+                <p className="text-2xl font-bold text-gray-900">{duration}</p>
               </div>
             </div>
 
@@ -63,20 +111,33 @@ export default function TripCompletion() {
                   </button>
                 ))}
               </div>
+              <Button
+                onClick={handleSubmitRating}
+                disabled={isSubmitting || rating === 0}
+                className="mt-6 bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Rating"}
+              </Button>
             </div>
 
             {/* Final Actions */}
             <div className="space-y-3">
-              <Button 
-                onClick={() => router.push("/dashboard/airport-pickup/drivers-pickup")}
+              <Button
+                onClick={() => {
+                  sessionStorage.removeItem("activeDriverServiceId");
+                  router.push("/dashboard/airport-pickup/drivers-pickup");
+                }}
                 className="w-full bg-[#2d7a7a] hover:bg-[#246060] text-white py-7 text-lg font-bold rounded-2xl shadow-lg"
               >
                 Go Back Online
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="w-full text-gray-500 hover:text-gray-700"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => {
+                  sessionStorage.removeItem("activeDriverServiceId");
+                  router.push("/dashboard");
+                }}
               >
                 Go to Dashboard Home
               </Button>

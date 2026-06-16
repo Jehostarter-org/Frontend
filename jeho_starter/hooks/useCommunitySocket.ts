@@ -105,8 +105,8 @@ export function useCommunitySocket({
     useEffect(() => {
         if (!communityId || !token) return;
 
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const url = `${protocol}://${window.location.host}/ws/community/${communityId}/?token=${token}`;
+        const wsBase = process.env.NEXT_PUBLIC_WS_URL ?? "ws://127.0.0.1:8000";
+        const url = `${wsBase}/ws/community/${communityId}/?token=${token}`;
         const ws = new WebSocket(url);
         wsRef.current = ws;
 

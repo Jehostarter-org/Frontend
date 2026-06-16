@@ -18,24 +18,84 @@ import {
   Check,
   CheckCheck,
   File,
+  FileText,
   Lock,
   Sparkles,
   Trash2,
   Reply,
   X,
+  Plus,
+  Play,
+  Music,
 } from "lucide-react";
 
 import { SidebarItem } from "@/components/dashboard/community/communitySidebar";
 import { JoinGroupModal } from "@/components/dashboard/community/joinGroupModal";
 import { GroupInfoSidebar } from "@/components/dashboard/community/groupInfoSidebar";
+import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
+import { DMList } from "@/components/messaging/DMList";
+import { DMChatView } from "@/components/messaging/DMChatView";
+import { MediaViewer, isMediaType } from "@/components/reuseables/media-viewer";
 
+import { useAuth } from "@/components/contexts/auth-context";
 import {
   useGetCommunitiesQuery,
+  useGetMyCommunitiesQuery,
+  useGetCommunityQuery,
   useJoinCommunityMutation,
   useGetCommunityMessagesQuery,
   useSendCommunityMessageMutation,
   type CommunityMessage,
 } from "@/lib/api/communityApiSlice";
+import {
+  useGetConversationQuery,
+  type Conversation,
+} from "@/lib/api/messagesApiSlice";
+
+// ── File upload limits ──────────────────────────────────────────────────────
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ALLOWED_FILE_TYPES = [
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+  // Videos
+  "video/mp4", "video/webm", "video/ogg", "video/quicktime",
+  // Audio
+  "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac",
+  // Documents
+  "application/pdf",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-powerpoint", // .ppt
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+  "text/plain",
+  "text/csv",
+];
+const ACCEPTED_FILE_EXTENSIONS = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+
+function validateFileSize(file: File): boolean {
+  if (file.size > MAX_FILE_SIZE) {
+    const maxMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+    const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+    toast.error("File too large", { description: `${fileMB} MB exceeds the ${maxMB} MB limit.` });
+    return false;
+  }
+  return true;
+}
+
+function validateFileType(file: File): boolean {
+  // Some browsers/OS don't detect MIME type — fall back to extension check
+  if (!file.type && file.name.includes(".")) {
+    return true;
+  }
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    toast.error("Unsupported file type", { description: `"${file.name.split(".").pop()?.toUpperCase()}" files are not allowed.` });
+    return false;
+  }
+  return true;
+}
 
 // ── Helper: resolve the current user's ID from localStorage ──────────────────
 
@@ -52,10 +112,6 @@ function getCurrentUserId(): string | null {
 }
 
 // ── Helper: make a relative media URL absolute ────────────────────────────────
-// Django REST Framework returns cover_image as a relative path like
-// "/media/community_covers/xyz.jpg". We resolve it against the API base so
-// <SafeImage> gets a fully-qualified URL regardless of deployment domain.
-
 function resolveMediaUrl(url: string | null | undefined): string {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
@@ -73,7 +129,6 @@ function useCommunityChat(communityId: string | null) {
   const [liveMessages, setLiveMessages] = useState<CommunityMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  // ── NEW: track which user_ids are currently connected to this room ─────────
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -167,7 +222,6 @@ function useCommunityChat(communityId: string | null) {
           );
         }
 
-        // ── NEW: presence events ─────────────────────────────────────────────
         if (data.type === "user_joined") {
           setOnlineUsers((prev) => new Set([...prev, data.user_id]));
         }
@@ -235,7 +289,7 @@ function useCommunityChat(communityId: string | null) {
     isConnected,
     isLoadingHistory,
     typingUsers,
-    onlineUsers,          // ← NEW export
+    onlineUsers,
     sendMessage,
     sendTyping,
     sendDeleteMessage,
@@ -248,21 +302,23 @@ function useCommunityChat(communityId: string | null) {
 
 type TabType = "groups" | "messages" | "discovery";
 
-function apiToCommunityItem(c: any): CommunityItem {
+function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityItem {
+  const isCreator =
+    Boolean(currentUserId) && String(c.creator) === String(currentUserId);
+  const isMember = Boolean(c.is_member) || isCreator;
+
   return {
     id: c.id,
     title: c.name,
-    // ── FIX: resolve relative media URLs so <SafeImage> always gets an
-    //         absolute URL, even after an admin uploads a new cover image.
     avatar: resolveMediaUrl(c.cover_image),
     message: c.description ?? "",
     unreadCount: c.unread_count || 0,
-    type: c.is_member ? "active_group" : "discovery",
+    type: isMember ? "active_group" : "discovery",
     description: c.description,
     memberCount: c.member_count,
     isPrivate: c.visibility === "private",
     creator: c.creator,
-    isAdmin: c.is_admin,
+    isAdmin: Boolean(c.is_admin) || isCreator,
   };
 }
 
@@ -297,14 +353,125 @@ interface ContextMenu {
   y: number;
 }
 
+// ── Attachment Preview (WhatsApp-style inline previews) ──────────────────────
+
+interface AttachmentPreviewProps {
+  url: string;
+  type: string;
+  name: string;
+  size: number;
+  onClick: (url: string, type: string, name: string, size: number) => void;
+}
+
+function AttachmentPreview({ url, type, name, size, onClick }: AttachmentPreviewProps) {
+  const handleClick = () => onClick(url, type, name, size);
+  const sizeLabel = size > 0 ? `${(size / 1024).toFixed(0)} KB` : '';
+
+  // Image — thumbnail preview
+  if (isMediaType(type, 'image')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 overflow-hidden rounded-lg cursor-pointer block max-w-[280px] group/preview relative"
+      >
+        <img
+          src={url}
+          alt={name}
+          className="w-full h-auto max-h-[200px] object-cover rounded-lg transition-transform duration-200 group-hover/preview:scale-[1.02]"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/10 transition-colors duration-200 rounded-lg" />
+      </button>
+    );
+  }
+
+  // Video — thumbnail with play button overlay
+  if (isMediaType(type, 'video')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 relative overflow-hidden rounded-lg cursor-pointer block max-w-[280px] group/preview"
+      >
+        <video
+          src={url}
+          className="w-full h-auto max-h-[200px] object-cover rounded-lg"
+          preload="metadata"
+        />
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-lg group-hover/preview:bg-black/40 transition-colors duration-200">
+          <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover/preview:scale-110 transition-transform duration-200">
+            <Play size={20} className="text-slate-800 ml-0.5" fill="currentColor" />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // Audio — inline player card
+  if (isMediaType(type, 'audio')) {
+    return (
+      <div className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px]">
+        <button
+          onClick={handleClick}
+          className="w-10 h-10 shrink-0 bg-blue-100 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
+        >
+          <Play size={16} className="text-blue-600 ml-0.5" fill="currentColor" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold text-slate-700 truncate">{name}</p>
+          <p className="text-[10px] text-slate-400">{sizeLabel || 'Audio'}</p>
+        </div>
+        <Music size={14} className="text-slate-300 shrink-0" />
+      </div>
+    );
+  }
+
+  // PDF — document card
+  if (isMediaType(type, 'pdf')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px] cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors group/preview text-left"
+      >
+        <div className="w-10 h-10 shrink-0 bg-red-100 rounded-lg flex items-center justify-center">
+          <FileText size={18} className="text-red-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold text-slate-700 truncate group-hover/preview:text-blue-700 transition-colors">{name}</p>
+          <p className="text-[10px] text-slate-400">PDF • {sizeLabel || 'Document'}</p>
+        </div>
+      </button>
+    );
+  }
+
+  // Other files — generic file card
+  return (
+    <button
+      onClick={handleClick}
+      className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px] cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors group/preview text-left"
+    >
+      <div className="w-10 h-10 shrink-0 bg-slate-100 rounded-lg flex items-center justify-center">
+        <File size={18} className="text-slate-500" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-slate-700 truncate group-hover/preview:text-blue-700 transition-colors">{name}</p>
+        <p className="text-[10px] text-slate-400">{sizeLabel || 'File'}</p>
+      </div>
+    </button>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CommunityPage() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<TabType>("groups");
+  const [activeTab, setActiveTab] = useState<TabType>(
+    () => (searchParams.get("tab") === "messages" ? "messages" : "groups"),
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     () => searchParams.get("group"),
   );
+  const [selectedDM, setSelectedDM] = useState<Conversation | null>(null);
+  const [showDMInfo, setShowDMInfo] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isInfoBarOpen, setIsInfoBarOpen] = useState(false);
@@ -313,6 +480,9 @@ export default function CommunityPage() {
   const [messageReadStates, setMessageReadStates] = useState<Record<string, "sent" | "delivered" | "read">>({});
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; sender_username: string; content: string } | null>(null);
+  const [showCreateCommunity, setShowCreateCommunity] = useState(false);
+  const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string; name: string; size: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -324,6 +494,11 @@ export default function CommunityPage() {
   }, []);
 
   useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "messages") {
+      setActiveTab("messages");
+    }
+
     const groupId = searchParams.get("group");
     if (groupId) {
       setSelectedGroupId(groupId);
@@ -331,31 +506,90 @@ export default function CommunityPage() {
     }
   }, [searchParams]);
 
-  const { data: apiCommunities = [], isLoading } = useGetCommunitiesQuery();
+  const { token, user } = useAuth();
+  const currentUserId = user?.id ?? getCurrentUserId();
+
+  const { data: myCommunities = [], isLoading: loadingMy } = useGetMyCommunitiesQuery(undefined, {
+    skip: !token,
+    refetchOnMountOrArgChange: true,
+  });
+
+  const { data: allCommunities = [], isLoading: loadingAll } = useGetCommunitiesQuery(undefined, {
+    skip: !token,
+    refetchOnMountOrArgChange: true,
+  });
+
+  const isLoading = loadingMy || loadingAll;
   const [joinCommunity] = useJoinCommunityMutation();
   const [sendCommunityMessage, { isLoading: isUploadingFile }] = useSendCommunityMessageMutation();
 
   const isDM = selectedGroupId?.startsWith("dm-") ?? false;
   const wsGroupId = selectedGroupId && !isDM ? selectedGroupId : null;
+  const conversationIdParam = searchParams.get("conversation");
+  const conversationId = conversationIdParam ? Number(conversationIdParam) : null;
+  const { data: linkedConversation } = useGetConversationQuery(conversationId!, {
+    skip: !token || !conversationId || Number.isNaN(conversationId),
+  });
+
+  useEffect(() => {
+    if (!linkedConversation) return;
+    setSelectedDM(linkedConversation);
+    setSelectedGroupId(null);
+    setActiveTab("messages");
+  }, [linkedConversation]);
+
+  // ── FIX: fetch the individual community when it's not in the list yet ────
+  const communityInList = useMemo(
+    () =>
+      myCommunities.some((c) => c.id === selectedGroupId) ||
+      allCommunities.some((c) => c.id === selectedGroupId),
+    [myCommunities, allCommunities, selectedGroupId],
+  );
+  const { data: fetchedCommunity } = useGetCommunityQuery(
+    selectedGroupId!,
+    { skip: !selectedGroupId || isDM || communityInList },
+  );
 
   const {
     messages,
     isConnected,
     isLoadingHistory,
     typingUsers,
-    onlineUsers,        // ← NEW
-    sendMessage,
-    sendTyping,
-    sendDeleteMessage,
-    appendMessage,
-    removeMessage,
+    onlineUsers,
+    sendMessage: sendCommunityMessageWS,
+    sendTyping: sendCommunityTyping,
+    sendDeleteMessage: sendCommunityDeleteMessage,
+    appendMessage: appendCommunityMessage,
+    removeMessage: removeCommunityMessage,
   } = useCommunityChat(wsGroupId);
 
-  const communities = useMemo<CommunityItem[]>(
-    () => apiCommunities.map((c: any) => apiToCommunityItem(c)),
-    [apiCommunities],
+  const myGroupItems = useMemo(
+    () => myCommunities.map((c) => apiToCommunityItem(c, currentUserId)),
+    [myCommunities, currentUserId],
   );
 
+  const myIds = useMemo(() => new Set(myCommunities.map((c) => c.id)), [myCommunities]);
+
+  const discoverItems = useMemo(() => {
+    return allCommunities
+      .filter((c) => !myIds.has(c.id) && String(c.creator) !== String(currentUserId ?? ""))
+      .map((c) => apiToCommunityItem(c, currentUserId));
+  }, [allCommunities, myIds, currentUserId]);
+
+  const communities = useMemo<CommunityItem[]>(() => {
+    const base = activeTab === "groups" ? myGroupItems : discoverItems;
+    const list = [...base];
+    if (
+      fetchedCommunity &&
+      !list.some((c) => c.id === fetchedCommunity.id) &&
+      (activeTab === "groups" || !myIds.has(fetchedCommunity.id))
+    ) {
+      list.unshift(apiToCommunityItem(fetchedCommunity, currentUserId));
+    }
+    return list;
+  }, [activeTab, myGroupItems, discoverItems, fetchedCommunity, currentUserId, myIds]);
+
+  // ── selectedGroup resolves from the merged list (includes fallback fetch) ─
   const selectedGroup = useMemo(
     () => communities.find((c) => c.id === selectedGroupId),
     [communities, selectedGroupId],
@@ -364,13 +598,8 @@ export default function CommunityPage() {
 
   const filteredList = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return communities.filter((item) => {
-      if (!item.title.toLowerCase().includes(q)) return false;
-      if (activeTab === "groups") return item.type === "active_group";
-      if (activeTab === "discovery") return item.type === "discovery";
-      return false;
-    });
-  }, [communities, activeTab, searchQuery]);
+    return communities.filter((item) => item.title.toLowerCase().includes(q));
+  }, [communities, searchQuery]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -397,18 +626,19 @@ export default function CommunityPage() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
+  // ── chatHeader uses selectedGroup directly (works even before list refetch) ─
   const chatHeader = useMemo(() => {
     if (!selectedGroupId) return null;
     if (isDM) return { title: "Direct Message", avatar: "", status: "Online", isDM: true };
-    const group = communities.find((c) => c.id === selectedGroupId);
     return {
-      title: group?.title || "Community",
-      // group.avatar is already resolved to absolute by apiToCommunityItem
-      avatar: group?.avatar || "",
-      status: isConnected ? `${group?.memberCount || 12} members • Active` : "Connecting…",
+      title: selectedGroup?.title || "Community",
+      avatar: selectedGroup?.avatar || "",
+      status: isConnected
+        ? `${selectedGroup?.memberCount || 0} members • Active`
+        : "Connecting…",
       isDM: false,
     };
-  }, [selectedGroupId, communities, isConnected, isDM]);
+  }, [selectedGroupId, selectedGroup, isConnected, isDM]);
 
   const handleItemClick = (item: CommunityItem) => {
     if (activeTab === "discovery") {
@@ -416,7 +646,18 @@ export default function CommunityPage() {
       setIsJoinModalOpen(true);
     } else {
       setSelectedGroupId(item.id);
+      setSelectedDM(null);
     }
+  };
+
+  const handleDMSelect = (conversation: Conversation) => {
+    setSelectedDM(conversation);
+    setSelectedGroupId(null);
+    setActiveTab("messages");
+  };
+
+  const handleDMBack = () => {
+    setSelectedDM(null);
   };
 
   const handleJoinConfirm = async (groupId: string) => {
@@ -435,7 +676,7 @@ export default function CommunityPage() {
     if (e) e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed) return;
-    sendMessage(trimmed, replyingTo?.id ?? null);
+    sendCommunityMessageWS(trimmed, replyingTo?.id ?? null);
     setNewMessage("");
     setReplyingTo(null);
   };
@@ -444,12 +685,14 @@ export default function CommunityPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !wsGroupId) return;
+    if (!validateFileSize(file)) return;
+    if (!validateFileType(file)) return;
     const formData = new FormData();
     formData.append("content", file.name);
     formData.append("attachment", file);
     try {
       const uploaded = await sendCommunityMessage({ id: wsGroupId, body: formData }).unwrap();
-      appendMessage(uploaded);
+      appendCommunityMessage(uploaded);
       toast.success("File shared");
     } catch (err: any) {
       const detail = err?.data?.detail || "Unable to share this file. Please try again.";
@@ -475,8 +718,13 @@ export default function CommunityPage() {
   const handleDeleteMessage = (messageId: string) => {
     setContextMenu(null);
     if (!wsGroupId) return;
-    removeMessage(messageId);
-    sendDeleteMessage(messageId);
+    removeCommunityMessage(messageId);
+    sendCommunityDeleteMessage(messageId);
+  };
+
+  const handleMediaClick = (url: string, type: string, name: string, size: number) => {
+    setSelectedMedia({ url, type, name, size });
+    setMediaViewerOpen(true);
   };
 
   if (isLoading)
@@ -493,9 +741,17 @@ export default function CommunityPage() {
       <div className="flex h-[calc(100vh-100px)] overflow-hidden bg-slate-50 rounded-xl shadow-xl border border-slate-200 mx-2 mb-2 relative">
 
         {/* ── SIDEBAR ── */}
-        <aside className={`${selectedGroupId ? "hidden md:flex" : "flex"} w-full md:w-[380px] flex-col border-r border-slate-200 bg-white z-20`}>
+        <aside className={`${selectedGroupId || selectedDM ? "hidden md:flex" : "flex"} w-full md:w-[380px] flex-col border-r border-slate-200 bg-white z-20`}>
           <div className="bg-white h-[60px] flex items-center justify-between px-4 py-2 shrink-0 border-b border-slate-200">
             <h2 className="text-sm font-semibold text-slate-700">Communities</h2>
+            <Button
+              onClick={() => setShowCreateCommunity(true)}
+              size="sm"
+              className="h-8 gap-1.5 bg-teal-900 hover:bg-teal-800 text-white text-[11px] font-bold rounded-lg px-3 shadow-sm shadow-teal-900/20"
+            >
+              <Plus size={13} />
+              Create Community
+            </Button>
           </div>
 
           <div className="p-2.5 bg-white shrink-0 border-b border-slate-100 flex items-center">
@@ -514,7 +770,7 @@ export default function CommunityPage() {
             {(["groups", "messages", "discovery"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedGroupId(null); }}
+                onClick={() => { setActiveTab(tab); setSelectedGroupId(null); setSelectedDM(null); }}
                 className={`py-1.5 px-4 rounded-full text-[13px] font-semibold transition-all shrink-0 capitalize ${activeTab === tab ? "bg-blue-50 text-blue-700" : "bg-slate-100 hover:bg-slate-200 text-slate-600"
                   }`}
               >
@@ -527,30 +783,34 @@ export default function CommunityPage() {
 
           <div className="flex-1 overflow-y-auto bg-white custom-scrollbar">
             <div className="py-2">
-              {filteredList.length === 0 ? (
-                <div className="text-center py-12 px-6 flex flex-col items-center justify-center">
-                  <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
-                    <MessageSquare size={24} />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    {activeTab === "groups" ? "No active groups joined yet."
-                      : activeTab === "messages" ? "No conversations found."
-                        : "No communities found."}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {activeTab === "discovery" ? "Check your internet or search filters." : "Explore the 'Discover' tab to find groups!"}
-                  </p>
-                </div>
+              {activeTab === "messages" ? (
+                <DMList selectedId={selectedDM?.id ?? null} onSelect={handleDMSelect} />
               ) : (
-                filteredList.map((item) => (
-                  <SidebarItem
-                    key={item.id}
-                    item={item}
-                    isActive={selectedGroupId === item.id}
-                    onClick={() => handleItemClick(item)}
-                    isDM={activeTab === "messages"}
-                  />
-                ))
+                <>
+                  {filteredList.length === 0 ? (
+                    <div className="text-center py-12 px-6 flex flex-col items-center justify-center">
+                      <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+                        <MessageSquare size={24} />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-500">
+                        {activeTab === "groups" ? "No active groups joined yet." : "No communities found."}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {activeTab === "discovery" ? "Check your internet or search filters." : "Explore the 'Discover' tab to find groups!"}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredList.map((item) => (
+                      <SidebarItem
+                        key={item.id}
+                        item={item}
+                        isActive={selectedGroupId === item.id}
+                        onClick={() => handleItemClick(item)}
+                        isDM={false}
+                      />
+                    ))
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -559,7 +819,13 @@ export default function CommunityPage() {
         {/* ── MAIN CHAT AREA ── */}
         <main className="flex-1 flex flex-row bg-slate-50 relative overflow-hidden">
           <div className="flex-1 flex flex-col relative h-full">
-            {selectedGroupId && chatHeader ? (
+            {selectedDM ? (
+              <DMChatView
+                conversation={selectedDM}
+                onBack={handleDMBack}
+                onInfoClick={() => setShowDMInfo(!showDMInfo)}
+              />
+            ) : selectedGroupId && chatHeader ? (
               <>
                 {/* Chat Header */}
                 <header className="h-[60px] bg-white flex items-center justify-between px-4 py-2 shrink-0 border-b border-slate-200 z-10 select-none">
@@ -655,15 +921,13 @@ export default function CommunityPage() {
                                 </div>
 
                                 {msg.attachment_url && (
-                                  <a
-                                    href={msg.attachment_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-2 mr-10 flex items-center gap-2 rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:text-blue-700"
-                                  >
-                                    <File size={16} className="shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{msg.attachment_name || "Download file"}</span>
-                                  </a>
+                                  <AttachmentPreview
+                                    url={msg.attachment_url!}
+                                    type={msg.attachment_type || ''}
+                                    name={msg.attachment_name || 'File'}
+                                    size={msg.attachment_size || 0}
+                                    onClick={handleMediaClick}
+                                  />
                                 )}
 
                                 <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none">
@@ -736,7 +1000,7 @@ export default function CommunityPage() {
                   )}
 
                   <div className="flex items-center gap-3">
-                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} disabled={!isConnected || isUploadingFile} />
+                    <input ref={fileInputRef} type="file" className="hidden" accept={ACCEPTED_FILE_EXTENSIONS} onChange={handleFileUpload} disabled={!isConnected || isUploadingFile} />
                     <Button type="button" variant="ghost" size="icon" disabled={!isConnected || isUploadingFile} onClick={() => fileInputRef.current?.click()} className="hover:bg-slate-100 rounded-full h-10 w-10 text-slate-500 shrink-0" title="Share file">
                       {isUploadingFile ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
                     </Button>
@@ -744,12 +1008,12 @@ export default function CommunityPage() {
                       <input
                         ref={inputRef}
                         value={newMessage}
-                        onChange={(e) => { setNewMessage(e.target.value); sendTyping(); }}
+                        onChange={(e) => { setNewMessage(e.target.value); sendCommunityTyping(); }}
                         placeholder={isConnected ? (replyingTo ? `Reply to ${replyingTo.sender_username}…` : "Type a message") : "Connecting to chat..."}
-                        disabled={!isConnected && !isDM}
+                        disabled={!isConnected}
                         className="flex-1 bg-slate-100 rounded-lg px-4 py-2.5 text-[14px] text-slate-800 placeholder-slate-400 outline-none border-none shadow-sm focus:ring-1 focus:ring-blue-300"
                       />
-                      <Button type="submit" size="icon" disabled={!newMessage.trim() || (!isConnected && !isDM)} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
+                      <Button type="submit" size="icon" disabled={!newMessage.trim() || !isConnected} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
                         <Send size={18} className="translate-x-[1px]" />
                       </Button>
                     </form>
@@ -765,7 +1029,7 @@ export default function CommunityPage() {
                   </div>
                   <h3 className="text-3xl font-light text-slate-800 tracking-tight">Community Hub</h3>
                   <p className="text-slate-500 text-[14px] mt-4 leading-relaxed font-normal">
-                    Send and receive messages in real time. Choose from your joined communities on the left or discover new exciting groups!
+                    Send and receive messages in real time. Choose from your joined communities on the left, check your DMs in the Chats tab, or discover new exciting groups!
                   </p>
                   <div className="w-full h-px bg-slate-200 my-8" />
                   <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 font-medium">
@@ -777,16 +1041,46 @@ export default function CommunityPage() {
             )}
           </div>
 
-          {/* Group details sidebar — now receives onlineUsers */}
-          <GroupInfoSidebar
-            isOpen={isInfoBarOpen}
-            onClose={() => setIsInfoBarOpen(false)}
-            group={communities.find((c) => c.id === selectedGroupId)}
-            currentUserId={currentUserIdRef.current}
-            onlineUsers={onlineUsers}
-          />
+          {/* Info sidebar - conditionally render based on DM or Group */}
+          {selectedDM ? (
+            <GroupInfoSidebar
+              isOpen={showDMInfo}
+              onClose={() => setShowDMInfo(false)}
+              group={undefined}
+              currentUserId={currentUserIdRef.current}
+              onlineUsers={new Set()}
+              dmParticipant={selectedDM.other_participant}
+            />
+          ) : (
+            <GroupInfoSidebar
+              isOpen={isInfoBarOpen}
+              onClose={() => setIsInfoBarOpen(false)}
+              group={communities.find((c) => c.id === selectedGroupId)}
+              currentUserId={currentUserIdRef.current}
+              onlineUsers={onlineUsers}
+            />
+          )}
         </main>
       </div>
+
+      {/* Create Community Dialog */}
+      <CreateCommunityDialog
+        isOpen={showCreateCommunity}
+        onOpenChange={setShowCreateCommunity}
+      />
+
+      {/* Media Viewer */}
+      <MediaViewer
+        isOpen={mediaViewerOpen}
+        onClose={() => {
+          setMediaViewerOpen(false);
+          setSelectedMedia(null);
+        }}
+        mediaUrl={selectedMedia?.url || ''}
+        mediaType={selectedMedia?.type || ''}
+        mediaName={selectedMedia?.name || ''}
+        mediaSize={selectedMedia?.size || 0}
+      />
 
       {/* Right-click context menu */}
       {contextMenu && (() => {

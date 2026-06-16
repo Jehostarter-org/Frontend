@@ -31,11 +31,20 @@ function AuthHydrator({ children }: { children: React.ReactNode }) {
     }
     // Small timeout ensures Redux has processed the action
     // before any child component fires an API call
-    const timer = setTimeout(() => setReady(true), 50);
+    const timer = setTimeout(() => setReady(true), 150);
     return () => clearTimeout(timer);
   }, [dispatch]);
 
-  // Don't render children until hydration is done
+  // Also check that token is actually present before considering ready
+  const token = useSelector(selectCurrentToken);
+  const [tokenChecked, setTokenChecked] = useState(false);
+
+  useEffect(() => {
+    if (ready && !tokenChecked) {
+      setTokenChecked(true);
+    }
+  }, [ready, token, tokenChecked]);
+
   if (!ready) return null;
 
   return <>{children}</>;

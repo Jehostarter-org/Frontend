@@ -1,23 +1,8 @@
 import { apiSlice } from "./apiSlice";
 
+// Airport-specific endpoints
 export const airportAuthApiSlice = apiSlice.injectEndpoints({
-   endpoints: (builder) => ({
-        registerDriver: builder.mutation({
-            query: (driverData) => ({
-                url: '/driver/register',
-                method: 'POST',
-                body: driverData,
-            }),
-        }),
-        // New endpoint integration
-        setupAirportPlan: builder.mutation({
-            query: (airportData) => ({
-                url: '/plan/airport/setup',
-                method: 'POST',
-                body: airportData,
-            }),
-        }),
-    }),
+   endpoints: () => ({}),
 });
 
-export const { useRegisterDriverMutation, useSetupAirportPlanMutation } = airportAuthApiSlice; 
+export const {} = airportAuthApiSlice; 

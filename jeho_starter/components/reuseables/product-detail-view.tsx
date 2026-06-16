@@ -1,25 +1,30 @@
 'use client'
 
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Bookmark, Share2, ChevronLeft, ChevronRight, ShieldCheck, MapPin } from "lucide-react";
+import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin } from "lucide-react";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
+import { useCurrency } from "@/components/contexts/currencyContext";
+import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
+import { ProductImageGallery } from "@/components/reuseables/product-image-gallery";
 
 interface ProductDetailViewProps {
   product: any; // accepts both old shape and new API shape
 }
 
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const { isLoggedIn } = useAuth();
   const { isInCart, toggleBookmark } = useCart();
+  const { formatPrice } = useCurrency();
+  const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
 
   const listingId = product?.id ?? '';
   const isSaved = listingId ? isInCart(listingId) : false;
@@ -38,6 +43,8 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product]);
 
   const sellerName: string = product?.sellerName ?? product?.shop_name ?? "Seller";
+  const sellerId: string | number | null =
+    product?.seller_id ?? product?.sellerId ?? product?.shop?.owner_id ?? product?.shop?.owner ?? null;
   const createdAt: string  = product?.createdAt  ?? product?.created_at ?? "";
   const location: string   = product?.location   ?? product?.city       ?? "";
   const condition: string  = product?.condition  ?? "";
@@ -45,27 +52,11 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const rawPrice           = product?.price ?? 0;
   const price: number      = typeof rawPrice === "string" ? parseFloat(rawPrice) : rawPrice;
 
-  const handlePrevImage = () => {
-    if (!images.length) return;
-    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-  };
 
-  const handleNextImage = () => {
-    if (!images.length) return;
-    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-  };
 
   const formattedPrice = useMemo(() => {
-    try {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(price);
-    } catch {
-      return `${currency} ${price}`;
-    }
-  }, [price, currency]);
+    return formatPrice(price, currency);
+  }, [price, currency, formatPrice]);
 
   const timeAgo = useMemo(() => {
     if (!createdAt) return "recently";
@@ -77,7 +68,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     return `${Math.floor(diffInHours / 24)}d ago`;
   }, [createdAt]);
 
-  const currentImage = images[currentImageIndex] || "/placeholder.svg";
+  const currentImage = images[0] || "/placeholder.svg";
 
   const handleBookmark = async () => {
     if (!listingId) return;
@@ -96,49 +87,54 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     }
   };
 
+  const handleMessageSeller = async () => {
+    if (!isLoggedIn) {
+      toast.error("Sign in to chat with the seller");
+      return;
+    }
+
+    if (!sellerId && !listingId) {
+      toast.error("Seller contact is not available for this listing yet");
+      return;
+    }
+
+    try {
+      const recipientId = sellerId ? Number(sellerId) : null;
+      const conversation = await startConversation({
+        ...(recipientId && Number.isFinite(recipientId) ? { recipient_id: recipientId } : {}),
+        initial_message: `Hi, I am interested in ${product?.title ?? "your listing"}.`,
+        linked_object_type: "shop_listing",
+        linked_object_id: listingId || null,
+        service_card: {
+          title: product?.title ?? "Shop listing",
+          price,
+          currency,
+          location,
+          listing_id: listingId,
+          image: currentImage,
+          seller_name: sellerName,
+        },
+      }).unwrap();
+
+      toast.success("Chat opened with seller");
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch (err: any) {
+      const message =
+        err?.data?.recipient_id?.[0] ||
+        err?.data?.detail ||
+        err?.data?.non_field_errors?.[0] ||
+        "Could not start chat with seller";
+      toast.error(message);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto lg:p-6 animate-in fade-in duration-500 bg-white border border-gray-300 rounded-b-2xl lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 flex-1 overflow-y-auto lg:overflow-hidden custom-scrollbar">
 
         {/* LEFT — Images */}
         <div className="lg:col-span-7 flex flex-col lg:overflow-y-auto lg:pr-4 custom-scrollbar">
-          <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-50 border border-gray-100 group shrink-0">
-            <Image
-              src={currentImage}
-              alt={product?.title ?? "Product"}
-              fill
-              className="object-contain transition-transform duration-500 group-hover:scale-105"
-            />
-            {images.length > 1 && (
-              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="secondary" size="icon" className="rounded-full shadow-xl" onClick={handlePrevImage}>
-                  <ChevronLeft className="h-6 w-6" />
-                </Button>
-                <Button variant="secondary" size="icon" className="rounded-full shadow-xl" onClick={handleNextImage}>
-                  <ChevronRight className="h-6 w-6" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto py-4 shrink-0 no-scrollbar">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={cn(
-                    "relative w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all",
-                    currentImageIndex === idx
-                      ? "border-teal-600 scale-95"
-                      : "border-transparent opacity-70 hover:opacity-100"
-                  )}
-                >
-                  <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
-                </button>
-              ))}
-            </div>
-          )}
+          <ProductImageGallery images={images} title={product?.title ?? 'Product'} />
         </div>
 
         {/* RIGHT — Info */}
@@ -206,8 +202,12 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                   <MessageCircle className="h-5 w-5 text-teal-600" />
                   Chat with Seller
                 </h3>
-                <Button className="w-full bg-teal-600 text-white hover:bg-teal-700 h-11">
-                  Send Message
+                <Button
+                  className="w-full bg-teal-600 text-white hover:bg-teal-700 h-11"
+                  onClick={handleMessageSeller}
+                  disabled={isStartingConversation}
+                >
+                  {isStartingConversation ? "Opening chat..." : "Send Message"}
                 </Button>
               </div>
             </div>
