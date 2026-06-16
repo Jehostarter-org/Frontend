@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { LogOut, Plus, Car } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,8 +17,6 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   onClose?: () => void;
 }
-
-export const dynamic = 'force-dynamic';
 
 export default function DashboardShell({ children, onClose }: DashboardLayoutProps) {
   const { logout, user, isLoading } = useAuth();
@@ -68,22 +66,6 @@ export default function DashboardShell({ children, onClose }: DashboardLayoutPro
 
           <div className="px-1">
             <LocationSection />
-          </div>
-
-          {/* Driver Section — only shown if user is a driver */}
-          <div>
-            <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Driver
-            </h3>
-            <nav className="space-y-1">
-              <NavLink
-                href="/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs"
-                icon={Car}
-                label="Available Rides"
-                isActive={pathname === "/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs"}
-                onClick={() => handleSidebarToggle(false)}
-              />
-            </nav>
           </div>
 
           <div>

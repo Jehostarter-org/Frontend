@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/components/contexts/currencyContext";
 import { useGetServiceRequestQuery } from "@/lib/api/riderApiSlice";
 import { VehicleOption } from "./vehicle-stats";
 import {
@@ -60,15 +61,13 @@ export default function StepThreeDirections({ onNext, serviceRequestId }: StepTh
   // Pickup location from airport_pickup_details
   const pickupLocation = serviceRequest?.airport_pickup_details?.airport || "Airport";
 
+  const { formatPrice: convertPrice } = useCurrency();
+
   // Build trip data from real API + session storage
   const price = selectedVehicle?.price ?? Number(serviceRequest?.price ?? 0);
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en", {
-      style: "currency",
-      currency: serviceRequest?.currency || "NGN",
-      minimumFractionDigits: 0,
-    }).format(amount);
+    convertPrice(amount, serviceRequest?.currency || "NGN");
 
   const handleContinue = () => {
     if (onNext) {

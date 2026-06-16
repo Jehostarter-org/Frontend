@@ -72,7 +72,7 @@ interface PaginatedResponse<T> {
 }
 
 export interface StartConversationPayload {
-    recipient_id?: number | null;
+    recipient_id?: number | string | null;
     initial_message?: string;
     service_type?: string | null;
     linked_object_type?: string;

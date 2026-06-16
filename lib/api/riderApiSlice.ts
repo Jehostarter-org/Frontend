@@ -18,6 +18,7 @@ export interface AirportsResponse {
 }
 
 export interface DriverDetails {
+    user_id: string;
     full_name: string;
     profile_photo: string | null;
     vehicle_display: string;
@@ -25,8 +26,13 @@ export interface DriverDetails {
     vehicle_model: string;
     license_plate_number: string;
     front_view_picture: string | null;
+    back_view_picture: string | null;
+    side_view_picture: string | null;
+    interior_picture: string | null;
     rating: number;
     total_trips: number;
+    phone: string;
+    emergency_contact: string;
 }
 
 export interface AirportPickupDetails {
@@ -70,12 +76,19 @@ export interface ServiceRequest {
 
     // Distance tracking fields
     pickup_address?: string | null;
+    pickup_latitude?: string | null;
+    pickup_longitude?: string | null;
     arrival_address?: string | null;
+    arrival_latitude?: string | null;
+    arrival_longitude?: string | null;
     distance_km?: number | null;
     estimated_duration_min?: number | null;
     distance_price_multiplier?: number;
     original_base_price?: string | null;
     distance_calculation_method?: string;
+    flag_drop_fee?: number;
+    per_km_rate?: number;
+    minimum_fare?: number;
 }
 
 export interface BookAirportPickupPayload {
@@ -103,7 +116,9 @@ export interface SubmitReviewPayload {
 // Pricing response from GET /api/services/pricing/
 export interface VehiclePriceItem {
     id: string;
-    price: number;
+    per_km_rate: number;
+    flag_drop_fee: number;
+    minimum_fare: number;
 }
 
 export interface VehiclePricingResponse {
@@ -132,8 +147,10 @@ export interface ConfirmVehicleResponse {
     vehicle_type: string;
     price: string;
     currency: string;
-    base_price?: string;
+    flag_drop_fee: number;
+    per_km_rate: number;
     distance_km?: number | null;
+    minimum_fare: number;
 }
 
 export interface CalculateDistancePayload {
@@ -144,21 +161,23 @@ export interface CalculateDistancePayload {
     arrival_city: string;
     arrival_country: string;
     vehicle_type?: string;
+    pickup_lat?: number;
+    pickup_lon?: number;
+    arrival_lat?: number;
+    arrival_lon?: number;
 }
 
 export interface CalculateDistanceResponse {
     distance_km: number;
     duration_min: number;
     distance_type: string;
-    base_price: number;
-    calculated_price: number;
-    long_distance_fee: number;
+    flag_drop_fee: number;
+    per_km_rate: number;
+    distance_charge: number;
+    minimum_fare: number;
     total_price: number;
-    price_per_km: number;
-    is_long_distance: boolean;
     pickup_coords?: [number, number];
     arrival_coords?: [number, number];
-    api_response_time_ms?: number;
 }
 
 export interface GeocodeAddressPayload {
@@ -234,12 +253,21 @@ export const riderApiSlice = apiSlice.injectEndpoints({
         // GET /api/services/ — list my own requests
         getMyServiceRequests: builder.query<ServiceRequest[], void>({
             query: () => "/services/",
+            transformResponse: (response: { results: ServiceRequest[] }) => response.results,
             providesTags: ["Service"],
         }),
 
         // GET /api/services/<pk>/ — single request (contains driver_details)
         getServiceRequest: builder.query<ServiceRequest, string>({
             query: (id) => `/services/${id}/`,
+            providesTags: (_result, _error, id) => [{ type: "Service", id }],
+        }),
+
+        // GET /api/services/<pk>/driver-view/ — driver reads a ride before claiming.
+        // Unlike getServiceRequest, this is NOT filtered by requester so drivers
+        // can fetch rides created by other users.
+        getDriverServiceRequest: builder.query<ServiceRequest, string>({
+            query: (id) => `/services/${id}/driver-view/`,
             providesTags: (_result, _error, id) => [{ type: "Service", id }],
         }),
 
@@ -260,11 +288,15 @@ export const riderApiSlice = apiSlice.injectEndpoints({
             serviceRequestId: string;
             pickup_address: string;
             arrival_address: string;
+            pickup_lat?: number;
+            pickup_lon?: number;
+            arrival_lat?: number;
+            arrival_lon?: number;
         }>({
-            query: ({ serviceRequestId, pickup_address, arrival_address }) => ({
+            query: ({ serviceRequestId, pickup_address, arrival_address, pickup_lat, pickup_lon, arrival_lat, arrival_lon }) => ({
                 url: `/services/${serviceRequestId}/update-distance/`,
                 method: "PATCH",
-                body: { pickup_address, arrival_address },
+                body: { pickup_address, arrival_address, pickup_lat, pickup_lon, arrival_lat, arrival_lon },
             }),
             invalidatesTags: (_result, _error, { serviceRequestId }) => [
                 { type: "Service", id: serviceRequestId },
@@ -304,6 +336,17 @@ export const riderApiSlice = apiSlice.injectEndpoints({
             ],
         }),
 
+        ratePassenger: builder.mutation<void, { serviceId: string; rating: number; comment?: string }>({
+            query: ({ serviceId, rating, comment }) => ({
+                url: `/services/${serviceId}/rate-passenger/`,
+                method: "PATCH",
+                body: { rating, comment },
+            }),
+            invalidatesTags: (_result, _error, { serviceId }) => [
+                { type: "Service", id: serviceId },
+            ],
+        }),
+
         // Vehicle types — merges static templates with live API prices.
         getVehicleTypes: builder.query<VehicleOption[], void>({
             queryFn: async (_arg, _api, _extraOptions, baseQuery) => {
@@ -314,13 +357,13 @@ export const riderApiSlice = apiSlice.injectEndpoints({
                     };
                 }
                 const pricing = result.data as VehiclePricingResponse;
-                const priceMap = Object.fromEntries(
-                    pricing.vehicles.map((v) => [v.id, v.price])
-                );
-                const merged: VehicleOption[] = VEHICLE_TEMPLATES.map((template) => ({
-                    ...template,
-                    price: priceMap[template.id] ?? 0,
-                }));
+                const merged: VehicleOption[] = VEHICLE_TEMPLATES.map((template) => {
+                    const api = pricing.vehicles.find((v) => v.id === template.id);
+                    return {
+                        ...template,
+                        price: api ? api.per_km_rate : 0,
+                    };
+                });
                 return { data: merged };
             },
         }),
@@ -342,6 +385,18 @@ export const riderApiSlice = apiSlice.injectEndpoints({
                 "Service",
             ],
         }),
+
+        // GET /api/services/provider-profiles/ — check if current user is a registered driver/provider
+        getMyProviderProfiles: builder.query<{ id: string; service_type: string; is_active: boolean }[], void>({
+            query: () => "/services/provider-profiles/",
+            transformResponse: (response: any) => response.results ?? response,
+        }),
+
+        // GET /api/services/my-jobs/ — driver's own jobs (all statuses)
+        getMyProviderJobs: builder.query<ServiceRequest[], void>({
+            query: () => "/services/my-jobs/",
+            providesTags: ["Service"],
+        }),
     }),
 });
 
@@ -353,12 +408,16 @@ export const {
     useBookAirportPickupMutation,
     useGetMyServiceRequestsQuery,
     useGetServiceRequestQuery,
+    useGetDriverServiceRequestQuery,
     useConfirmVehicleMutation,
     useUpdateServiceDistanceMutation,
     useTrackDriverLocationQuery,
     useUpdateTripStatusMutation,
     useSubmitReviewMutation,
+    useRatePassengerMutation,
     useGetVehicleTypesQuery,
     useGetAvailableServiceRequestsQuery,
     useClaimServiceRequestMutation,
+    useGetMyProviderProfilesQuery,
+    useGetMyProviderJobsQuery,
 } = riderApiSlice;

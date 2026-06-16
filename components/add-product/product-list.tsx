@@ -1,14 +1,16 @@
 "use client";
 
-import Image from "next/image";
+import { SafeImage } from "@/components/reuseables/SafeImage";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useMemo, memo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "../contexts/currencyContext";
 import { useGetMyProductsQuery, useDeleteProductMutation } from "@/lib/api/productsApiSlice";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Trash2,
   Loader2,
@@ -22,7 +24,6 @@ import {
   Zap,
   Sparkles,
 } from "lucide-react";
-import { useBoostListingMutation } from "@/lib/api/productsApiSlice";
 
 interface Product {
   id: string;
@@ -37,7 +38,9 @@ interface Product {
 }
 
 export function ProductList() {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const {
     data: rawData = [],
@@ -67,8 +70,6 @@ export function ProductList() {
     !Array.isArray(paginated) && paginated && "next" in paginated ? !paginated.next : items.length < pageSize;
 
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
-  const [boostListing] = useBoostListingMutation();
-  const [boostingId, setBoostingId] = useState<string | null>(null);
   const { formatPrice } = useCurrency();
 
   const products: Product[] = useMemo(
@@ -93,41 +94,46 @@ export function ProductList() {
     [items]
   );
 
-  const handleBoost = async (id: string) => {
-    setBoostingId(id);
-    try {
-      await boostListing({ id, duration_days: 30 }).unwrap();
-      toast.success("Product boosted! It will now appear in Shop Highlights.");
-      refetch();
-    } catch (err: any) {
-      const rawDetail = err?.data?.detail;
-      const msg = Array.isArray(rawDetail)
-        ? rawDetail[0] || "Failed to boost."
-        : rawDetail || "Failed to boost. Check your membership plan.";
-      toast.error(msg);
-    } finally {
-      setBoostingId(null);
-    }
+  const handleBoost = (product: Product) => {
+    const params = new URLSearchParams({
+      productId: product.id,
+      productName: product.title,
+      price: "30",
+    });
+    router.push(`/dashboard/payment?${params.toString()}`);
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to remove this item from your inventory?")) {
-      try {
-        await deleteProduct(id).unwrap();
-        toast.success("Item deleted successfully");
-        refetch();
-      } catch {
-        toast.error("Failed to delete item");
-      }
+    try {
+      await deleteProduct(id).unwrap();
+      toast.success("Item deleted successfully");
+      setDeleteTarget(null);
+      refetch();
+    } catch {
+      toast.error("Failed to delete item");
     }
   };
+
+  const deleteProductObj = deleteTarget ? products.find(p => p.id === deleteTarget) : null;
 
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={refetch} />;
   if (products.length === 0) return <EmptyState />;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onConfirm={() => handleDelete(deleteTarget!)}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Product?"
+        message="This will permanently remove this item from your inventory. This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        loading={isDeleting}
+      />
+
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between px-2">
         <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
           <Layers className="w-4 h-4 text-teal-600" />
@@ -141,10 +147,10 @@ export function ProductList() {
             key={product.id}
             product={product}
             formatPrice={formatPrice}
-            onDelete={handleDelete}
+            onDelete={(id) => setDeleteTarget(id)}
             onBoost={handleBoost}
             isDeleting={isDeleting}
-            isBoosting={boostingId === product.id}
+            isBoosting={false}
           />
         ))}
       </div>
@@ -186,6 +192,7 @@ export function ProductList() {
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -201,7 +208,7 @@ const ProductCard = memo(
     product: Product;
     formatPrice: (amt: number, curr?: string) => string;
     onDelete: (id: string) => void;
-    onBoost: (id: string) => void;
+    onBoost: (product: Product) => void;
     isDeleting: boolean;
     isBoosting: boolean;
   }) => {
@@ -209,11 +216,10 @@ const ProductCard = memo(
       <Card className="group relative overflow-hidden border-border/50 bg-white transition-all duration-300 hover:shadow-2xl hover:shadow-teal-500/5 hover:border-teal-500/30">
         <div className="flex flex-col md:flex-row p-0">
           <div className="relative w-full md:w-52 h-52 md:h-auto shrink-0 overflow-hidden bg-gray-50">
-            <Image
+            <SafeImage
               src={product.productImages?.[0] || "/placeholder.svg"}
               alt={product.title}
               fill
-              sizes="(max-width: 768px) 100vw, 208px"
               className="object-cover transition-transform duration-700 group-hover:scale-110"
             />
             <Badge className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-teal-900 border-none shadow-sm font-bold text-[10px]">
@@ -274,17 +280,12 @@ const ProductCard = memo(
               <div className="flex items-center gap-2">
                 {!product.isBoosted && (
                   <Button
-                    onClick={() => onBoost(product.id)}
+                    onClick={() => onBoost(product)}
                     variant="outline"
                     size="sm"
-                    disabled={isBoosting}
                     className="rounded-full px-4 h-9 font-bold text-xs gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400 transition-all"
                   >
-                    {isBoosting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Zap className="w-3.5 h-3.5" />
-                    )}
+                    <Zap className="w-3.5 h-3.5" />
                     Boost Product
                   </Button>
                 )}

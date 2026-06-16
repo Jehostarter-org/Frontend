@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useCallback } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useGetServiceRequestQuery } from "@/lib/api/riderApiSlice";
+import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
+import { toast } from "sonner";
 import {
-  ArrowLeft, Phone, MessageSquare, Star, CarFront, MapPin, Loader2,
+  ArrowLeft, Phone, MessageSquare, Star, CarFront, MapPin, Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 /**
@@ -27,6 +29,8 @@ interface StepFourProps {
 
 export default function StepFourDriverArrived({ onNext, serviceRequestId }: StepFourProps) {
   const router = useRouter();
+  const [startConversation] = useStartConversationMutation();
+  const [carPhotoIndex, setCarPhotoIndex] = React.useState(0);
 
   // Resolve ID from prop or sessionStorage (fallback when navigating directly)
   const resolvedId =
@@ -42,6 +46,16 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
 
   const driver = serviceRequest?.driver_details;
 
+  const carPhotos = React.useMemo(() => {
+    if (!driver) return [];
+    return [
+      driver.front_view_picture,
+      driver.back_view_picture,
+      driver.side_view_picture,
+      driver.interior_picture,
+    ].filter(Boolean) as string[];
+  }, [driver]);
+
   const handleContinue = () => {
     if (onNext) {
       onNext();
@@ -52,14 +66,33 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
     }
   };
 
-  const handleCall = () => {
-    // Phone number is not exposed in driver_details for privacy — 
-    // open in-app message instead, or extend the serializer to include it.
-    alert("Use the Message button to contact your driver through the app.");
-  };
+  const handleCall = useCallback(() => {
+    const number = driver?.emergency_contact || driver?.phone;
+    if (number) {
+      window.location.href = `tel:${number}`;
+    } else {
+      toast.error("No emergency contact number available for this driver.");
+    }
+  }, [driver]);
+
+  const handleMessage = useCallback(async () => {
+    if (!driver?.user_id) {
+      toast.error("Driver info not available yet.");
+      return;
+    }
+    try {
+      const conversation = await startConversation({
+        recipient_id: driver.user_id,
+        initial_message: `Hi ${driver.full_name}, I'm your passenger for the airport pickup.`,
+      }).unwrap();
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch {
+      toast.error("Could not open chat. Please try again.");
+    }
+  }, [driver, router, startConversation]);
 
   // ── Loading / waiting for driver ─────────────────────────────────────────
-  if (isLoading || !driver) {
+  if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto px-5 py-20 flex flex-col items-center gap-6 animate-in fade-in duration-500">
         <Loader2 className="w-12 h-12 text-teal-600 animate-spin" />
@@ -70,8 +103,51 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
             We'll notify you once a driver accepts your request
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Waiting but booking details loaded
+  if (!driver && serviceRequest) {
+    const airport = serviceRequest.airport_pickup_details?.airport;
+    const arrivalTime = serviceRequest.airport_pickup_details?.arrival_datetime
+      ? new Date(serviceRequest.airport_pickup_details.arrival_datetime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+      : null;
+    return (
+      <div className="max-w-5xl mx-auto px-5 py-10 animate-in fade-in duration-500">
+        <div className="text-center mb-8">
+          <Loader2 className="w-10 h-10 text-teal-600 animate-spin mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900">Searching for a driver…</h2>
+          <p className="text-gray-500 mt-1">Your booking is confirmed — we're finding a driver near you.</p>
+        </div>
+        <div className="max-w-md mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Status</span>
+              <span className="font-semibold text-amber-600">Pending</span>
+            </div>
+            {airport && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Airport</span>
+                <span className="font-semibold text-right">{airport}</span>
+              </div>
+            )}
+            {arrivalTime && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Flight arrives</span>
+                <span className="font-semibold">{arrivalTime}</span>
+              </div>
+            )}
+            {serviceRequest.notes && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Destination</span>
+                <span className="font-semibold text-right max-w-[200px] truncate">{serviceRequest.notes}</span>
+              </div>
+            )}
+          </div>
+        </div>
         {isError && (
-          <p className="text-sm text-red-500">
+          <p className="text-sm text-red-500 text-center mt-4">
             Could not load request details. Please refresh the page.
           </p>
         )}
@@ -104,13 +180,43 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
 
         <div className="relative w-full rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-white">
           <div className="relative w-full h-48 md:h-64 bg-gray-100">
-            {driver.front_view_picture ? (
-              <Image
-                src={driver.front_view_picture}
-                alt="Driver's vehicle"
-                fill
-                className="object-cover opacity-80"
-              />
+            {carPhotos.length > 0 ? (
+              <>
+                <Image
+                  src={carPhotos[carPhotoIndex]}
+                  alt={`Vehicle photo ${carPhotoIndex + 1}`}
+                  fill
+                  className="object-cover"
+                />
+                {carPhotos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCarPhotoIndex((i) => (i - 1 + carPhotos.length) % carPhotos.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCarPhotoIndex((i) => (i + 1) % carPhotos.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {carPhotos.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setCarPhotoIndex(i)}
+                          className={`w-2 h-2 rounded-full transition ${i === carPhotoIndex ? "bg-white" : "bg-white/40"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             ) : (
               <Image
                 src="/images/Airport.png"
@@ -180,6 +286,7 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
               </Button>
               <Button
                 variant="outline"
+                onClick={handleMessage}
                 className="h-12 border-gray-300 hover:bg-gray-50 hover:text-teal-700"
               >
                 <MessageSquare className="w-4 h-4 mr-2" />

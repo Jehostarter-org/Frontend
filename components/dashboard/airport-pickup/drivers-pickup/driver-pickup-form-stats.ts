@@ -31,6 +31,8 @@ export const INITIAL_DATA = {
   driverLicenseImage: null as File | null,
   frontViewPicture: null as File | null,
   backViewPicture: null as File | null,
+  sideViewPicture: null as File | null,
+  interiorPicture: null as File | null,
   plateNumberFrontViewPicture: null as File | null,
   plateNumberBackViewPicture: null as File | null,
 

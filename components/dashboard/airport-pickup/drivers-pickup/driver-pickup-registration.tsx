@@ -25,6 +25,8 @@ export interface RegistrationData {
   driverLicenseImage: string | File | null;
   frontViewPicture: string | File | null;
   backViewPicture: string | File | null;
+  sideViewPicture: string | File | null;
+  interiorPicture: string | File | null;
   plateNumberFrontViewPicture: string | File | null;
   plateNumberBackViewPicture: string | File | null;
 }
@@ -193,9 +195,13 @@ export function StepTwoRegistration({ data, onUpdate }: StepTwoProps) {
             <Input placeholder="VIN (Optional)" value={data?.vin} onChange={handleInput("vin")} className="h-12 sm:col-span-2" />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
             <DocumentUploader id="vehicle-front" label="Front View" file={data?.frontViewPicture} onFileSelect={(f) => onUpdate("frontViewPicture", f)} />
             <DocumentUploader id="vehicle-back" label="Back View" file={data?.backViewPicture} onFileSelect={(f) => onUpdate("backViewPicture", f)} />
+            <DocumentUploader id="vehicle-side" label="Side View" file={data?.sideViewPicture} onFileSelect={(f) => onUpdate("sideViewPicture", f)} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+            <DocumentUploader id="vehicle-interior" label="Interior" file={data?.interiorPicture} onFileSelect={(f) => onUpdate("interiorPicture", f)} />
             <DocumentUploader id="vehicle-plate" label="Front Plate" file={data?.plateNumberFrontViewPicture} onFileSelect={(f) => onUpdate("plateNumberFrontViewPicture", f)} />
             <DocumentUploader id="vehicle-plate-back" label="Back Plate" file={data?.plateNumberBackViewPicture} onFileSelect={(f) => onUpdate("plateNumberBackViewPicture", f)} />
           </div>

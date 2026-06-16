@@ -38,12 +38,12 @@ const nextConfig = {
         pathname: "/**",
       },
       // ── Wildcard: any HTTPS host (covers future third-party image URLs) ───
-      // Remove this once you know all your image sources.
-      {
-        protocol: "https",
-        hostname: "**",
-        pathname: "/**",
-      },
+      // Add specific hostnames here instead of using wildcard
+      // {
+      //   protocol: "https",
+      //   hostname: "**",
+      //   pathname: "/**",
+      // },
     ],
   },
 };

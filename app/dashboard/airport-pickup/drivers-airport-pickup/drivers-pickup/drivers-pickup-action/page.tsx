@@ -5,15 +5,25 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import {
   Navigation,
   MapPin, Loader2, Clock, Users,
 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import {
-  useGetServiceRequestQuery,
+  useGetDriverServiceRequestQuery,
   useUpdateTripStatusMutation,
 } from "@/lib/api/riderApiSlice";
+
+const RouteMap = dynamic(() => import("@/components/ui/route-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-[#e5e3df] flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+    </div>
+  ),
+});
 
 type TripStatus = "NAVIGATING_TO_PICKUP" | "ARRIVED_AT_PICKUP" | "ON_TRIP" | "COMPLETED";
 
@@ -43,7 +53,7 @@ export default function ActiveNavigation() {
   }, []);
 
   const { data: serviceRequest, isLoading: isLoadingRequest } =
-    useGetServiceRequestQuery(serviceRequestId, {
+    useGetDriverServiceRequestQuery(serviceRequestId, {
       skip: !serviceRequestId,
     });
 
@@ -62,6 +72,11 @@ export default function ActiveNavigation() {
     : null;
   const passengers = serviceRequest?.airport_pickup_details?.num_passengers || 1;
   const bags = serviceRequest?.airport_pickup_details?.num_bags || 0;
+
+  const pickupLat = serviceRequest?.pickup_latitude ? Number(serviceRequest.pickup_latitude) : null;
+  const pickupLng = serviceRequest?.pickup_longitude ? Number(serviceRequest.pickup_longitude) : null;
+  const dropoffLat = serviceRequest?.arrival_latitude ? Number(serviceRequest.arrival_latitude) : null;
+  const dropoffLng = serviceRequest?.arrival_longitude ? Number(serviceRequest.arrival_longitude) : null;
   const price = serviceRequest?.price
     ? new Intl.NumberFormat("en", {
         style: "currency",
@@ -147,12 +162,25 @@ export default function ActiveNavigation() {
   return (
     <DashboardShell>
       <div className="relative h-[calc(100vh-64px)] w-full bg-gray-100 overflow-hidden">
-        {/* Map placeholder */}
-        <div className="absolute inset-0 bg-[#e5e3df] flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-gray-400 font-medium italic">
-              {status === "ON_TRIP" ? "Navigation to Drop-off..." : "Navigation to Airport..."}
-            </p>
+        {/* Map with route */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-[700px] h-[450px] rounded-2xl overflow-hidden shadow-lg">
+            {pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null ? (
+              <RouteMap
+                pickupLat={pickupLat}
+                pickupLng={pickupLng}
+                pickupLabel={airport || "Pickup"}
+                dropoffLat={dropoffLat}
+                dropoffLng={dropoffLng}
+                dropoffLabel={destination || "Drop-off"}
+              />
+            ) : (
+              <div className="w-full h-full bg-[#e5e3df] flex items-center justify-center">
+                <p className="text-gray-400 font-medium italic">
+                  Map unavailable — coordinates not set
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

@@ -27,14 +27,9 @@ export default function TenantSearchPage() {
     try {
       await searchProperties({
         city: searchParams.city || undefined,
-        propertyType: searchParams.propertyType || undefined,
-        maxPrice: searchParams.budget || undefined,
-        amenities: searchParams.amenities?.length ? searchParams.amenities : undefined,
-        duration: searchParams.duration || undefined,
       }).unwrap();
     } catch (err: any) {
       console.error("Search failed:", err);
-      // Log the full error shape for debugging
       if (err?.status) console.error("Status:", err.status, "Data:", err.data);
       if (err?.message) console.error("Message:", err.message);
     }

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Send, Loader2, Check, CheckCheck, ArrowLeft, Info, Wifi, WifiOff, MessageCircle, Reply, Trash2, X } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck, ArrowLeft, Info, Wifi, WifiOff, MessageCircle, Reply, Trash2, X, File, FileText, Play, Music } from "lucide-react";
+import { isMediaType } from "@/components/reuseables/media-viewer";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useDeleteMessageMutation, useGetMessagesQuery, useMarkConversationReadMutation, useSendMessageMutation } from "@/lib/api/messagesApiSlice";
@@ -277,6 +278,66 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                                         <div className="text-[14px] leading-relaxed pr-12 whitespace-pre-wrap break-words">
                                             {msg.body}
                                         </div>
+
+                                        {/* Attachment previews */}
+                                        {msg.attachments && msg.attachments.length > 0 && (
+                                            <div className="mt-1.5 space-y-1.5">
+                                                {msg.attachments.map((att) => {
+                                                    const type = att.filename;
+                                                    const isImage = isMediaType(type, "image");
+                                                    const isVideo = isMediaType(type, "video");
+                                                    const isAudio = isMediaType(type, "audio");
+                                                    const isPdf = isMediaType(type, "pdf");
+                                                    const sizeLabel = att.filesize > 0 ? `${(att.filesize / 1024).toFixed(0)} KB` : "";
+
+                                                    if (isImage) {
+                                                        return (
+                                                            <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg">
+                                                                <img src={att.url} alt={att.filename} className="w-full max-h-[200px] object-cover rounded-lg" loading="lazy" />
+                                                            </a>
+                                                        );
+                                                    }
+                                                    if (isVideo) {
+                                                        return (
+                                                            <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="block relative overflow-hidden rounded-lg">
+                                                                <video src={att.url} className="w-full max-h-[200px] object-cover rounded-lg" preload="metadata" />
+                                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-lg">
+                                                                    <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
+                                                                        <Play size={16} className="text-slate-800 ml-0.5" fill="currentColor" />
+                                                                    </div>
+                                                                </div>
+                                                            </a>
+                                                        );
+                                                    }
+                                                    if (isAudio) {
+                                                        return (
+                                                            <div key={att.id} className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5">
+                                                                <a href={att.url} target="_blank" rel="noreferrer" className="w-8 h-8 shrink-0 bg-blue-100 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors">
+                                                                    <Play size={12} className="text-blue-600 ml-0.5" fill="currentColor" />
+                                                                </a>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-[11px] font-semibold text-slate-700 truncate">{att.filename}</p>
+                                                                    <p className="text-[9px] text-slate-400">{sizeLabel || "Audio"}</p>
+                                                                </div>
+                                                                <Music size={12} className="text-slate-300 shrink-0" />
+                                                            </div>
+                                                        );
+                                                    }
+                                                    // Generic file
+                                                    return (
+                                                        <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                                                            <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center ${isPdf ? "bg-red-100" : "bg-slate-100"}`}>
+                                                                {isPdf ? <FileText size={14} className="text-red-500" /> : <File size={14} className="text-slate-500" />}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[11px] font-semibold text-slate-700 truncate">{att.filename}</p>
+                                                                <p className="text-[9px] text-slate-400">{isPdf ? "PDF • " : ""}{sizeLabel || "File"}</p>
+                                                            </div>
+                                                        </a>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                         <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
                                             <span className="text-[9px] text-slate-500">
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

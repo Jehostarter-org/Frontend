@@ -8,6 +8,7 @@ interface UseDriverJobSocketOptions {
     enabled?: boolean;
     onNewJob?: (job: any) => void;
     onJobClaimed?: (jobId: string) => void;
+    onConnectionChange?: (connected: boolean) => void;
 }
 
 export function useDriverJobSocket({
@@ -15,12 +16,19 @@ export function useDriverJobSocket({
     enabled = true,
     onNewJob,
     onJobClaimed,
+    onConnectionChange,
 }: UseDriverJobSocketOptions) {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const retryCountRef = useRef(0);
     const isUnmountedRef = useRef(false);
+    const onConnectionChangeRef = useRef(onConnectionChange);
     const MAX_RETRIES = 3;
+
+    // Keep the ref current without triggering re-renders
+    useEffect(() => {
+        onConnectionChangeRef.current = onConnectionChange;
+    }, [onConnectionChange]);
 
     useEffect(() => {
         if (!enabled || !token) return;
@@ -43,8 +51,9 @@ export function useDriverJobSocket({
             wsRef.current = ws;
 
             ws.onopen = () => {
-                console.log("[DriverJobSocket] connected");
+                console.log("[DriverJobSocket] connected successfully");
                 retryCountRef.current = 0;
+                onConnectionChangeRef.current?.(true);
             };
 
             ws.onmessage = (event: MessageEvent) => {
@@ -58,7 +67,7 @@ export function useDriverJobSocket({
                             action: {
                                 label: "View",
                                 onClick: () => {
-                                    window.location.href = `/dashboard/driver/notifications`;
+                                    window.location.href = `/dashboard/notification`;
                                 },
                             },
                         });
@@ -80,6 +89,7 @@ export function useDriverJobSocket({
 
             ws.onclose = (event) => {
                 console.log("[DriverJobSocket] closed", event.code);
+                onConnectionChangeRef.current?.(false);
                 // Don't retry on auth failures or if unmounted
                 if (isUnmountedRef.current || event.code === 4001 || event.code === 4003) return;
                 // Exponential backoff with max retries

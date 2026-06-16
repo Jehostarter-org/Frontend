@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Car, Info, Loader2, MapPin, Clock, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";import { useGetServiceRequestQuery,
+import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/components/contexts/currencyContext";
+import { useGetServiceRequestQuery,
   useConfirmVehicleMutation,
   useGetVehicleTypesQuery,
 } from "@/lib/api/riderApiSlice";
@@ -28,6 +30,12 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [backendPrice, setBackendPrice] = useState<number | null>(null);
   const [backendCurrency, setBackendCurrency] = useState<string>("NGN");
+  const [fareBreakdown, setFareBreakdown] = useState<{
+    flag_drop_fee: number;
+    per_km_rate: number;
+    distance_charge: number;
+    minimum_fare: number;
+  } | null>(null);
   const [distanceInfo, setDistanceInfo] = useState<{
     distance_km: number;
     duration_min: number;
@@ -53,6 +61,7 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
 
   const [confirmVehicle, { isLoading: isConfirming }] = useConfirmVehicleMutation();
   const { data: vehicleTypes } = useGetVehicleTypesQuery();
+  const { formatPrice: convertPrice } = useCurrency();
 
   // Extract price and distance information from the service request (BACKEND AUTHORITATIVE)
   useEffect(() => {
@@ -60,16 +69,28 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
       console.log("Service request data:", serviceRequest);
 
       // These values come DIRECTLY from the backend - NO frontend calculation
-      let price = serviceRequest.price ? parseFloat(serviceRequest.price) : 0;
+      // Ensure all numeric values are actual numbers (API may return strings)
+      let price = serviceRequest.price ? parseFloat(String(serviceRequest.price)) : 0;
       let currency = serviceRequest.currency || "NGN";
-      let distanceKm = serviceRequest.distance_km || 0;
-      let durationMin = serviceRequest.estimated_duration_min || 0;
+      let distanceKm = Number(serviceRequest.distance_km) || 0;
+      let durationMin = Number(serviceRequest.estimated_duration_min) || 0;
+
+      // ── Read fare breakdown from sessionStorage (set by Step 1) ────
+      // These are NOT model fields, so they won't come from the API.
+      // Always read from sessionStorage regardless of price fallback.
+      let flagDrop = 0, perKmRate = 0, minFare = 0, distanceCharge = 0;
+      if (typeof window !== "undefined") {
+        const sf = sessionStorage.getItem("flagDropFee");
+        const sp = sessionStorage.getItem("perKmRate");
+        const sd = sessionStorage.getItem("distanceCharge");
+        const sm = sessionStorage.getItem("minimumFare");
+        if (sf) flagDrop = parseFloat(sf);
+        if (sp) perKmRate = parseFloat(sp);
+        if (sd) distanceCharge = parseFloat(sd);
+        if (sm) minFare = parseFloat(sm);
+      }
 
       // ── Fallback: use distance/price calculated in Step 1 ───────────
-      // When the service request is freshly created, price & distance may
-      // still be null. Step 1 (riders-pickup-form) awaits a distance
-      // calculation and stashes the results in sessionStorage before
-      // navigating here.
       if (!price && typeof window !== "undefined") {
         const storedPrice = sessionStorage.getItem("calculatedPrice");
         const storedCurrency = sessionStorage.getItem("calculatedCurrency");
@@ -79,35 +100,31 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
         if (storedPrice) {
           price = parseFloat(storedPrice);
           currency = storedCurrency || currency;
-          console.log("Using Step-1 calculated price:", price, currency);
         }
         if (storedDistance) distanceKm = parseFloat(storedDistance) || distanceKm;
         if (storedDuration) durationMin = parseFloat(storedDuration) || durationMin;
       }
 
-      // ── Last resort: use base vehicle price if still zero ──────────
-      // Prevents the Confirm button from being permanently disabled
-      // when distance calculation failed upstream.
+      // ── Last resort: calculate from per_km rate ──────────────────
       if (!price || price <= 0) {
         const regularVehicle = vehicleTypes?.find((v) => v.id === "regular");
-        price = regularVehicle?.price || 0;
+        perKmRate = regularVehicle?.price || 0;
+        distanceCharge = perKmRate * distanceKm;
+        price = flagDrop + distanceCharge;
+        if (minFare > 0 && price < minFare) price = minFare;
         currency = serviceRequest?.currency || currency;
-        console.log("Using base vehicle fallback price:", price, currency);
+      } else if (!distanceCharge && perKmRate > 0) {
+        distanceCharge = perKmRate * distanceKm;
       }
-      // ─────────────────────────────────────────────────────────────────
-
-      console.log("Backend-calculated values:", {
-        price,
-        currency,
-        distanceKm,
-        durationMin,
-        calculationMethod: serviceRequest.distance_calculation_method,
-        multiplier: serviceRequest.distance_price_multiplier,
-        originalBasePrice: serviceRequest.original_base_price,
-      });
 
       setBackendPrice(price);
       setBackendCurrency(currency);
+      setFareBreakdown({
+        flag_drop_fee: flagDrop,
+        per_km_rate: perKmRate,
+        distance_charge: distanceCharge,
+        minimum_fare: minFare,
+      });
       setDistanceInfo({
         distance_km: distanceKm,
         duration_min: durationMin,
@@ -180,12 +197,7 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
   const formatCurrency = (amount: number) => {
     if (!amount || isNaN(amount)) return "—";
     try {
-      return new Intl.NumberFormat("en", {
-        style: "currency",
-        currency: backendCurrency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount);
+      return convertPrice(amount, backendCurrency);
     } catch {
       return `${backendCurrency} ${amount.toFixed(0)}`;
     }
@@ -360,11 +372,11 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider">
-                      Total Fare (from backend)
+                      Total Fare — Uber/Bolt pricing
                     </p>
-                    {serviceRequest?.original_base_price && (
+                    {fareBreakdown && (
                       <p className="text-xs text-teal-600 mt-0.5">
-                        Includes distance-based adjustment
+                        {fareBreakdown.flag_drop_fee} flag drop + {distanceInfo?.distance_km.toFixed(1)} km × {fareBreakdown.per_km_rate}/{backendCurrency}
                       </p>
                     )}
                   </div>
@@ -387,35 +399,35 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
             </div>
           </div>
 
-          {/* Price Breakdown - Display only, NO calculation */}
-          {serviceRequest && serviceRequest.original_base_price && (
+          {/* Price Breakdown — Uber/Bolt-style */}
+          {fareBreakdown && (
             <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
               <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <Info className="w-4 h-4" /> Price Breakdown
+                <Info className="w-4 h-4" /> Fare Breakdown
               </h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Base fare</span>
+                  <span className="text-gray-500">Flag drop fee</span>
                   <span className="font-medium">
-                    {formatCurrency(parseFloat(serviceRequest.original_base_price))}
+                    {formatCurrency(fareBreakdown.flag_drop_fee)}
                   </span>
                 </div>
-                {serviceRequest.distance_price_multiplier && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Distance multiplier</span>
-                    <span className="font-medium">
-                      {(serviceRequest.distance_price_multiplier * 100 - 100).toFixed(0)}%
-                    </span>
-                  </div>
-                )}
-                {serviceRequest.distance_km && serviceRequest.distance_km > 50 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">
+                    Distance ({distanceInfo?.distance_km.toFixed(1) || "—"} km @ {fareBreakdown.per_km_rate}/{backendCurrency}/km)
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(fareBreakdown.distance_charge)}
+                  </span>
+                </div>
+                {fareBreakdown.minimum_fare > 0 && backendPrice && backendPrice <= fareBreakdown.minimum_fare && (
                   <div className="flex justify-between text-amber-600">
-                    <span>Long distance surcharge (15%)</span>
-                    <span className="font-medium">Included in total</span>
+                    <span>Minimum fare applied</span>
+                    <span className="font-medium">{formatCurrency(fareBreakdown.minimum_fare)}</span>
                   </div>
                 )}
                 <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between font-bold">
-                  <span>Total (authoritative from backend)</span>
+                  <span>Total</span>
                   <span className="text-teal-600 text-lg">
                     {backendPrice ? formatCurrency(backendPrice) : "—"}
                   </span>

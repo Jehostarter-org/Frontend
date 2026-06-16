@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Wallet, Layers, ExternalLink, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Card } from "../ui/card";
+import { useCurrency } from "@/components/contexts/currencyContext";
 
 export function PaymentModal({ isOpen, onClose, product }: any) {
   const router = useRouter();
   const [method, setMethod] = useState("full");
+  const { formatPrice } = useCurrency();
 
-  const installmentPrice = (product.price / 4).toFixed(2);
+  const installmentPrice = product.price / 4;
 
   // --- Dynamic Routing Logic ---
   const handleProceed = () => {
@@ -99,13 +101,13 @@ export function PaymentModal({ isOpen, onClose, product }: any) {
         <Card className="bg-gray-50 border-gray-100 p-5 rounded-xl mb-6 shadow-inner">
           <div className="flex justify-between text-sm mb-3 font-medium text-gray-600">
             <span>Total Item Price</span>
-            <span>${product.price}</span>
+            <span>{formatPrice(product.price, product.currency)}</span>
           </div>
           
           {method === "installment" && (
             <div className="flex justify-between items-center text-teal-700 border-t border-teal-100 pt-3">
               <span className="text-xs font-bold uppercase tracking-tight">First Installment (Due Now)</span>
-              <span className="text-xl font-black">${installmentPrice}</span>
+              <span className="text-xl font-black">{formatPrice(installmentPrice, product.currency)}</span>
             </div>
           )}
         </Card>

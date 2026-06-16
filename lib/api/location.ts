@@ -10,7 +10,9 @@ export async function sendLocationToBackend(
     return;
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/location/`, {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
+
+  const res = await fetch(`${baseUrl}/api/users/location/`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -20,7 +22,14 @@ export async function sendLocationToBackend(
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to update location');
+    // Safely parse — backend may return HTML (e.g. 401 redirect) instead of JSON
+    let msg = 'Failed to update location';
+    try {
+      const err = await res.json();
+      msg = err.error || msg;
+    } catch {
+      // response was not JSON — ignore
+    }
+    throw new Error(msg);
   }
 }

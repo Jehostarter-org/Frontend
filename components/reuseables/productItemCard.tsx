@@ -1,7 +1,7 @@
-import Image from "next/image";
-import { MapPin } from "lucide-react";
+import { MapPin, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { SafeImage } from "@/components/reuseables/SafeImage";
 
 export function ProductItemCard({ product, tool, item, babyKids, electronics, property, vehicles, fashion, furniture, books, onSelect, formatPrice }: any) {
   const data = product || tool || item || property || electronics || vehicles || furniture || fashion || babyKids || books;
@@ -19,11 +19,19 @@ export function ProductItemCard({ product, tool, item, babyKids, electronics, pr
   const condition = data.productCondition || data.condition;
   const price = data.price || 0;
   const currency = data.currency || "NGN";
+  const boosted = data.is_boosted || false;
 
   return (
-    <Card onClick={() => onSelect(data)} className="overflow-hidden hover:shadow-2xl transition-all duration-500 cursor-pointer border-none bg-white rounded-lg shadow-md group w-full" >
+    <Card onClick={() => onSelect(data)} className={`overflow-hidden hover:shadow-2xl transition-all duration-500 cursor-pointer bg-white rounded-lg shadow-md group w-full ${boosted ? 'ring-2 ring-amber-400 shadow-lg shadow-amber-200/50' : 'border-none'}`} >
       <div className="aspect-[3/4] relative overflow-hidden bg-slate-50">
-        <Image src={mainImage} alt={data.title || "Product Image"} fill className="object-cover transition-transform duration-700 group-hover:scale-105" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
+        <SafeImage src={mainImage} alt={data.title || "Product Image"} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
+        {boosted && (
+          <div className="absolute top-1 left-1 z-10">
+            <Badge className="bg-amber-500 text-white text-[8px] font-bold px-2 py-1 uppercase border-none tracking-widest flex items-center gap-1 shadow-lg">
+              <Zap size={10} className="fill-white" /> Boosted
+            </Badge>
+          </div>
+        )}
         {condition && (
           <div className="absolute top-1 right-1 z-10">
             <Badge className="bg-black/80 backdrop-blur-md text-white text-[8px] font-medium px-1 py-1 uppercase border-none tracking-widest">

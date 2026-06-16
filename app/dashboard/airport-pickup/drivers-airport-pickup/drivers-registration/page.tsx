@@ -102,6 +102,8 @@ const INITIAL_REGISTRATION_DATA: RegistrationData = {
   driverLicenseImage: null,
   frontViewPicture: null,
   backViewPicture: null,
+  sideViewPicture: null,
+  interiorPicture: null,
   plateNumberFrontViewPicture: null,
   plateNumberBackViewPicture: null,
 };
@@ -227,6 +229,12 @@ export default function DriversRegistrationPage() {
       if (formData.backViewPicture instanceof File) {
         profileFormData.append("back_view_picture", formData.backViewPicture);
       }
+      if (formData.sideViewPicture instanceof File) {
+        profileFormData.append("side_view_picture", formData.sideViewPicture);
+      }
+      if (formData.interiorPicture instanceof File) {
+        profileFormData.append("interior_picture", formData.interiorPicture);
+      }
       if (formData.plateNumberFrontViewPicture instanceof File) {
         profileFormData.append("plate_number_front_view_picture", formData.plateNumberFrontViewPicture);
       }
@@ -269,7 +277,7 @@ export default function DriversRegistrationPage() {
 
         if (isDuplicate) {
           toast.info("You're already registered as a driver!");
-          router.push("/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs");
+          router.push("/dashboard");
           return;
         }
 
@@ -291,7 +299,7 @@ export default function DriversRegistrationPage() {
       console.log("Registration successful:", profileData);
 
       toast.success("Successfully registered as a driver! 🚗");
-      router.push("/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs");
+      router.push("/dashboard");
 
     } catch (error) {
       console.error("Registration fetch error:", error);
@@ -329,10 +337,10 @@ export default function DriversRegistrationPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
-              onClick={() => router.push("/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs")}
+              onClick={() => router.push("/dashboard")}
               className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
             >
-              Go to Available Rides
+              Go to Dashboard
             </button>
             <button
               onClick={() => router.push("/dashboard")}

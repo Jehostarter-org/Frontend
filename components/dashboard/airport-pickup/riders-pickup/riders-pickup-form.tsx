@@ -13,6 +13,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAirportData } from "@/hooks/useAirportData";
 import { FormSelect } from "@/components/reuseables/formSelect";
+import { useCurrency } from "@/components/contexts/currencyContext";
 import { useBookAirportPickupMutation, useCalculateDistanceMutation, useUpdateServiceDistanceMutation } from "@/lib/api/riderApiSlice";
 import { LocationSearch } from "@/components/reuseables/locationSearch";
 import { bookingSchema } from "@/components/types/schemas/riders-booking-scehma";
@@ -34,9 +35,12 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
   const [bookPickup, { isLoading: isApiLoading }] = useBookAirportPickupMutation();
   const [calculateDistance] = useCalculateDistanceMutation();
   const [updateServiceDistance] = useUpdateServiceDistanceMutation();
+  const { currency: detectedCurrency, countryCode: detectedCountry } = useCurrency();
   const { airports, terminals, pickupZones, isLoading: isDataLoading } = useAirportData();
   const [airportSearch, setAirportSearch] = useState("");
   const [isAirportSelected, setIsAirportSelected] = useState(!!defaultValues?.airport);
+  const [destinationCoords, setDestinationCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [airportCoords, setAirportCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   const {
     control, register, handleSubmit, setValue, watch,
@@ -76,7 +80,8 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       const payload = {
         service_type: "airport_pickup" as const,
         description: `Airport pickup from ${data.airport} to ${data.destination || "TBD"}`,
-        country_code: user?.current_country || "NG",
+        country_code: detectedCountry || user?.current_country || "NG",
+        city: user?.city || "",
         destination: data.destination || "",
         notes: data.destination,
         airport_pickup_details: {
@@ -102,12 +107,11 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       const serviceRequestId = response.id;
       const pickupAddr = data.airport || "";
       const arrivalAddr = data.destination || "";
-      const countryCode = user?.current_country || "NG";
+      const countryCode = detectedCountry || user?.current_country || "NG";
       const city = user?.city || "";
-      const userCurrency = user?.currency || "NGN";
 
       try {
-        // 1. Calculate distance & price via OSRM / Nominatim
+        // 1. Calculate distance & price — pass coordinates when available
         const distResult = await calculateDistance({
           pickup_address: pickupAddr,
           pickup_city: city,
@@ -116,21 +120,38 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
           arrival_city: city,
           arrival_country: countryCode,
           vehicle_type: "regular",
+          // Pass coordinates from picker to avoid re-geocoding
+          ...(destinationCoords
+            ? { arrival_lat: destinationCoords.lat, arrival_lon: destinationCoords.lon }
+            : {}),
+          ...(airportCoords
+            ? { pickup_lat: airportCoords.lat, pickup_lon: airportCoords.lon }
+            : {}),
         }).unwrap();
 
         console.log("Distance calc result:", distResult);
 
         // Persist calculated values so vehicle-selection can read them
         sessionStorage.setItem("calculatedPrice", String(distResult.total_price));
-        sessionStorage.setItem("calculatedCurrency", userCurrency);
+        sessionStorage.setItem("calculatedCurrency", detectedCurrency);
         sessionStorage.setItem("tripDistance", String(distResult.distance_km));
         sessionStorage.setItem("tripDuration", String(distResult.duration_min));
+        sessionStorage.setItem("flagDropFee", String(distResult.flag_drop_fee));
+        sessionStorage.setItem("perKmRate", String(distResult.per_km_rate));
+        sessionStorage.setItem("distanceCharge", String(distResult.distance_charge));
+        sessionStorage.setItem("minimumFare", String(distResult.minimum_fare));
 
         // 2. Persist distance on the service request itself
         await updateServiceDistance({
           serviceRequestId,
           pickup_address: pickupAddr,
           arrival_address: arrivalAddr,
+          ...(destinationCoords
+            ? { arrival_lat: destinationCoords.lat, arrival_lon: destinationCoords.lon }
+            : {}),
+          ...(airportCoords
+            ? { pickup_lat: airportCoords.lat, pickup_lon: airportCoords.lon }
+            : {}),
         }).unwrap();
       } catch (distErr) {
         console.warn("Distance calculation failed:", distErr);
@@ -281,6 +302,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
                           setValue("airport", a.label, { shouldValidate: true });
                           setAirportSearch("");
                           setIsAirportSelected(true);
+                          if (a.lat && a.lng) setAirportCoords({ lat: a.lat, lon: a.lng });
                         }}
                       >
                         <span className="font-semibold text-gray-800">{a.label}</span>
@@ -352,6 +374,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
                   label="Drop-off Location"
                   value={field.value}
                   onChange={field.onChange}
+                  onCoordinatesChange={setDestinationCoords}
                   error={errors.destination?.message}
                 />
               )}

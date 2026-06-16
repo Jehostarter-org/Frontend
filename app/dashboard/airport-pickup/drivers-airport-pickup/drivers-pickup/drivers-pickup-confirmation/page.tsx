@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { StepFiveConfirmation } from "@/components/dashboard/airport-pickup/drivers-pickup/driver-pickup-confirmation";
 import {
-  useGetServiceRequestQuery,
+  useGetDriverServiceRequestQuery,
   useClaimServiceRequestMutation,
 } from "@/lib/api/riderApiSlice";
 
@@ -29,13 +29,14 @@ export default function DriverPickupConfirmation() {
 
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const { data: serviceRequest, isLoading: isLoadingRequest } =
-    useGetServiceRequestQuery(serviceRequestId, {
+  const { data: serviceRequest, isLoading: isLoadingRequest, isError: isNotFound } =
+    useGetDriverServiceRequestQuery(serviceRequestId, {
       skip: !serviceRequestId,
     });
 
   const [claimJob, { isLoading: isClaiming }] =
     useClaimServiceRequestMutation();
+
 
   const handleContinue = async () => {
     if (!serviceRequestId) {
@@ -102,8 +103,23 @@ export default function DriverPickupConfirmation() {
           {!serviceRequestId && !isLoadingRequest && (
             <div className="flex flex-col items-center justify-center py-10 space-y-4">
               <p className="text-gray-500 font-medium">No ride selected.</p>
-              <Button variant="outline" onClick={() => router.push("/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs")}>
+              <Button variant="outline" onClick={() => router.push("/dashboard/notification")}>
                 Browse Available Rides
+              </Button>
+            </div>
+          )}
+
+          {isNotFound && serviceRequestId && !isLoadingRequest && (
+            <div className="flex flex-col items-center justify-center py-10 space-y-4">
+              <p className="text-gray-700 font-semibold">This ride is no longer available.</p>
+              <p className="text-gray-400 text-sm text-center max-w-xs">
+                It may have been claimed by another driver. Browse for other available jobs.
+              </p>
+              <Button
+                onClick={() => router.push("/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/available-jobs")}
+                className="bg-[#2d7a7a] hover:bg-[#246060] text-white"
+              >
+                Browse Available Jobs
               </Button>
             </div>
           )}

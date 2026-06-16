@@ -1,6 +1,5 @@
 'use client'
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
@@ -8,10 +7,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Bookmark, Share2, ChevronLeft, ChevronRight, ShieldCheck, MapPin } from "lucide-react";
+import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin } from "lucide-react";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
+import { useCurrency } from "@/components/contexts/currencyContext";
 import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
+import { ProductImageGallery } from "@/components/reuseables/product-image-gallery";
 
 interface ProductDetailViewProps {
   product: any; // accepts both old shape and new API shape
@@ -19,10 +20,10 @@ interface ProductDetailViewProps {
 
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const router = useRouter();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const { isLoggedIn } = useAuth();
   const { isInCart, toggleBookmark } = useCart();
+  const { formatPrice } = useCurrency();
   const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
 
   const listingId = product?.id ?? '';
@@ -51,27 +52,11 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const rawPrice           = product?.price ?? 0;
   const price: number      = typeof rawPrice === "string" ? parseFloat(rawPrice) : rawPrice;
 
-  const handlePrevImage = () => {
-    if (!images.length) return;
-    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-  };
 
-  const handleNextImage = () => {
-    if (!images.length) return;
-    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-  };
 
   const formattedPrice = useMemo(() => {
-    try {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(price);
-    } catch {
-      return `${currency} ${price}`;
-    }
-  }, [price, currency]);
+    return formatPrice(price, currency);
+  }, [price, currency, formatPrice]);
 
   const timeAgo = useMemo(() => {
     if (!createdAt) return "recently";
@@ -83,7 +68,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     return `${Math.floor(diffInHours / 24)}d ago`;
   }, [createdAt]);
 
-  const currentImage = images[currentImageIndex] || "/placeholder.svg";
+  const currentImage = images[0] || "/placeholder.svg";
 
   const handleBookmark = async () => {
     if (!listingId) return;
@@ -149,43 +134,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
 
         {/* LEFT — Images */}
         <div className="lg:col-span-7 flex flex-col lg:overflow-y-auto lg:pr-4 custom-scrollbar">
-          <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-50 border border-gray-100 group shrink-0">
-            <Image
-              src={currentImage}
-              alt={product?.title ?? "Product"}
-              fill
-              className="object-contain transition-transform duration-500 group-hover:scale-105"
-            />
-            {images.length > 1 && (
-              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="secondary" size="icon" className="rounded-full shadow-xl" onClick={handlePrevImage}>
-                  <ChevronLeft className="h-6 w-6" />
-                </Button>
-                <Button variant="secondary" size="icon" className="rounded-full shadow-xl" onClick={handleNextImage}>
-                  <ChevronRight className="h-6 w-6" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto py-4 shrink-0 no-scrollbar">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={cn(
-                    "relative w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all",
-                    currentImageIndex === idx
-                      ? "border-teal-600 scale-95"
-                      : "border-transparent opacity-70 hover:opacity-100"
-                  )}
-                >
-                  <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
-                </button>
-              ))}
-            </div>
-          )}
+          <ProductImageGallery images={images} title={product?.title ?? 'Product'} />
         </div>
 
         {/* RIGHT — Info */}

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/components/contexts/currencyContext";
 import { useGetServiceRequestQuery } from "@/lib/api/riderApiSlice";
 import { ArrowLeft, MapPin, CheckCircle2, Wallet, Loader2 } from "lucide-react";
 
@@ -20,22 +21,18 @@ interface StepFiveArrivalProps {
   serviceRequestId?: string;
 }
 
-/** Format any currency the backend returns (NGN, AUD, GBP, USD, etc.) */
-function formatPrice(amount: string | null, currency: string): string {
-  if (!amount) return "—";
-  try {
-    return new Intl.NumberFormat("en", {
-      style: "currency",
-      currency: currency || "NGN",
-      minimumFractionDigits: 0,
-    }).format(Number(amount));
-  } catch {
-    return `${currency} ${amount}`;
-  }
-}
-
 export default function StepFiveArrival({ onNext }: StepFiveArrivalProps) {
   const router = useRouter();
+  const { formatPrice: convertPrice } = useCurrency();
+
+  function formatPrice(amount: string | null, currency: string): string {
+    if (!amount) return "—";
+    try {
+      return convertPrice(Number(amount), currency || "NGN");
+    } catch {
+      return `${currency} ${amount}`;
+    }
+  }
 
   const resolvedId =
     typeof window !== "undefined"

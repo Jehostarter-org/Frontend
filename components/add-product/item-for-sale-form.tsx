@@ -61,9 +61,9 @@ export default function ItemForSaleForm() {
   const [createListing] = useCreateListingMutation();
   const { currency } = useCurrency();
 
-  const displayCurrency = myShop?.currency || currency || "USD";
+  const displayCurrency = currency || myShop?.currency || "NGN";
   const displayShopName = myShop?.name || "Your Listings";
-  const currencySymbols: Record<string, string> = { NGN: "₦", USD: "$", GBP: "£", EUR: "€" };
+  const currencySymbols: Record<string, string> = { NGN: "₦", USD: "$", GBP: "£", EUR: "€", GHS: "₵", KES: "KSh", ZAR: "R", INR: "₹", NPR: "Rs", CNY: "¥", CAD: "C$", AUD: "A$" };
 
   const form = useForm<ItemFormValues, unknown, ItemFormData>({
     resolver: zodResolver(itemSchema),

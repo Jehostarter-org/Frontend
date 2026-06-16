@@ -1,4 +1,4 @@
-import { Plane, Home, FileText, MessageSquare, Smartphone } from "lucide-react";
+import { Plane, Home, UserCheck } from "lucide-react";
 
 export const services = [
   {
@@ -18,27 +18,11 @@ export const services = [
     href: "/dashboard/property-listing"
   },
   {
-    icon: FileText,
-    title: "Job Application",
-    description: "Click and fill the necessary details",
-    bgColor: "bg-green-100",
-    iconColor: "text-green-600",
-    href: "/dashboard/job-application"
-  },
-  {
-    icon: MessageSquare,
-    title: "Translation Service",
+    icon: UserCheck,
+    title: "Chaperone",
     description: "Click and fill the necessary details",
     bgColor: "bg-amber-100",
     iconColor: "text-amber-500",
-    href: "/"
-  },
-  {
-    icon: Smartphone,
-    title: "SIM Confirmation",
-    description: "Click and fill the necessary details",
-    bgColor: "bg-teal-100",
-    iconColor: "text-teal-600",
-    href: "/"
+    href: "/dashboard/chaperone"
   },
 ]

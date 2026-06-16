@@ -18,12 +18,15 @@ import {
   Check,
   CheckCheck,
   File,
+  FileText,
   Lock,
   Sparkles,
   Trash2,
   Reply,
   X,
   Plus,
+  Play,
+  Music,
 } from "lucide-react";
 
 import { SidebarItem } from "@/components/dashboard/community/communitySidebar";
@@ -32,6 +35,7 @@ import { GroupInfoSidebar } from "@/components/dashboard/community/groupInfoSide
 import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
 import { DMList } from "@/components/messaging/DMList";
 import { DMChatView } from "@/components/messaging/DMChatView";
+import { MediaViewer, isMediaType } from "@/components/reuseables/media-viewer";
 
 import { useAuth } from "@/components/contexts/auth-context";
 import {
@@ -47,6 +51,51 @@ import {
   useGetConversationQuery,
   type Conversation,
 } from "@/lib/api/messagesApiSlice";
+
+// ── File upload limits ──────────────────────────────────────────────────────
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ALLOWED_FILE_TYPES = [
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+  // Videos
+  "video/mp4", "video/webm", "video/ogg", "video/quicktime",
+  // Audio
+  "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac",
+  // Documents
+  "application/pdf",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-powerpoint", // .ppt
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+  "text/plain",
+  "text/csv",
+];
+const ACCEPTED_FILE_EXTENSIONS = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+
+function validateFileSize(file: File): boolean {
+  if (file.size > MAX_FILE_SIZE) {
+    const maxMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+    const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+    toast.error("File too large", { description: `${fileMB} MB exceeds the ${maxMB} MB limit.` });
+    return false;
+  }
+  return true;
+}
+
+function validateFileType(file: File): boolean {
+  // Some browsers/OS don't detect MIME type — fall back to extension check
+  if (!file.type && file.name.includes(".")) {
+    return true;
+  }
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    toast.error("Unsupported file type", { description: `"${file.name.split(".").pop()?.toUpperCase()}" files are not allowed.` });
+    return false;
+  }
+  return true;
+}
 
 // ── Helper: resolve the current user's ID from localStorage ──────────────────
 
@@ -304,6 +353,113 @@ interface ContextMenu {
   y: number;
 }
 
+// ── Attachment Preview (WhatsApp-style inline previews) ──────────────────────
+
+interface AttachmentPreviewProps {
+  url: string;
+  type: string;
+  name: string;
+  size: number;
+  onClick: (url: string, type: string, name: string, size: number) => void;
+}
+
+function AttachmentPreview({ url, type, name, size, onClick }: AttachmentPreviewProps) {
+  const handleClick = () => onClick(url, type, name, size);
+  const sizeLabel = size > 0 ? `${(size / 1024).toFixed(0)} KB` : '';
+
+  // Image — thumbnail preview
+  if (isMediaType(type, 'image')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 overflow-hidden rounded-lg cursor-pointer block max-w-[280px] group/preview relative"
+      >
+        <img
+          src={url}
+          alt={name}
+          className="w-full h-auto max-h-[200px] object-cover rounded-lg transition-transform duration-200 group-hover/preview:scale-[1.02]"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/10 transition-colors duration-200 rounded-lg" />
+      </button>
+    );
+  }
+
+  // Video — thumbnail with play button overlay
+  if (isMediaType(type, 'video')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 relative overflow-hidden rounded-lg cursor-pointer block max-w-[280px] group/preview"
+      >
+        <video
+          src={url}
+          className="w-full h-auto max-h-[200px] object-cover rounded-lg"
+          preload="metadata"
+        />
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-lg group-hover/preview:bg-black/40 transition-colors duration-200">
+          <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover/preview:scale-110 transition-transform duration-200">
+            <Play size={20} className="text-slate-800 ml-0.5" fill="currentColor" />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // Audio — inline player card
+  if (isMediaType(type, 'audio')) {
+    return (
+      <div className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px]">
+        <button
+          onClick={handleClick}
+          className="w-10 h-10 shrink-0 bg-blue-100 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
+        >
+          <Play size={16} className="text-blue-600 ml-0.5" fill="currentColor" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold text-slate-700 truncate">{name}</p>
+          <p className="text-[10px] text-slate-400">{sizeLabel || 'Audio'}</p>
+        </div>
+        <Music size={14} className="text-slate-300 shrink-0" />
+      </div>
+    );
+  }
+
+  // PDF — document card
+  if (isMediaType(type, 'pdf')) {
+    return (
+      <button
+        onClick={handleClick}
+        className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px] cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors group/preview text-left"
+      >
+        <div className="w-10 h-10 shrink-0 bg-red-100 rounded-lg flex items-center justify-center">
+          <FileText size={18} className="text-red-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold text-slate-700 truncate group-hover/preview:text-blue-700 transition-colors">{name}</p>
+          <p className="text-[10px] text-slate-400">PDF • {sizeLabel || 'Document'}</p>
+        </div>
+      </button>
+    );
+  }
+
+  // Other files — generic file card
+  return (
+    <button
+      onClick={handleClick}
+      className="mt-1.5 mb-1 flex items-center gap-3 bg-white/90 border border-slate-200 rounded-lg px-3 py-2.5 max-w-[280px] cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors group/preview text-left"
+    >
+      <div className="w-10 h-10 shrink-0 bg-slate-100 rounded-lg flex items-center justify-center">
+        <File size={18} className="text-slate-500" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-slate-700 truncate group-hover/preview:text-blue-700 transition-colors">{name}</p>
+        <p className="text-[10px] text-slate-400">{sizeLabel || 'File'}</p>
+      </div>
+    </button>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CommunityPage() {
@@ -325,6 +481,8 @@ export default function CommunityPage() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; sender_username: string; content: string } | null>(null);
   const [showCreateCommunity, setShowCreateCommunity] = useState(false);
+  const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string; name: string; size: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -527,6 +685,8 @@ export default function CommunityPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !wsGroupId) return;
+    if (!validateFileSize(file)) return;
+    if (!validateFileType(file)) return;
     const formData = new FormData();
     formData.append("content", file.name);
     formData.append("attachment", file);
@@ -560,6 +720,11 @@ export default function CommunityPage() {
     if (!wsGroupId) return;
     removeCommunityMessage(messageId);
     sendCommunityDeleteMessage(messageId);
+  };
+
+  const handleMediaClick = (url: string, type: string, name: string, size: number) => {
+    setSelectedMedia({ url, type, name, size });
+    setMediaViewerOpen(true);
   };
 
   if (isLoading)
@@ -756,15 +921,13 @@ export default function CommunityPage() {
                                 </div>
 
                                 {msg.attachment_url && (
-                                  <a
-                                    href={msg.attachment_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-2 mr-10 flex items-center gap-2 rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:text-blue-700"
-                                  >
-                                    <File size={16} className="shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{msg.attachment_name || "Download file"}</span>
-                                  </a>
+                                  <AttachmentPreview
+                                    url={msg.attachment_url!}
+                                    type={msg.attachment_type || ''}
+                                    name={msg.attachment_name || 'File'}
+                                    size={msg.attachment_size || 0}
+                                    onClick={handleMediaClick}
+                                  />
                                 )}
 
                                 <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none">
@@ -837,7 +1000,7 @@ export default function CommunityPage() {
                   )}
 
                   <div className="flex items-center gap-3">
-                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} disabled={!isConnected || isUploadingFile} />
+                    <input ref={fileInputRef} type="file" className="hidden" accept={ACCEPTED_FILE_EXTENSIONS} onChange={handleFileUpload} disabled={!isConnected || isUploadingFile} />
                     <Button type="button" variant="ghost" size="icon" disabled={!isConnected || isUploadingFile} onClick={() => fileInputRef.current?.click()} className="hover:bg-slate-100 rounded-full h-10 w-10 text-slate-500 shrink-0" title="Share file">
                       {isUploadingFile ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
                     </Button>
@@ -904,6 +1067,19 @@ export default function CommunityPage() {
       <CreateCommunityDialog
         isOpen={showCreateCommunity}
         onOpenChange={setShowCreateCommunity}
+      />
+
+      {/* Media Viewer */}
+      <MediaViewer
+        isOpen={mediaViewerOpen}
+        onClose={() => {
+          setMediaViewerOpen(false);
+          setSelectedMedia(null);
+        }}
+        mediaUrl={selectedMedia?.url || ''}
+        mediaType={selectedMedia?.type || ''}
+        mediaName={selectedMedia?.name || ''}
+        mediaSize={selectedMedia?.size || 0}
       />
 
       {/* Right-click context menu */}
