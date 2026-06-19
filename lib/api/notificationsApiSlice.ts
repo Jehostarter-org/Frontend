@@ -58,6 +58,15 @@ export const notificationsApiSlice = apiSlice.injectEndpoints({
       ],
     }),
 
+    // DELETE /notifications/<id>/dismiss/
+    dismissNotification: builder.mutation<void, string>({
+      query: (id) => ({ url: `/notifications/${id}/dismiss/`, method: 'DELETE' }),
+      invalidatesTags: [
+        { type: 'Notification' as const, id: 'LIST' },
+        { type: 'Notification' as const, id: 'COUNT' },
+      ],
+    }),
+
   }),
 });
 
@@ -66,4 +75,5 @@ export const {
   useGetUnreadCountQuery,
   useMarkReadMutation,
   useMarkAllReadMutation,
+  useDismissNotificationMutation,
 } = notificationsApiSlice;

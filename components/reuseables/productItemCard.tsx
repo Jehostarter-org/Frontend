@@ -1,4 +1,4 @@
-import { MapPin, Zap } from "lucide-react";
+import { MapPin, Zap, BadgeCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SafeImage } from "@/components/reuseables/SafeImage";
@@ -54,6 +54,9 @@ export function ProductItemCard({ product, tool, item, babyKids, electronics, pr
           <span className="truncate text-xs font-bold tracking-wider">
             {data.city || data.location || data.shop_name || "Available nearby"}
           </span>
+          {(data?.shop?.is_verified || data?.is_verified) && (
+            <BadgeCheck size={14} className="text-blue-500 shrink-0" />
+          )}
         </div>
       </CardContent>
     </Card>

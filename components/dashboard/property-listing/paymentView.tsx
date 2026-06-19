@@ -10,7 +10,7 @@ interface PaymentViewProps {
   currency: string;
 }
 
-export const PaymentView = ({ onConfirm, onBack, price }: PaymentViewProps) => (
+export const PaymentView = ({ onConfirm, onBack, price, currency }: PaymentViewProps) => (
   <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-right duration-300">
     
     <div className="flex items-center gap-4">
@@ -26,7 +26,7 @@ export const PaymentView = ({ onConfirm, onBack, price }: PaymentViewProps) => (
         <h3 className="font-semibold text-lg mb-4">Your Total</h3>
         <div className="flex justify-between items-center text-xl font-bold text-teal-800">
             <span>Total Amount</span>
-            <span>{formatCurrency(price)}</span>
+            <span>{formatCurrency(price, currency)}</span>
         </div>
       </div>
 
@@ -54,7 +54,7 @@ export const PaymentView = ({ onConfirm, onBack, price }: PaymentViewProps) => (
       </div>
 
       <Button onClick={onConfirm} size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white text-lg h-14 shadow-lg mt-4">
-        Pay {formatCurrency(price)}
+        Pay {formatCurrency(price, currency)}
       </Button>
     </div>
   </div>

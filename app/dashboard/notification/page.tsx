@@ -3,9 +3,10 @@
 import React, { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Bell, MessageSquare, Heart, ShoppingCart,
-  User, Inbox, Trash2, BellOff, MoreVertical, Loader2,
+  User, Inbox, Trash2, MoreVertical, Loader2,
   Plane, MapPin, Clock, Users, Briefcase, CheckCircle2,
   Car, AlertCircle, RotateCcw, ChevronRight, Shield,
 } from "lucide-react";
@@ -17,9 +18,11 @@ import {
   DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNotifications, type GqlNotification } from "@/components/contexts/notification-context";
+import { useDismissNotificationMutation } from "@/lib/api/notificationsApiSlice";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useDriverJobSocket } from "@/hooks/Usedriverjobsocket";
 import { useGetMyServiceRequestsQuery, useGetMyProviderProfilesQuery, useGetAvailableServiceRequestsQuery, type ServiceRequest } from "@/lib/api/riderApiSlice";
+import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -49,6 +52,7 @@ interface FeedItem {
     createdAt: string;
     status?: string;
     isOwnBooking?: boolean;
+    providerId?: string | number;
   };
 }
 
@@ -228,10 +232,7 @@ function NotificationItem({
             onClick={onDelete}
             className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 focus:text-red-600 focus:bg-red-50"
           >
-            <Trash2 size={14} /> Delete
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-            <BellOff size={14} /> Mute
+            <Trash2 size={14} /> Dismiss
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -254,23 +255,33 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
 function MyBookingItem({
   ride,
   onView,
+  onMessage,
 }: {
   ride: FeedItem["ride"];
   onView: (id: string) => void;
+  onMessage?: (serviceType: string, providerId: string | number) => void;
 }) {
   const { formatPrice: convertPrice } = useCurrency();
   if (!ride) return null;
   const status = ride.status || "pending";
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const isChaperone = ride.serviceType === "chaperone";
+
+  const statusLabel = isChaperone && status === "accepted" ? "Chaperone Assigned" : cfg.label;
+  const statusIcon = isChaperone && status === "accepted" ? <Shield className="w-3.5 h-3.5" /> : cfg.icon;
+
+  const accentBarClass = isChaperone ? "bg-purple-500" : "bg-blue-500";
+  const iconBgClass = isChaperone ? "bg-purple-50" : "bg-slate-100";
+  const iconColorClass = isChaperone ? "text-purple-600" : "text-slate-600";
 
   return (
     <div className="group relative bg-white rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-md p-6 transition-all duration-300 shadow-sm">
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-2xl" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentBarClass} rounded-l-2xl`} />
 
       {/* Status badge */}
       <div className="absolute top-4 right-4">
         <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full", cfg.bg, cfg.text)}>
-          {cfg.icon} {cfg.label}
+          {statusIcon} {statusLabel}
         </span>
       </div>
 
@@ -278,15 +289,21 @@ function MyBookingItem({
         {/* Ride Info */}
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-100 p-2 rounded-xl">
-              <Plane className="w-5 h-5 text-slate-600" />
+            <div className={`${iconBgClass} p-2 rounded-xl`}>
+              {isChaperone ? (
+                <Shield className={`w-5 h-5 ${iconColorClass}`} />
+              ) : (
+                <Plane className={`w-5 h-5 ${iconColorClass}`} />
+              )}
             </div>
             <div>
               <p className="font-bold text-gray-900">
-                {ride.airport || "Airport Pickup"}
+                {isChaperone ? "Chaperone Service" : (ride.airport || "Airport Pickup")}
               </p>
               <p className="text-xs text-gray-500">
-                {ride.terminal && `${ride.terminal} · `}{ride.pickupPoint || "Terminal pickup"}
+                {isChaperone
+                  ? (ride.description || "Help requested")
+                  : `${ride.terminal && `${ride.terminal} · `}${ride.pickupPoint || "Terminal pickup"}`}
               </p>
             </div>
           </div>
@@ -294,12 +311,14 @@ function MyBookingItem({
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <MapPin className="w-4 h-4 text-gray-400" />
             <span className="line-clamp-1">
-              {ride.destination || "Destination not specified"}
+              {isChaperone
+                ? (ride.description || "Service location")
+                : (ride.destination || "Destination not specified")}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
-            {ride.arrivalTime && (
+            {!isChaperone && ride.arrivalTime && (
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 {new Date(ride.arrivalTime).toLocaleTimeString("en-US", {
@@ -307,13 +326,13 @@ function MyBookingItem({
                 })}
               </span>
             )}
-            {ride.numPassengers && (
+            {!isChaperone && ride.numPassengers && (
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" />
                 {ride.numPassengers} pax
               </span>
             )}
-            {ride.numBags && (
+            {!isChaperone && ride.numBags && (
               <span className="flex items-center gap-1">
                 <Briefcase className="w-3.5 h-3.5" />
                 {ride.numBags} bags
@@ -323,7 +342,7 @@ function MyBookingItem({
           </div>
         </div>
 
-        {/* Price + View */}
+        {/* Price + Actions */}
         <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3">
           <div className="text-right">
             <p className="text-2xl font-black text-slate-900">
@@ -333,6 +352,15 @@ function MyBookingItem({
               {ride.currency}
             </p>
           </div>
+
+          {isChaperone && status === "accepted" && onMessage && ride.providerId && (
+            <Button
+              onClick={() => onMessage(ride.serviceType!, ride.providerId!)}
+              className="px-6 py-2 rounded-xl font-bold text-xs transition-all shadow-md bg-purple-600 hover:bg-purple-700 text-white active:scale-[0.98]"
+            >
+              Message Chaperone
+            </Button>
+          )}
 
           <button
             onClick={() => onView(ride.id)}
@@ -469,12 +497,14 @@ function RideRequestItem({
               <CheckCircle2 className="w-4 h-4 mr-2" />
               {isChaperone ? "Accept Request" : "Accept Ride"}
             </Button>
-            <button
-              onClick={() => onView(ride.id, ride.serviceType)}
-              className={`text-[10px] font-black ${linkColorClass} uppercase tracking-widest hover:underline cursor-pointer text-center`}
-            >
-              View Details →
-            </button>
+            {!isChaperone && (
+              <button
+                onClick={() => onView(ride.id, ride.serviceType)}
+                className={`text-[10px] font-black ${linkColorClass} uppercase tracking-widest hover:underline cursor-pointer text-center`}
+              >
+                View Details →
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -510,6 +540,7 @@ export default function NotificationPage() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
   const [localReadIds, setLocalReadIds] = useState<Set<string>>(() => new Set());
+  const [dismissNotification] = useDismissNotificationMutation();
 
   // ── Check if user is a registered driver ────────────────────────────
   const { data: providerProfiles } = useGetMyProviderProfilesQuery();
@@ -563,6 +594,7 @@ export default function NotificationPage() {
       isRead: true,
       ride: {
         id: sr.id,
+        serviceType: sr.service_type,
         airport: sr.airport_pickup_details?.airport,
         terminal: sr.airport_pickup_details?.terminal,
         pickupPoint: sr.airport_pickup_details?.pickup_point,
@@ -576,6 +608,7 @@ export default function NotificationPage() {
         createdAt: sr.created_at,
         status: sr.status,
         isOwnBooking: true,
+        providerId: sr.provider ?? undefined,
       },
     }));
   }, [myServiceRequests]);
@@ -687,8 +720,13 @@ export default function NotificationPage() {
     await markAllAsRead("notifications");
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     setHiddenIds((prev) => new Set([...prev, id]));
+    try {
+      await dismissNotification(id).unwrap();
+    } catch {
+      toast.error("Failed to dismiss notification.");
+    }
   };
 
   const handleAcceptRide = (serviceRequestId: string, serviceType?: string) => {
@@ -699,6 +737,24 @@ export default function NotificationPage() {
       router.push(
         "/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/drivers-pickup-confirmation?id=" + serviceRequestId
       );
+    }
+  };
+
+  const [startConversation] = useStartConversationMutation();
+
+  const handleMessage = async (serviceType: string, providerId: string | number) => {
+    try {
+      const conversation = await startConversation({
+        recipient_id: providerId,
+        service_type: serviceType,
+        initial_message: "Hi! I see you've accepted my request.",
+        linked_object_type: "chaperone_service",
+        linked_object_id: providerId,
+      }).unwrap();
+      toast.success("Chat opened with chaperone");
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch {
+      toast.error("Could not open conversation. Please try again.");
     }
   };
 
@@ -792,11 +848,19 @@ export default function NotificationPage() {
                 if (item.kind === "ride" && item.ride) {
                   // Rider's own bookings show status card; available rides show Accept
                   if (item.ride.isOwnBooking) {
+                    const isChaperone = item.ride.serviceType === "chaperone";
                     return (
                       <MyBookingItem
                         key={item.id}
                         ride={item.ride}
-                        onView={(id) => router.push(`/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/vehicle-selection?serviceRequestId=${id}`)}
+                        onView={(id) => {
+                          if (isChaperone) {
+                            router.push(`/dashboard/chaperone/book-chaperone?serviceRequestId=${id}`);
+                          } else {
+                            router.push(`/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/vehicle-selection?serviceRequestId=${id}`);
+                          }
+                        }}
+                        onMessage={(st, pid) => handleMessage(st, pid)}
                       />
                     );
                   }

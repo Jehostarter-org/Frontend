@@ -66,7 +66,7 @@ function useUserLocation(token: string | null) {
 }
 
 function useExistingChaperoneProfile(token: string | null) {
-  const [isRegistered, setIsRegistered] = useState(false)
+  const [profileStatus, setProfileStatus] = useState<string | null>(null)
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
@@ -86,11 +86,11 @@ function useExistingChaperoneProfile(token: string | null) {
         if (res.ok) {
           const data = await res.json()
           const profiles = Array.isArray(data) ? data : data.results || []
-          const hasChaperone = profiles.some(
+          const chaperoneProfile = profiles.find(
             (p: { service_type: string }) => p.service_type === "chaperone"
           )
-          if (hasChaperone) {
-            setIsRegistered(true)
+          if (chaperoneProfile) {
+            setProfileStatus(chaperoneProfile.approval_status || "approved")
           }
         }
       } catch {
@@ -103,7 +103,7 @@ function useExistingChaperoneProfile(token: string | null) {
     checkProfile()
   }, [token])
 
-  return { isRegistered, checking }
+  return { profileStatus, checking }
 }
 
 const INITIAL_DATA: ChaperoneRegistrationData = {
@@ -120,7 +120,7 @@ export default function ChaperoneRegistrationPage() {
   const router = useRouter()
   const token = useAuthToken()
   const { location, loading: locationLoading } = useUserLocation(token)
-  const { isRegistered, checking: checkingProfile } = useExistingChaperoneProfile(token)
+  const { profileStatus, checking: checkingProfile } = useExistingChaperoneProfile(token)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState<ChaperoneRegistrationData>(INITIAL_DATA)
 
@@ -216,8 +216,8 @@ export default function ChaperoneRegistrationPage() {
         return
       }
 
-      toast.success("Successfully registered as a chaperone!")
-      router.push("/dashboard/chaperone")
+      toast.success("Registration submitted! Your application is pending admin approval.")
+      router.push("/dashboard")
 
     } catch (error) {
       console.error("Registration error:", error)
@@ -238,31 +238,44 @@ export default function ChaperoneRegistrationPage() {
     )
   }
 
-  if (isRegistered) {
+  if (profileStatus) {
+    const isPending = profileStatus === "pending";
     return (
       <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="bg-white rounded-2xl border border-gray-300 p-8 lg:p-12 shadow-sm text-center">
-          <div className="mx-auto w-20 h-20 rounded-full bg-teal-50 flex items-center justify-center mb-6">
-            <svg className="w-10 h-10 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isPending ? 'bg-amber-50' : 'bg-teal-50'}`}>
+            {isPending ? (
+              <svg className="w-10 h-10 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-10 h-10 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">You're Already Registered</h2>
-          <p className="text-gray-500 mb-8 max-w-md mx-auto">
-            You've already signed up as a chaperone. You can now receive booking requests from users.
-          </p>
+          {isPending ? (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Pending Approval</h2>
+              <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                Your chaperone registration has been submitted and is awaiting admin approval.
+                You'll be notified once your application has been reviewed.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">You're Already Registered</h2>
+              <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                You've already signed up as a chaperone. You can now receive booking requests from users.
+              </p>
+            </>
+          )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
-              onClick={() => router.push("/dashboard/chaperone")}
+              onClick={() => router.push("/dashboard")}
               className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
             >
-              Go to Chaperone Dashboard
-            </button>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-            >
-              Back to Dashboard
+              Go to Dashboard
             </button>
           </div>
         </div>

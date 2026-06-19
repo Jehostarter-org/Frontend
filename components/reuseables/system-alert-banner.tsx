@@ -15,9 +15,16 @@ import { useEffect } from "react";
 import type { GqlNotification } from "@/components/contexts/notification-context";
 
 // Map notification type → colour + icon
-function alertStyle(type: string): {
+function alertStyle(type?: string): {
   border: string; bg: string; icon: React.ReactNode;
 } {
+  if (!type) {
+    return {
+      border: "border-teal-200",
+      bg:     "bg-teal-50",
+      icon:   <Bell className="w-4 h-4 text-teal-500 mt-0.5 shrink-0" />,
+    };
+  }
   if (type.startsWith("service")) {
     return {
       border: "border-blue-200",

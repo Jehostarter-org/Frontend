@@ -3,15 +3,16 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, X, Check } from "lucide-react";
+import { Users, X, Check, Trash2 } from "lucide-react";
 import type { Message } from "@/components/types/types";
 
 interface MessageItemProps {
   message: Message;
   onAction: (id: string) => void;
+  onDismiss?: (id: string) => void;
 }
 
-export default function MessageItem({ message, onAction }: MessageItemProps) {
+export default function MessageItem({ message, onAction, onDismiss }: MessageItemProps) {
   const isUnread = !message.isRead;
 
   const renderAction = () => {
@@ -41,10 +42,10 @@ export default function MessageItem({ message, onAction }: MessageItemProps) {
       <Button
         size="sm"
         variant="ghost"
-        className="text-gray-400 hover:text-gray-600"
-        onClick={() => onAction(message.id)}
+        className="text-gray-400 hover:text-red-500"
+        onClick={() => onDismiss?.(message.id)}
       >
-        <X className="h-4 w-4" />
+        <Trash2 className="h-4 w-4" />
       </Button>
     );
   };

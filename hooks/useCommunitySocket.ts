@@ -146,6 +146,7 @@ export function useCommunitySocket({
                         attachment_type: data.attachment_type ?? "",
                         attachment_size: data.attachment_size ?? 0,
                         created_at: data.created_at,
+                        reactions: data.reactions ?? {},
                     };
 
                     onMessage?.(msg);

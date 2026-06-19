@@ -33,6 +33,7 @@ export interface DriverDetails {
     total_trips: number;
     phone: string;
     emergency_contact: string;
+    is_verified: boolean;
 }
 
 export interface AirportPickupDetails {
@@ -71,6 +72,10 @@ export interface ServiceRequest {
     created_at: string;
     updated_at: string;
     airport_pickup_details: AirportPickupDetails | null;
+    chaperone_details?: {
+        help_type: string;
+        location?: string;
+    } | null;
     driver_details: DriverDetails | null;
     review: { id: string; rating: number; comment: string; created_at: string } | null;
 

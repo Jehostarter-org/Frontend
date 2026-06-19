@@ -79,7 +79,7 @@ export const PropertyDetailsView = ({ property, onReserve, onBack }: DetailsView
           <Card className="border-teal-100 bg-teal-50/30 shadow-sm">
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-gray-900">{formatCurrency(property.price)}</span>
+                <span className="text-2xl font-bold text-gray-900">{formatCurrency(property.price, property.currency)}</span>
                 <span className="text-sm text-gray-500">/ year</span>
               </div>
               <div className="flex items-center gap-3 text-teal-800">

@@ -37,6 +37,7 @@ export interface CommunityMessage {
   attachment_name: string;
   attachment_type: string;
   attachment_size: number;
+  reactions: Record<string, string[]>;
   created_at: string;
 }
 
@@ -221,6 +222,14 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       }),
     }),
 
+    toggleReaction: builder.mutation<{ reactions: Record<string, string[]> }, { communityId: string; messageId: string; emoji: string }>({
+      query: ({ communityId, messageId, emoji }) => ({
+        url: `/community/${communityId}/messages/${messageId}/react/`,
+        method: 'POST',
+        body: { emoji },
+      }),
+    }),
+
     getCommunityFeed: builder.query<Post[], void>({
       query: () => '/community/feed/',
       transformResponse: (raw: any) =>
@@ -254,6 +263,7 @@ export const {
   useGetCommunityMessagesQuery,
   useSendCommunityMessageMutation,
   useDeleteCommunityMessageMutation,
+  useToggleReactionMutation,
   useGetCommunityFeedQuery,
   useGetCommunityPostsQuery,
 } = communityApiSlice;

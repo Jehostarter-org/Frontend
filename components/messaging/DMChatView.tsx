@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Send, Loader2, Check, CheckCheck, ArrowLeft, Info, Wifi, WifiOff, MessageCircle, Reply, Trash2, X, File, FileText, Play, Music } from "lucide-react";
 import { isMediaType } from "@/components/reuseables/media-viewer";
+import MessageContent from "@/components/reuseables/MessageContent";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useDeleteMessageMutation, useGetMessagesQuery, useMarkConversationReadMutation, useSendMessageMutation } from "@/lib/api/messagesApiSlice";
@@ -276,7 +277,7 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                                             </button>
                                         )}
                                         <div className="text-[14px] leading-relaxed pr-12 whitespace-pre-wrap break-words">
-                                            {msg.body}
+                                            <MessageContent text={msg.body} />
                                         </div>
 
                                         {/* Attachment previews */}

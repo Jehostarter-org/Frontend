@@ -1,6 +1,7 @@
 import { apiSlice } from "./apiSlice";
 
 export const plansApiSlice = apiSlice.injectEndpoints({
+  overrideExisting: true,
   endpoints: (builder) => ({
     getApartmentPlans: builder.query({
       query: () => "/plans/apartment",
@@ -52,6 +53,10 @@ export const plansApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["Plan"],
     }),
 
+    getEligibilitySubmitted: builder.query<{ submitted: boolean }, void>({
+      query: () => "/plan/gold/eligibility/exists",
+    }),
+
     selectPackagePlan: builder.query({
       query: (planId) => `/plan/select/package/${planId}`,
       providesTags: ["Plan"],
@@ -77,4 +82,5 @@ export const {
   useVerifyGoldPlanPaymentMutation,
   useCheckGoldEligibilityHomeMutation,
   useCheckGoldEligibilityDestinationMutation,
+  useGetEligibilitySubmittedQuery,
 } = plansApiSlice;

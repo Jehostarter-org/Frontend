@@ -159,7 +159,7 @@ export default function OwnerWizardPage() {
             <FeaturesStep initialData={formData} onNext={handleStep2Complete} onBack={handleBack} />
           )}
           {step === 3 && (
-            <AvailabilityStep initialData={formData} onNext={handleStep3Complete} onBack={handleBack} />
+            <AvailabilityStep initialData={formData} onNext={handleStep3Complete} onBack={handleBack} currency={formData.pricing?.currency} />
           )}
           {step === 4 && (
             <ReviewStep initialData={formData} isSubmitting={isSubmitting} onNext={handleFinalSubmit} onBack={handleBack} />

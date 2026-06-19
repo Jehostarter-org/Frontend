@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommunityItem } from "@/components/types/community";
 import type { Participant } from "@/lib/api/messagesApiSlice";
 import {
@@ -49,6 +50,7 @@ export function GroupInfoSidebar({
   const [linkCopied, setLinkCopied] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ userId: string; username: string } | null>(null);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const [updateCommunity, { isLoading: isUpdating }] = useUpdateCommunityMutation();
@@ -222,11 +224,16 @@ export function GroupInfoSidebar({
   // ── Remove member ──────────────────────────────────────────────────────────
   const handleRemoveMember = async (userId: string, username: string) => {
     if (!group?.id) return;
-    if (!window.confirm(`Remove ${username} from this group?`)) return;
-    setRemovingId(userId);
+    setConfirmRemove({ userId, username });
+  };
+
+  const executeRemove = async () => {
+    if (!group?.id || !confirmRemove) return;
+    setRemovingId(confirmRemove.userId);
+    setConfirmRemove(null);
     try {
-      await removeMember({ communityId: group.id, userId }).unwrap();
-      toast.success(`${username} has been removed.`);
+      await removeMember({ communityId: group.id, userId: confirmRemove.userId }).unwrap();
+      toast.success(`${confirmRemove.username} has been removed.`);
     } catch (err: any) {
       toast.error("Could not remove member.", { description: err?.data?.detail });
     } finally {
@@ -483,7 +490,7 @@ export function GroupInfoSidebar({
             ) : (
               <ul className="space-y-2.5">
                 {members.slice(0, 30).map((member: any) => {
-                  const memberId = String(member.user?.id ?? member.id ?? "");
+                  const memberId = String(member.user ?? member.id ?? "");
                   const username = member.user?.username ?? member.username ?? "Unknown";
                   const isCreator = group.creator != null && String(group.creator) === memberId;
                   const isSelf = String(currentUserId) === memberId;
@@ -561,6 +568,17 @@ export function GroupInfoSidebar({
           )}
         </div>
       </aside>
+
+      <ConfirmDialog
+        open={!!confirmRemove}
+        title={`Remove ${confirmRemove?.username ?? "member"}?`}
+        message={`Are you sure you want to remove ${confirmRemove?.username ?? "this member"} from this group? This action cannot be undone.`}
+        confirmLabel="Remove"
+        variant="danger"
+        loading={removingId !== null}
+        onConfirm={executeRemove}
+        onCancel={() => setConfirmRemove(null)}
+      />
     </>
   );
 }

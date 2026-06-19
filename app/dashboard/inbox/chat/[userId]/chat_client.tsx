@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import type { ChatMessage } from "@/components/types/types";
 import { ArrowLeft, Mic, Paperclip, Smile, Send } from "lucide-react";
+import MessageContent from "@/components/reuseables/MessageContent";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 
 
@@ -82,7 +83,7 @@ export default function ChatClient({ chatUser }: ChatClientProps) {
               chatMessages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`} >
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 shadow-sm ${ msg.isOwn ? "bg-[#2C5F6F] text-white rounded-tr-none" : "bg-white text-gray-900 border border-gray-200 rounded-tl-none" }`}>
-                    <p className="text-sm md:text-base leading-relaxed">{msg.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed"><MessageContent text={msg.content} /></p>
                     <span className={`text-[10px] mt-1 block ${msg.isOwn ? "text-teal-100" : "text-gray-400"}`}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>

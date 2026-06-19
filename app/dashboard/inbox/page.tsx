@@ -15,6 +15,7 @@ import {
   useGetNotificationsQuery,
   useMarkReadMutation,
   useMarkAllReadMutation,
+  useDismissNotificationMutation,
   type Notification,
 } from "@/lib/api/notificationsApiSlice";
 
@@ -59,6 +60,7 @@ export default function InboxPage() {
   const { data: notifications = [], isLoading } = useGetNotificationsQuery();
   const [markRead] = useMarkReadMutation();
   const [markAllRead] = useMarkAllReadMutation();
+  const [dismissNotification] = useDismissNotificationMutation();
 
   const messages: Message[] = useMemo(
     () => notifications.map(toMessage),
@@ -91,6 +93,14 @@ export default function InboxPage() {
       await markRead(id).unwrap();
     } catch {
       toast.error("Failed to update notification.");
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    try {
+      await dismissNotification(id).unwrap();
+    } catch {
+      toast.error("Failed to dismiss notification.");
     }
   };
 
@@ -180,6 +190,7 @@ export default function InboxPage() {
                     key={msg.id}
                     message={msg}
                     onAction={handleAction}
+                    onDismiss={handleDismiss}
                   />
                 ))}
               </div>

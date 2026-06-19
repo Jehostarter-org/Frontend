@@ -21,9 +21,9 @@ export default function LocalNavigation({ onLocationChange, mapLocation }: Local
         </div>
         
         <div className="p-5 space-y-5 flex-1">
-          <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-inner h-48 sm:h-56">
+          <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-inner min-h-[200px] h-48 sm:h-56 md:h-64">
             <InteractiveMap onLocationChange={onLocationChange} />
-            <Button size="sm" className="absolute top-3 right-3 bg-white text-gray-800 hover:bg-gray-50 shadow-md border border-gray-100 text-xs font-medium h-8" >
+            <Button size="sm" className="absolute top-3 right-3 z-10 bg-white text-gray-800 hover:bg-gray-50 shadow-md border border-gray-100 text-xs font-medium h-8" >
               <Plus className="h-3 w-3 mr-1.5 text-amber-500" />
               Upgrade to Gold
             </Button>

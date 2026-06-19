@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCart } from "@/components/contexts/cart-context";
@@ -8,6 +9,7 @@ import { Plus, Minus, Trash2, ShoppingCart, Loader2 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 
 export default function BuyersCart() {
+  const router = useRouter();
   const { cartItems, updateQuantity, removeFromCart, isLoading } = useCart();
 
   const handleRemove = async (id: string) => {
@@ -72,7 +74,17 @@ export default function BuyersCart() {
                               <p className='text-xl font-bold text-gray-900 mb-4'>
                                 ${(item.price * item.quantity).toFixed(2)}
                               </p>
-                              <Button className='w-full bg-primary hover:bg-primary/90'>
+                              <Button
+                                className='w-full bg-primary hover:bg-primary/90'
+                                onClick={() => {
+                                  const params = new URLSearchParams({
+                                    productId: item.id,
+                                    productName: item.name,
+                                    price: (item.price * item.quantity).toString(),
+                                  });
+                                  router.push(`/dashboard/payment?${params.toString()}`);
+                                }}
+                              >
                                 Buy
                               </Button>
                             </div>

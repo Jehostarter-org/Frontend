@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin } from "lucide-react";
+import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
 import { useCurrency } from "@/components/contexts/currencyContext";
@@ -87,6 +87,23 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     }
   };
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = product?.title ?? "Check this out";
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch { /* user cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied to clipboard");
+      } catch {
+        toast.error("Could not copy link");
+      }
+    }
+  };
+
   const handleMessageSeller = async () => {
     if (!isLoggedIn) {
       toast.error("Sign in to chat with the seller");
@@ -151,7 +168,12 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                   {product?.title}
                 </h1>
                 {sellerName && (
-                  <p className="text-sm text-gray-500">by <span className="font-semibold text-gray-700">{sellerName}</span></p>
+                  <p className="text-sm text-gray-500">
+                    by <span className="font-semibold text-gray-700">{sellerName}</span>
+                    {(product?.shop?.is_verified || product?.is_verified) && (
+                      <BadgeCheck className="inline h-4 w-4 ml-1 text-blue-500 -mt-0.5" />
+                    )}
+                  </p>
                 )}
               </div>
               <div className="flex gap-1 shrink-0">
@@ -164,7 +186,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 >
                   <Bookmark className={cn("h-5 w-5", isSaved && "fill-teal-600 text-teal-600")} />
                 </Button>
-                <Button variant="ghost" size="icon"><Share2 className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
               </div>
             </div>
 
@@ -181,7 +203,18 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 <ShieldCheck className="h-5 w-5" />
                 <span className="text-sm font-semibold">Buyer Protection Guaranteed</span>
               </div>
-              <Button className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]">
+              <Button
+                className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]"
+                onClick={() => {
+                  if (!listingId) { toast.error("Product not available"); return; }
+                  const params = new URLSearchParams({
+                    productId: listingId,
+                    productName: product?.title ?? "Product",
+                    price: price.toString(),
+                  });
+                  router.push(`/dashboard/payment?${params.toString()}`);
+                }}
+              >
                 Buy Now
               </Button>
             </CardContent>

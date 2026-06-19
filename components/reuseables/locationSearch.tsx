@@ -64,18 +64,22 @@ export function LocationSearch({
       setIsLoading(true);
       try {
         // Try ORS Pelias geocoder first (uses the project's API key)
-        const orsKey = process.env.NEXT_PUBLIC_ORS_API_KEY;
-        if (orsKey) {
-          const res = await fetch(
-            `https://api.openrouteservice.org/geocode/autocomplete?api_key=${orsKey}&text=${encodeURIComponent(debouncedQuery)}&size=5&layers=venue,address,neighbourhood,locality,localadmin`,
-          );
-          if (!cancelled && res.ok) {
-            const data = await res.json();
-            const features = (data.features ?? []).map(normaliseORSFeature);
-            setResults(features);
-            setShowDropdown(features.length > 0);
-            return;
+        try {
+          const orsKey = process.env.NEXT_PUBLIC_ORS_API_KEY;
+          if (orsKey) {
+            const res = await fetch(
+              `https://api.openrouteservice.org/geocode/autocomplete?api_key=${orsKey}&text=${encodeURIComponent(debouncedQuery)}&size=5&layers=venue,address,neighbourhood,locality,localadmin`,
+            );
+            if (!cancelled && res.ok) {
+              const data = await res.json();
+              const features = (data.features ?? []).map(normaliseORSFeature);
+              setResults(features);
+              setShowDropdown(features.length > 0);
+              return;
+            }
           }
+        } catch {
+          // ORS failed (CORS/network/etc.) — fall through to Nominatim
         }
 
         // Fallback: Nominatim

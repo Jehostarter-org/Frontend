@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Paperclip, MoreVertical, Check, CheckCheck } from 'lucide-react';
+import MessageContent from '@/components/reuseables/MessageContent';
 import { useSelector } from 'react-redux';
 import { selectCurrentToken } from '@/lib/features/auth/authSlice';
 import {
@@ -108,7 +109,7 @@ function MessageBubble({
         }`
     }
           >
-        { message.body }
+        <MessageContent text={message.body} />
         </div>
         )
 }
@@ -190,7 +191,7 @@ export default function ChatPage() {
 
     // Mark read on mount
     useEffect(() => {
-        markRead(Number(conversationId));
+        markRead(Number(conversationId)).catch(() => {});
     }, [conversationId, markRead]);
 
     // ── WebSocket lifecycle ──────────────────────────────────────────────────────
