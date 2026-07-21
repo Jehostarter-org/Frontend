@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Star, DollarSign, MapPin, Clock, Loader2 } from "lucide-react";
@@ -10,13 +10,14 @@ import { useGetDriverServiceRequestQuery, useRatePassengerMutation } from "@/lib
 
 export default function TripCompletion() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rating, setRating] = useState(0);
   const [serviceRequestId, setServiceRequestId] = useState("");
 
   useEffect(() => {
-    const id = sessionStorage.getItem("activeDriverServiceId") || "";
+    const id = searchParams.get("id") || sessionStorage.getItem("activeDriverServiceId") || "";
     setServiceRequestId(id);
-  }, []);
+  }, [searchParams]);
 
   const { data: sr, isLoading } = useGetDriverServiceRequestQuery(serviceRequestId, {
     skip: !serviceRequestId,
@@ -125,7 +126,7 @@ export default function TripCompletion() {
               <Button
                 onClick={() => {
                   sessionStorage.removeItem("activeDriverServiceId");
-                  router.push("/dashboard/airport-pickup/drivers-pickup");
+                  router.push("/dashboard");
                 }}
                 className="w-full bg-[#2d7a7a] hover:bg-[#246060] text-white py-7 text-lg font-bold rounded-2xl shadow-lg"
               >

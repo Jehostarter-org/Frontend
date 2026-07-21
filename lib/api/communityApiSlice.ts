@@ -244,6 +244,17 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       providesTags: (_r, _e, id) => [{ type: 'Post' as const, id }],
     }),
 
+    shareListingToGroups: builder.mutation<
+      { created: { community_id: string; post_id: string }[]; skipped: string[]; detail: string },
+      { listing_id: string; community_ids: string[] }
+    >({
+      query: (body) => ({
+        url: '/community/share-listing/',
+        method: 'POST',
+        body,
+      }),
+    }),
+
   }),
 });
 
@@ -266,4 +277,5 @@ export const {
   useToggleReactionMutation,
   useGetCommunityFeedQuery,
   useGetCommunityPostsQuery,
+  useShareListingToGroupsMutation,
 } = communityApiSlice;

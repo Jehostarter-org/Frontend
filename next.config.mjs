@@ -37,6 +37,11 @@ const nextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "ui-avatars.com",
+        pathname: "/**",
+      },
       // ── Wildcard: any HTTPS host (covers future third-party image URLs) ───
       // Add specific hostnames here instead of using wildcard
       // {

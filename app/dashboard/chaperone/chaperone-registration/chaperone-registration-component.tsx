@@ -15,6 +15,7 @@ export interface ChaperoneRegistrationData {
   simCardReference: string
   taxFileNumberReference: string
   offersTranslationService: boolean
+  offersRegistrationService: boolean
 }
 
 interface ChaperoneRegistrationFormProps {
@@ -137,6 +138,23 @@ export function ChaperoneRegistrationForm({ data, onUpdate }: ChaperoneRegistrat
               <p className="text-sm text-gray-500 mt-1">
                 Check this if you are able to offer translation services in addition to chaperone assistance.
                 This can include translating documents, interpreting conversations, and helping with forms.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg mt-3">
+            <Checkbox
+              id="offersRegistrationService"
+              checked={data.offersRegistrationService}
+              onCheckedChange={(checked) => onUpdate("offersRegistrationService", checked === true)}
+              className="mt-1"
+            />
+            <div>
+              <Label htmlFor="offersRegistrationService" className="font-medium text-gray-900 cursor-pointer">
+                I can help with All Forms of Registration
+              </Label>
+              <p className="text-sm text-gray-500 mt-1">
+                Check this if you can assist with various registration processes (government, school, medical, etc.).
               </p>
             </div>
           </div>

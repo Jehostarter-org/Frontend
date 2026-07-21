@@ -148,10 +148,12 @@ function useCommunityChat(
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
+  const retryRef = useRef(0);
+  const closedRef = useRef(false);
 
   const { data: history = [], isLoading: isLoadingHistory } = useGetCommunityMessagesQuery(
     communityId!,
-    { skip: !communityId },
+    { skip: !communityId, pollingInterval: 15000 },
   );
 
   const seededRef = useRef(false);
@@ -171,13 +173,13 @@ function useCommunityChat(
 
   useEffect(() => {
     seededRef.current = false;
+    retryRef.current = 0;
     setLiveMessages([]);
     setOnlineUsers(new Set());
   }, [communityId]);
 
-  useEffect(() => {
-    if (!communityId) return;
-    wsRef.current?.close();
+  const connect = useCallback(() => {
+    if (!communityId || closedRef.current) return;
 
     const token =
       typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
@@ -192,6 +194,7 @@ function useCommunityChat(
 
     ws.onopen = () => {
       setIsConnected(true);
+      retryRef.current = 0;
       setOnlineUsers(new Set());
     };
 
@@ -282,16 +285,29 @@ function useCommunityChat(
     };
 
     ws.onerror = () => setIsConnected(false);
+
     ws.onclose = () => {
       setIsConnected(false);
       setOnlineUsers(new Set());
-    };
-
-    return () => {
-      ws.close();
-      Object.values(typingTimers.current).forEach(clearTimeout);
+      if (closedRef.current) return;
+      retryRef.current++;
+      const delay = Math.min(1000 * Math.pow(2, retryRef.current - 1), 30000);
+      setTimeout(() => { if (!closedRef.current) connect(); }, delay);
     };
   }, [communityId]);
+
+  useEffect(() => {
+    closedRef.current = false;
+    wsRef.current?.close();
+    retryRef.current = 0;
+    connect();
+
+    return () => {
+      closedRef.current = true;
+      wsRef.current?.close();
+      Object.values(typingTimers.current).forEach(clearTimeout);
+    };
+  }, [connect]);
 
   const sendMessage = useCallback((content: string, replyToId?: string | null) => {
     const ws = wsRef.current;
@@ -788,13 +804,46 @@ export default function CommunityPage() {
     setIsJoinModalOpen(false);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed) return;
-    sendCommunityMessageWS(trimmed, replyingTo?.id ?? null);
+    const replyToId = replyingTo?.id ?? null;
+    const replyToSnapshot = replyingTo;
     setNewMessage("");
     setReplyingTo(null);
+    if (isConnected) {
+      sendCommunityMessageWS(trimmed, replyToId);
+    } else if (wsGroupId) {
+      const tempId = `temp_${Date.now()}`;
+      const optimistic: CommunityMessage = {
+        id: tempId,
+        community: wsGroupId,
+        sender: String(currentUserId),
+        sender_username: user?.username ?? "",
+        sender_avatar: user?.avatar ?? null,
+        content: trimmed,
+        reply_to: replyToSnapshot,
+        attachment: null,
+        attachment_url: null,
+        attachment_name: "",
+        attachment_type: "",
+        attachment_size: 0,
+        reactions: {},
+        created_at: new Date().toISOString(),
+      };
+      appendCommunityMessage(optimistic);
+      try {
+        const formData = new FormData();
+        formData.append("content", trimmed);
+        const uploaded = await sendCommunityMessage({ id: wsGroupId, body: formData }).unwrap();
+        removeCommunityMessage(tempId);
+        appendCommunityMessage(uploaded);
+      } catch {
+        removeCommunityMessage(tempId);
+        toast.error("Message failed to send. Please try again.");
+      }
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1169,15 +1218,22 @@ export default function CommunityPage() {
                       {isUploadingFile ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
                     </Button>
                     <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-3">
-                      <input
-                        ref={inputRef}
-                        value={newMessage}
-                        onChange={(e) => { setNewMessage(e.target.value); sendCommunityTyping(); }}
-                        placeholder={isConnected ? (replyingTo ? `Reply to ${replyingTo.sender_username}…` : "Type a message") : "Connecting to chat..."}
-                        disabled={!isConnected}
-                        className="flex-1 bg-slate-100 rounded-lg px-4 py-2.5 text-[14px] text-slate-800 placeholder-slate-400 outline-none border-none shadow-sm focus:ring-1 focus:ring-blue-300"
-                      />
-                      <Button type="submit" size="icon" disabled={!newMessage.trim() || !isConnected} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
+                      <div className="flex-1 relative">
+                        <input
+                          ref={inputRef}
+                          value={newMessage}
+                          onChange={(e) => { setNewMessage(e.target.value); if (isConnected) sendCommunityTyping(); }}
+                          placeholder={replyingTo ? `Reply to ${replyingTo.sender_username}…` : "Type a message"}
+                          className="flex-1 bg-slate-100 rounded-lg px-4 py-2.5 text-[14px] text-slate-800 placeholder-slate-400 outline-none border-none shadow-sm focus:ring-1 focus:ring-blue-300 w-full"
+                        />
+                        {!isConnected && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                            <span className="text-[10px] text-amber-600 font-medium">Reconnecting...</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button type="submit" size="icon" disabled={!newMessage.trim()} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
                         <Send size={18} className="translate-x-[1px]" />
                       </Button>
                     </form>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -13,6 +13,7 @@ import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCard
 import { Search, X, Loader2, ArrowLeft, SearchX, Sparkles, RefreshCw } from "lucide-react";
 import { useCategoryListings } from "@/hooks/use-category-listings";
 import type { Product } from "@/lib/api/productsApiSlice";
+import { useGetSingleProductQuery } from "@/lib/api/productsApiSlice";
 
 function shuffleOnce<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -25,12 +26,25 @@ function shuffleOnce<T>(arr: T[]): T[] {
 
 export default function MarketPlacePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const isAuthenticated = !!user;
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // ── Support ?listing= deep-link from shared URLs ──────────────────────────
+  const listingIdParam = searchParams.get("listing");
+  const { data: linkedProduct } = useGetSingleProductQuery(listingIdParam!, {
+    skip: !listingIdParam,
+  });
+
+  useEffect(() => {
+    if (linkedProduct && !selectedProduct) {
+      setSelectedProduct(linkedProduct);
+    }
+  }, [linkedProduct, selectedProduct]);
 
   const shuffledRef = useRef<Product[]>([]);
   const lastDataRef = useRef<Product[] | null>(null);
@@ -75,7 +89,7 @@ export default function MarketPlacePage() {
       <DashboardShell>
         <div className="min-h-screen bg-gray-50">
           <div className="flex items-center justify-between p-6 border-b bg-white top-0 z-10 custom-scrollbar">
-            <Button variant="ghost" onClick={() => setSelectedProduct(null)} className="text-teal-600 hover:text-teal-800 font-black uppercase tracking-widest text-xs flex items-center gap-2">
+            <Button variant="ghost" onClick={() => { setSelectedProduct(null); router.replace("/dashboard/product/marketplace"); }} className="text-teal-600 hover:text-teal-800 font-black uppercase tracking-widest text-xs flex items-center gap-2">
               <ArrowLeft size={16} /> Back to Marketplace
             </Button>
             <h2 className="hidden md:block text-sm font-black uppercase tracking-tighter text-gray-400">
