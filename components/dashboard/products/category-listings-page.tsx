@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, X, Loader2, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
@@ -15,6 +16,7 @@ import {
   type SortOption,
 } from "@/hooks/use-category-listings";
 import type { Product } from "@/lib/api/productsApiSlice";
+import { useGetSingleProductQuery } from "@/lib/api/productsApiSlice";
 
 export interface CategoryListingsPageProps {
   urlSegment: string;
@@ -42,11 +44,24 @@ export default function CategoryListingsPage({
   EmptyState,
 }: CategoryListingsPageProps) {
   const { formatPrice } = useCurrency();
+  const searchParams = useSearchParams();
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [activeTab, setActiveTab] = useState("All");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // ── Support ?listing= deep-link from shared URLs ──────────────────────────
+  const listingIdParam = searchParams.get("listing");
+  const { data: linkedProduct } = useGetSingleProductQuery(listingIdParam!, {
+    skip: !listingIdParam,
+  });
+
+  useEffect(() => {
+    if (linkedProduct && !selectedProduct) {
+      setSelectedProduct(linkedProduct);
+    }
+  }, [linkedProduct, selectedProduct]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);

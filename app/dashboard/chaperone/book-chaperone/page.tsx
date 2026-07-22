@@ -10,10 +10,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, UserCheck } from "lucide-react"
 
 const HELP_TYPES = [
-  { value: "tax_file", label: "Tax File Number (TFN)" },
-  { value: "registration", label: "General Registration" },
-  { value: "bank_account", label: "Bank Account Opening" },
-  { value: "other", label: "Other" },
+  { value: "sim_card", label: "SIM Card Reference" },
+  { value: "tax_file", label: "Tax File Number Reference" },
+  { value: "registration", label: "All Forms of Registration" },
+  { value: "translation", label: "Translation Service" },
 ]
 
 interface ChaperoneProfile {

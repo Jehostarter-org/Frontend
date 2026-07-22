@@ -43,6 +43,7 @@ const nextConfig = {
         hostname: "ui-avatars.com",
         pathname: "/**",
       },
+
     ],
   },
 };

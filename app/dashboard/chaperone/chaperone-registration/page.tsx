@@ -114,6 +114,7 @@ const INITIAL_DATA: ChaperoneRegistrationData = {
   simCardReference: "",
   taxFileNumberReference: "",
   offersTranslationService: false,
+  offersRegistrationService: false,
 }
 
 export default function ChaperoneRegistrationPage() {
@@ -171,6 +172,7 @@ export default function ChaperoneRegistrationPage() {
       profileFormData.append("sim_card_reference", formData.simCardReference)
       profileFormData.append("tax_file_number_reference", formData.taxFileNumberReference)
       profileFormData.append("offers_translation_service", formData.offersTranslationService ? "true" : "false")
+      profileFormData.append("offers_registration_service", formData.offersRegistrationService ? "true" : "false")
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/services/provider-profiles/`,
