@@ -39,8 +39,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-20 px-4 sm:px-8">
+    <div className="min-h-dvh flex flex-col bg-white">
+      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20 px-5 sm:px-8 py-8">
 
         {/* Left panel — desktop only */}
         <section className="hidden lg:flex flex-col items-center justify-center space-y-8 text-center max-w-sm">
