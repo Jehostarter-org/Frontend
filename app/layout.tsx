@@ -1,7 +1,7 @@
 import "./globals.css";
 import "tailwindcss-animate";
 import "leaflet/dist/leaflet.css";
-import { Metadata } from "next";
+import { Metadata, Viewport } from "next";
 import { Providers } from "../components/providers";
 import { DM_Sans } from "next/font/google";
 
@@ -42,13 +42,14 @@ export const metadata: Metadata = {
     follow: true,
   },
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#ffffff",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
 };
 
 export const dynamic = 'force-dynamic';
@@ -57,13 +58,6 @@ export const fetchCache = 'force-no-store';
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-        <meta name="theme-color" content="#ffffff" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <link rel="apple-touch-icon" href="/images/small logo WHITE.png" />
-      </head>
       <body className={`${dmSans.className} antialiased`}>
         <Providers>
           {children}
