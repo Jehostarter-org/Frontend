@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   images: {
     remotePatterns: [
       // ── Local development ─────────────────────────────────────────────────
@@ -15,10 +16,10 @@ const nextConfig = {
         port: "8000",
         pathname: "/**",
       },
-      // ── Production backend (Render) ───────────────────────────────────────
+      // ── Production backend ────────────────────────────────────────────────
       {
         protocol: "https",
-        hostname: "jehostarter-backend.onrender.com",
+        hostname: "api.jehostarter.com",
         pathname: "/**",
       },
       // ── Avatar / placeholder services ─────────────────────────────────────
@@ -37,13 +38,11 @@ const nextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
-      // ── Wildcard: any HTTPS host (covers future third-party image URLs) ───
-      // Add specific hostnames here instead of using wildcard
-      // {
-      //   protocol: "https",
-      //   hostname: "**",
-      //   pathname: "/**",
-      // },
+      {
+        protocol: "https",
+        hostname: "ui-avatars.com",
+        pathname: "/**",
+      },
     ],
   },
 };
