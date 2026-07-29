@@ -13,14 +13,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Set build args for Next.js
-ARG NEXT_PUBLIC_API_URL=https://api.jehostarter.com
-ARG NEXT_PUBLIC_WS_URL=wss://api.jehostarter.com
-ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
-
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_API_URL=https://api.jehostarter.com
+ENV NEXT_PUBLIC_WS_URL=wss://api.jehostarter.com
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=282926972818-cgcmau1p3f7o20giscv70f6mvle09n5f.apps.googleusercontent.com
 ENV NEXT_TURBOPACK=0
 ENV NODE_OPTIONS='--max-old-space-size=4096'
 
