@@ -15,7 +15,7 @@ COPY . .
 
 ENV NEXT_PUBLIC_API_URL=https://api.jehostarter.com
 ENV NEXT_PUBLIC_WS_URL=wss://api.jehostarter.com
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=282926972818-cgcmau1p3f7o20giscv70f6mvle09n5f.apps.googleusercontent.com
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=1055105019679-p2mshk8libmgj79f0qsgm7jasa98qcpj.apps.googleusercontent.com
 ENV NEXT_TURBOPACK=0
 ENV NODE_OPTIONS='--max-old-space-size=4096'
 
