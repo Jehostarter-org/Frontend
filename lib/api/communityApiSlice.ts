@@ -129,7 +129,12 @@ export const communityApiSlice = apiSlice.injectEndpoints({
     }),
 
     updateCommunity: builder.mutation<Community, { id: string; body: Partial<Community> | FormData }>({
-      query: ({ id, body }) => ({ url: `/community/${id}/`, method: 'PATCH', body }),
+      query: ({ id, body }) => ({
+        url: `/community/${id}/`,
+        method: 'PATCH',
+        body,
+        ...(body instanceof FormData ? { formData: true as const } : {}),
+      }),
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Community' as const, id },
         { type: 'Community' as const, id: 'LIST' },
@@ -211,7 +216,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
     }),
 
     sendCommunityMessage: builder.mutation<CommunityMessage, { id: string; body: FormData }>({
-      query: ({ id, body }) => ({ url: `/community/${id}/messages/`, method: 'POST', body }),
+      query: ({ id, body }) => ({ url: `/community/${id}/messages/`, method: 'POST', body, formData: true }),
       invalidatesTags: (_r, _e, { id }) => [{ type: 'CommunityMessages' as const, id }],
     }),
 

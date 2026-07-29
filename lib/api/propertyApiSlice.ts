@@ -88,6 +88,7 @@ export const propertyApi = createApi({
         url: `/services/properties/${id}/upload-images/`,
         method: 'POST',
         body: formData,
+        formData: true,
       }),
       invalidatesTags: ['Properties'],
     }),
