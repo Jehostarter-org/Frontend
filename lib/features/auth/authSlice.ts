@@ -96,6 +96,7 @@ const authSlice = createSlice({
         if (refreshToken) {
           localStorage.setItem('refresh_token', refreshToken);
         }
+        document.cookie = '__session=1; path=/; SameSite=Lax';
       }
     },
 
@@ -117,6 +118,7 @@ const authSlice = createSlice({
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
+        document.cookie = '__session=; path=/; SameSite=Lax; Max-Age=0';
         window.location.href = '/auth/login';
       }
     },
@@ -133,6 +135,7 @@ const authSlice = createSlice({
             state.token        = token;
             state.refreshToken = refreshToken ?? null;
             state.user         = normalizeUser(JSON.parse(userString));
+            document.cookie = '__session=1; path=/; SameSite=Lax';
           }
         } catch (e) {
           console.error('Failed to hydrate auth', e);

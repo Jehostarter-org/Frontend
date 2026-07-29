@@ -19,6 +19,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const hasSession = request.cookies.get('__session')?.value === '1'
+  if (hasSession) {
+    return NextResponse.next()
+  }
+
   const url = new URL('/not-found', request.url)
   url.searchParams.set('from', pathname)
   return NextResponse.rewrite(url)
