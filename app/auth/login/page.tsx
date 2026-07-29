@@ -49,12 +49,9 @@ export default function LoginPage() {
             <h2 className="text-2xl py-3 font-semibold text-gray-900">
               Are You Migrating?
             </h2>
-            <Link
-              href="/dashboard/product/marketplace"
-              className="text-3xl font-bold text-green-600 hover:opacity-80 transition-opacity block"
-            >
+            <span className="text-3xl font-bold text-green-600 block">
               Browse Shop →
-            </Link>
+            </span>
             <p className="text-gray-600 text-sm py-3 px-4">
               Click the browse shop link to view contents
             </p>
