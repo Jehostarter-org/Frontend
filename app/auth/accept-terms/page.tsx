@@ -14,7 +14,7 @@ export default function AcceptTermsPage() {
 
   const handleAccept = async () => {
     try {
-      const result = await acceptTerms().unwrap();
+      const result = await acceptTerms(undefined).unwrap();
       toast.success(result.detail || 'Terms accepted');
       router.push('/dashboard');
     } catch (err: any) {
