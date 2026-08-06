@@ -22,6 +22,8 @@ export interface Product {
   images: ProductImage[];
   is_available: boolean;
   is_boosted: boolean;
+  listing_type?: string;
+  condition?: string;
   country_code: string;
   city: string;
   created_at: string;
@@ -63,6 +65,8 @@ function normalise(item: any): Product {
     images: item.images ?? [],
     is_available: item.is_available ?? true,
     is_boosted: item.is_boosted ?? false,
+    listing_type: item.listing_type ?? 'sale',
+    condition: item.condition ?? '',
     country_code: item.shop?.country_code ?? item.country_code ?? '',
     city: item.shop?.city ?? item.city ?? '',
     created_at: item.created_at ?? '',
@@ -159,7 +163,11 @@ export const productsApiSlice = apiSlice.injectEndpoints({
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: (_result, _err, { id }) => [{ type: 'Product', id }],
+      invalidatesTags: (_result, _err, { id }) => [
+        { type: 'Product', id },
+        { type: 'Product', id: 'MY_LIST' },
+        { type: 'Product', id: 'LIST' },
+      ],
     }),
 
     deleteListing: builder.mutation({

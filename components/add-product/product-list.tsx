@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useCurrency } from "../contexts/currencyContext";
 import { useGetMyProductsQuery, useDeleteProductMutation } from "@/lib/api/productsApiSlice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EditProductDialog } from "@/components/add-product/edit-item-dialog";
 import {
   Trash2,
   Loader2,
@@ -18,11 +19,11 @@ import {
   PackageOpen,
   MapPin,
   Layers,
-  Info,
   ChevronRight,
   ChevronLeft,
   Zap,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 
 interface Product {
@@ -41,6 +42,7 @@ export function ProductList() {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<string | null>(null);
 
   const {
     data: rawData = [],
@@ -133,6 +135,8 @@ export function ProductList() {
         loading={isDeleting}
       />
 
+      <EditProductDialog productId={editTarget} onClose={() => setEditTarget(null)} />
+
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between px-2">
         <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
@@ -148,6 +152,7 @@ export function ProductList() {
             product={product}
             formatPrice={formatPrice}
             onDelete={(id) => setDeleteTarget(id)}
+            onEdit={(id) => setEditTarget(id)}
             onBoost={handleBoost}
             isDeleting={isDeleting}
             isBoosting={false}
@@ -201,6 +206,7 @@ const ProductCard = memo(
     product,
     formatPrice,
     onDelete,
+    onEdit,
     onBoost,
     isDeleting,
     isBoosting,
@@ -208,6 +214,7 @@ const ProductCard = memo(
     product: Product;
     formatPrice: (amt: number, curr?: string) => string;
     onDelete: (id: string) => void;
+    onEdit: (id: string) => void;
     onBoost: (product: Product) => void;
     isDeleting: boolean;
     isBoosting: boolean;
@@ -299,12 +306,13 @@ const ProductCard = memo(
                   <Trash2 className="w-4 h-4" />
                 </Button>
                 <Button
+                  onClick={() => onEdit(product.id)}
                   variant="outline"
                   size="sm"
                   className="rounded-full px-4 h-9 font-bold text-xs gap-2 border-gray-200 hover:border-teal-500 hover:text-teal-700 transition-all"
                 >
-                  <Info className="w-3.5 h-3.5" />
-                  Details
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
                 </Button>
               </div>
             </div>

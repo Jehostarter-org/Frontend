@@ -4,12 +4,13 @@ import React, { useRef, useState } from "react";
 import {
   X, Users, Lock, Globe, Camera, Loader2, Crown,
   LogOut, UserMinus, Link2, Mail, Copy, Check,
-  Send, Share2, UserPlus, MessageCircle, Star,
+  Send, Share2, UserPlus, MessageCircle, Star, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { RenameCommunityDialog } from "@/components/dashboard/community/rename-community-dialog";
 import type { CommunityItem } from "@/components/types/community";
 import type { Participant } from "@/lib/api/messagesApiSlice";
 import {
@@ -51,6 +52,7 @@ export function GroupInfoSidebar({
   const [emailInput, setEmailInput] = useState("");
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; username: string } | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const [updateCommunity, { isLoading: isUpdating }] = useUpdateCommunityMutation();
@@ -350,7 +352,19 @@ export function GroupInfoSidebar({
               />
             </div>
 
-            <h2 className="mt-3 text-[15px] font-bold text-slate-900 text-center leading-snug">{group.title}</h2>
+            <h2 className="mt-3 text-[15px] font-bold text-slate-900 text-center leading-snug flex items-center justify-center gap-1.5">
+              <span className="text-center">{group.title}</span>
+              {isAdmin && (
+                <button
+                  onClick={() => setRenameOpen(true)}
+                  className="text-slate-300 hover:text-teal-600 transition-colors"
+                  title="Rename community"
+                  type="button"
+                >
+                  <Pencil size={13} />
+                </button>
+              )}
+            </h2>
             <div className="flex items-center gap-1.5 mt-1 text-[12px] text-slate-500 font-medium">
               {group.isPrivate
                 ? <><Lock size={11} /> Private</>
@@ -578,6 +592,12 @@ export function GroupInfoSidebar({
         loading={removingId !== null}
         onConfirm={executeRemove}
         onCancel={() => setConfirmRemove(null)}
+      />
+
+      <RenameCommunityDialog
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        community={group}
       />
     </>
   );
