@@ -112,14 +112,23 @@ function resolveNotifLink(notification: GqlNotification): string | null {
   const { notificationType, link } = notification;
   // If no link at all, nothing to view
   if (!link) return null;
-  // Community-related notifications → community page (link has post ID, not group ID)
-  if (notificationType === "community_post" || notificationType === "community_message" || notificationType === "community_invite") {
+  // Community message → straight to the group chat (backend link has ?group=<id>)
+  if (notificationType === "community_message") {
+    const groupMatch = link.match(/[?&]group=([^&]+)/);
+    return groupMatch
+      ? `/dashboard/community?group=${encodeURIComponent(groupMatch[1])}`
+      : "/dashboard/community";
+  }
+  // Other community notifications (post/invite) → community page
+  if (notificationType === "community_post" || notificationType === "community_invite") {
     return "/dashboard/community";
   }
-  // Direct message → inbox with conversation
+  // Direct message → straight to the person's chat thread (backend link: /messages/<id>/)
   if (notificationType === "direct_message") {
-    const match = link.match(/\/(\d+)$/);
-    return match ? `/dashboard/inbox?conversation=${match[1]}` : "/dashboard/inbox";
+    const match = link.match(/\/(\d+)\/?$/);
+    return match
+      ? `/dashboard/community?tab=messages&conversation=${match[1]}`
+      : "/dashboard/community?tab=messages";
   }
   // Service/ride notifications → activity page (they're already here)
   if (notificationType?.startsWith("service_")) {
