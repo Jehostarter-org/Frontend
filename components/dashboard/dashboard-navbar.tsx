@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/contexts/auth-context";
@@ -9,7 +8,8 @@ import { useCart } from "@/components/contexts/cart-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // 👈 add AvatarImage
 import { useNotifications } from "@/components/contexts/notification-context";
 import { useGetUserProfileQuery } from "@/lib/api/userProfileApiSlice"; // 👈 add this
-import { Search, MessageCircle, Bell, Menu, LucideHome, ShoppingCart } from "lucide-react";
+import GlobalSearch from "@/components/dashboard/GlobalSearch";
+import { MessageCircle, Bell, Menu, LucideHome, ShoppingCart } from "lucide-react";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -40,10 +40,7 @@ export default function DashboardNavbar({ onMenuClick }: HeaderProps) {
         </div>
 
         <div className='flex-1 max-w-xs sm:max-w-md mx-2 sm:mx-4 lg:mx-8'>
-          <div className='relative'>
-            <Search className='absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4' />
-            <Input placeholder='Search...' className='pl-8 sm:pl-10 bg-gray-100 border-0 text-sm' />
-          </div>
+          <GlobalSearch />
         </div>
 
         <div className='flex items-center gap-1 sm:gap-2 lg:gap-4'>
