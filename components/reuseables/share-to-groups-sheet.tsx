@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { useGetMyCommunitiesQuery } from "@/lib/api/communityApiSlice";
 import { useShareListingToGroupsMutation } from "@/lib/api/communityApiSlice";
 import { useCurrency } from "@/components/contexts/currencyContext";
@@ -185,12 +186,10 @@ export default function ShareToGroupsSheet({
                   }`}
                 >
                   <div className="h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
-                    <SafeImage
-                      src={group.cover_image}
-                      alt={group.name}
-                      width={44}
-                      height={44}
-                      className="h-full w-full object-cover"
+                    <CommunityAvatar
+                      name={group.name}
+                      className="h-full w-full rounded-full"
+                      textClassName="text-[14px]"
                     />
                   </div>
 

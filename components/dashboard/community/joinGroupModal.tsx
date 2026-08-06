@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { Users, ShieldCheck, Zap, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,12 +50,10 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
         {/* Header Visual */}
         <div className="h-32 bg-gradient-to-br from-blue-500 to-sky-500 relative">
           <div className="absolute -bottom-10 left-8 p-1 bg-white rounded-[1.8rem] shadow-xl">
-            <SafeImage
-              src={group.avatar}
-              alt={group.title}
-              width={80}
-              height={80}
-              className="rounded-[1.5rem] object-cover"
+            <CommunityAvatar
+              name={group.title}
+              className="h-20 w-20 rounded-[1.5rem]"
+              textClassName="text-[26px]"
             />
           </div>
           <div className="absolute top-4 right-6 flex gap-2">

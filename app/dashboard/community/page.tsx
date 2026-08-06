@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import MessageContent from "@/components/reuseables/MessageContent";
 import type { CommunityItem } from "@/components/types/community";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -113,18 +114,6 @@ function getCurrentUserId(): string | null {
     }
   } catch { }
   return null;
-}
-
-// ── Helper: make a relative media URL absolute ────────────────────────────────
-function resolveMediaUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
-    return url;
-  }
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
-    "http://127.0.0.1:8000";
-  return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 // ── WebSocket hook ────────────────────────────────────────────────────────────
@@ -377,7 +366,7 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
   return {
     id: c.id,
     title: c.name,
-    avatar: resolveMediaUrl(c.cover_image),
+    avatar: "",
     message: c.description ?? "",
     unreadCount: c.unread_count || 0,
     type: isMember ? "active_group" : "discovery",
@@ -1010,7 +999,11 @@ export default function CommunityPage() {
                       <ArrowLeft size={20} />
                     </Button>
                     <div className="h-10 w-10 shrink-0">
-                      <SafeImage src={chatHeader.avatar} alt={chatHeader.title} width={40} height={40} className="rounded-full object-cover ring-1 ring-black/5" />
+                      <CommunityAvatar
+                        name={chatHeader.title}
+                        className="h-full w-full rounded-full ring-1 ring-black/5"
+                        textClassName="text-[15px]"
+                      />
                     </div>
                     <div className="min-w-0" onClick={() => setIsInfoBarOpen(true)}>
                       <h3 className="font-semibold text-[15px] text-slate-800 leading-tight truncate hover:underline cursor-pointer">{chatHeader.title}</h3>

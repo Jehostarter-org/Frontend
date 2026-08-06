@@ -1,21 +1,21 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  X, Users, Lock, Globe, Camera, Loader2, Crown,
+  X, Users, Lock, Globe, Loader2, Crown,
   LogOut, UserMinus, Link2, Mail, Copy, Check,
   Send, Share2, UserPlus, MessageCircle, Star, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RenameCommunityDialog } from "@/components/dashboard/community/rename-community-dialog";
 import type { CommunityItem } from "@/components/types/community";
 import type { Participant } from "@/lib/api/messagesApiSlice";
 import {
   useGetCommunityMembersQuery,
-  useUpdateCommunityMutation,
   useLeaveCommunityMutation,
   useRemoveCommunityMemberMutation,
   useGenerateInviteLinkMutation,
@@ -41,10 +41,6 @@ export function GroupInfoSidebar({
   onlineUsers = new Set(),
   dmParticipant,
 }: GroupInfoSidebarProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
-
   // ── Modal state ────────────────────────────────────────────────────────────
   const [activeModal, setActiveModal] = useState<AdminModal>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -55,7 +51,6 @@ export function GroupInfoSidebar({
   const [renameOpen, setRenameOpen] = useState(false);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-  const [updateCommunity, { isLoading: isUpdating }] = useUpdateCommunityMutation();
   const [leaveCommunity, { isLoading: isLeaving }] = useLeaveCommunityMutation();
   const [removeMember, { isLoading: isRemoving }] = useRemoveCommunityMemberMutation();
   const [generateLink, { isLoading: isGeneratingLink }] = useGenerateInviteLinkMutation();
@@ -196,33 +191,6 @@ export function GroupInfoSidebar({
   // Original group info sidebar (unchanged below)
   if (!isOpen || !group) return null;
 
-  const displayAvatar = previewUrl ?? group.avatar;
-
-  // ── Avatar upload ──────────────────────────────────────────────────────────
-  const handleAvatarClick = () => { if (isAdmin) fileInputRef.current?.click(); };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !group?.id) return;
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be smaller than 5 MB."); return; }
-
-    const localUrl = URL.createObjectURL(file);
-    setPreviewUrl(localUrl);
-
-    const formData = new FormData();
-    formData.append("cover_image", file);
-    try {
-      await updateCommunity({ id: group.id, body: formData }).unwrap();
-      setPreviewUrl(null);
-      toast.success("Group photo updated!");
-    } catch (err: any) {
-      setPreviewUrl(null);
-      toast.error("Upload failed", { description: err?.data?.detail || "Please try again." });
-    }
-  };
-
   // ── Remove member ──────────────────────────────────────────────────────────
   const handleRemoveMember = async (userId: string, username: string) => {
     if (!group?.id) return;
@@ -320,35 +288,11 @@ export function GroupInfoSidebar({
 
           {/* ── Avatar ── */}
           <div className="flex flex-col items-center pt-8 pb-5 px-4 bg-gradient-to-b from-slate-50 to-white border-b border-slate-100">
-            <div
-              className={`relative group ${isAdmin ? "cursor-pointer" : "cursor-default"}`}
-              onMouseEnter={() => isAdmin && setIsHoveringAvatar(true)}
-              onMouseLeave={() => setIsHoveringAvatar(false)}
-              onClick={handleAvatarClick}
-            >
-              <div className="h-20 w-20 rounded-2xl overflow-hidden ring-2 ring-slate-100 shadow-md">
-                <SafeImage
-                  src={displayAvatar}
-                  alt={group.title}
-                  width={80}
-                  height={80}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              {isAdmin && isHoveringAvatar && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl">
-                  {isUpdating
-                    ? <Loader2 size={20} className="text-white animate-spin" />
-                    : <Camera size={20} className="text-white" />
-                  }
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
+            <div className="h-20 w-20">
+              <CommunityAvatar
+                name={group.title}
+                className="h-full w-full rounded-2xl shadow-md ring-2 ring-slate-100"
+                textClassName="text-[26px]"
               />
             </div>
 
