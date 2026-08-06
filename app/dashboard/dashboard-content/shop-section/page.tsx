@@ -21,8 +21,6 @@ export default function ShopSection() {
     setMapLocation(location);
   };
 
-  const isGold = user?.plan === 'gold';
-
   return (
     <main className="flex-1 bg-gray-50/50 w-full custom-scrollbar">
       <div className="flex flex-col xl:flex-row gap-6 max-w-7xl mx-auto">
@@ -42,11 +40,9 @@ export default function ShopSection() {
             <ShopHighlights />
           </div>
 
-          {isGold && (
-            <div className="xl:hidden">
-              <MigrationSpecialistCard />
-            </div>
-          )}
+          <div className="xl:hidden">
+            <MigrationSpecialistCard />
+          </div>
 
           <CommunityWidget />
           <CommunityLiveFeed />
@@ -55,7 +51,7 @@ export default function ShopSection() {
         <aside className="hidden xl:block w-80 space-y-6 shrink-0">
           <SystemAlertsBanner />
           <ProgressTracker />
-          {isGold && <MigrationSpecialistCard />}
+          <MigrationSpecialistCard />
         </aside>
 
       </div>
