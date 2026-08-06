@@ -131,7 +131,7 @@ export function EditProductDialog({
 
   return (
     <Dialog open={!!productId} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-gray-200 shadow-xl">
         <DialogHeader>
           <DialogTitle>Edit Item</DialogTitle>
           <DialogDescription>Update the details of this product.</DialogDescription>
