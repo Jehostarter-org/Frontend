@@ -138,6 +138,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Community' as const, id },
         { type: 'Community' as const, id: 'LIST' },
+        { type: 'Community' as const, id: 'MINE' },
       ],
     }),
 

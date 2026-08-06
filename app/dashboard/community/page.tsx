@@ -28,13 +28,11 @@ import {
   Plus,
   Play,
   Music,
-  Pencil,
 } from "lucide-react";
 
 import { SidebarItem } from "@/components/dashboard/community/communitySidebar";
 import { JoinGroupModal } from "@/components/dashboard/community/joinGroupModal";
 import { GroupInfoSidebar } from "@/components/dashboard/community/groupInfoSidebar";
-import { RenameCommunityDialog } from "@/components/dashboard/community/rename-community-dialog";
 import EmojiPicker from "@/components/dashboard/community/EmojiPicker";
 import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
 import { DMList } from "@/components/messaging/DMList";
@@ -602,7 +600,6 @@ export default function CommunityPage() {
 
   const isDM = selectedGroupId?.startsWith("dm-") ?? false;
   const wsGroupId = selectedGroupId && !isDM ? selectedGroupId : null;
-  const [renameOpen, setRenameOpen] = useState(false);
   const conversationIdParam = searchParams.get("conversation");
   const conversationId = conversationIdParam ? Number(conversationIdParam) : null;
   const { data: linkedConversation } = useGetConversationQuery(conversationId!, {
@@ -726,11 +723,6 @@ export default function CommunityPage() {
     [communities, selectedGroupId],
   );
   const isCurrentUserAdmin = selectedGroup?.isAdmin ?? false;
-
-  const handleCommunityRenamed = (id: string, name: string) => {
-    setAllCommunities((prev) => prev.map((c) => (String(c.id) === id ? { ...c, name } : c)));
-    setMyCommunities((prev) => prev.map((c) => (String(c.id) === id ? { ...c, name } : c)));
-  };
 
   const filteredList = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -1021,23 +1013,7 @@ export default function CommunityPage() {
                       <SafeImage src={chatHeader.avatar} alt={chatHeader.title} width={40} height={40} className="rounded-full object-cover ring-1 ring-black/5" />
                     </div>
                     <div className="min-w-0" onClick={() => setIsInfoBarOpen(true)}>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-semibold text-[15px] text-slate-800 leading-tight truncate hover:underline cursor-pointer">{chatHeader.title}</h3>
-                        {isCurrentUserAdmin && !chatHeader.isDM && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRenameOpen(true);
-                            }}
-                            className="h-6 w-6 rounded-full text-slate-400 hover:text-teal-600 hover:bg-teal-50 shrink-0"
-                            title="Rename community"
-                          >
-                            <Pencil size={12} />
-                          </Button>
-                        )}
-                      </div>
+                      <h3 className="font-semibold text-[15px] text-slate-800 leading-tight truncate hover:underline cursor-pointer">{chatHeader.title}</h3>
                       <p className="text-[12px] text-slate-500 truncate font-normal leading-normal">{chatHeader.status}</p>
                     </div>
                   </div>
@@ -1311,14 +1287,6 @@ export default function CommunityPage() {
       <CreateCommunityDialog
         isOpen={showCreateCommunity}
         onOpenChange={setShowCreateCommunity}
-      />
-
-      {/* Rename Community Dialog */}
-      <RenameCommunityDialog
-        open={renameOpen}
-        onClose={() => setRenameOpen(false)}
-        community={communities.find((c) => c.id === selectedGroupId)}
-        onRenamed={handleCommunityRenamed}
       />
 
       {/* Media Viewer */}
