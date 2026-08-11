@@ -66,6 +66,8 @@ export const apiSlice = createApi({
     'MyShopApprovalStatus',
     'AdminPendingShops',
     'AdminShopDetail',
+    'AdminProviders',
+    'AdminProviderDetail',
     'SavedListing',
     // Messaging
     'Conversation',

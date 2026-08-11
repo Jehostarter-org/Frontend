@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,15 @@ import {
   ArrowLeft, Navigation, Clock, CreditCard,
   Users, Briefcase, ShieldCheck, Loader2,
 } from "lucide-react";
+
+const RouteMap = dynamic(() => import("@/components/ui/route-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+    </div>
+  ),
+});
 
 /**
  * Step 3 — Direction / Confirm Booking summary screen.
@@ -60,6 +70,13 @@ export default function StepThreeDirections({ onNext, serviceRequestId }: StepTh
 
   // Pickup location from airport_pickup_details
   const pickupLocation = serviceRequest?.airport_pickup_details?.airport || "Airport";
+
+  // Real coordinates for the map (set by the distance calculation step)
+  const pickupLat = serviceRequest?.pickup_latitude ? Number(serviceRequest.pickup_latitude) : null;
+  const pickupLng = serviceRequest?.pickup_longitude ? Number(serviceRequest.pickup_longitude) : null;
+  const dropoffLat = serviceRequest?.arrival_latitude ? Number(serviceRequest.arrival_latitude) : null;
+  const dropoffLng = serviceRequest?.arrival_longitude ? Number(serviceRequest.arrival_longitude) : null;
+  const hasMapCoords = pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null;
 
   const { formatPrice: convertPrice } = useCurrency();
 
@@ -213,10 +230,23 @@ export default function StepThreeDirections({ onNext, serviceRequestId }: StepTh
           </div>
         </div>
 
-        {/* Mini map preview */}
-        <div className="relative w-full h-32 rounded-3xl overflow-hidden border border-gray-100 opacity-80 hover:opacity-100 transition-opacity">
-          <Image src="/images/Location.png" alt="Map" fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent" />
+        {/* Route map preview — Uber-style road directions */}
+        <div className="relative w-full h-48 rounded-3xl overflow-hidden border border-gray-100">
+          {hasMapCoords ? (
+            <RouteMap
+              pickupLat={pickupLat!}
+              pickupLng={pickupLng!}
+              pickupLabel={pickupLocation}
+              dropoffLat={dropoffLat!}
+              dropoffLng={dropoffLng!}
+              dropoffLabel={destination}
+            />
+          ) : (
+            <div className="relative w-full h-full">
+              <Image src="/images/Location.png" alt="Map" fill className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent" />
+            </div>
+          )}
         </div>
       </div>
     </div>
