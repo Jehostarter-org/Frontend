@@ -1,7 +1,7 @@
 'use client';
 
 import CategoryListingsPage from "@/components/dashboard/products/category-listings-page";
-import VehiclesEmptyState from "@/components/dashboard/products/vehicles/vehiclesEmptyState";
+import { PropertyEmptyState } from "@/components/dashboard/products/property/propertyEmptyState";
 
 export default function HousingPage() {
   return (
@@ -11,7 +11,7 @@ export default function HousingPage() {
       subtitle="Find rentals and properties listed by verified sellers."
       searchPlaceholder="Search by location, type, or keyword..."
       backLabel="Back to Housing"
-      EmptyState={VehiclesEmptyState}
+      EmptyState={PropertyEmptyState}
     />
   );
 }
