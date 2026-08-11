@@ -269,7 +269,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 <ShieldCheck className="h-5 w-5" />
                 <span className="text-sm font-semibold">Buyer Protection Guaranteed</span>
               </div>
-              <div className="relative">
+              <div>
                 <Button
                   className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]"
                   onClick={() => {
@@ -282,37 +282,53 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 </Button>
 
                 {payMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setPayMenuOpen(false)} />
-                    <div className="absolute inset-x-0 top-full mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 animate-in fade-in zoom-in-95 duration-100">
-                      <p className="px-4 pt-1 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        Choose installment plan
-                      </p>
-                      {[
-                        { plan: "weekly", label: "Weekly Payment", hint: `${formatPrice(price / 4, currency)} per week` },
-                        { plan: "monthly", label: "Monthly Payment", hint: `${formatPrice(price / 3, currency)} per month` },
-                      ].map((opt) => (
-                        <button
-                          key={opt.plan}
-                          onClick={() => {
-                            setPayMenuOpen(false);
-                            if (!listingId) { toast.error("Product not available"); return; }
-                            const params = new URLSearchParams({
-                              productId: listingId,
-                              productName: product?.title ?? "Product",
-                              price: price.toString(),
-                              plan: opt.plan,
-                            });
-                            router.push(`/dashboard/payment?${params.toString()}`);
-                          }}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] text-gray-700 hover:bg-teal-50 transition-colors"
-                        >
-                          <span className="font-semibold">{opt.label}</span>
-                          <span className="text-xs text-teal-700 font-medium">{opt.hint}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  <div className="mt-3 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      Choose how you want to pay
+                    </p>
+                    {[
+                      {
+                        plan: "weekly" as const,
+                        label: "Weekly Payment",
+                        term: "4 weekly installments",
+                        perInstallment: price / 4,
+                      },
+                      {
+                        plan: "monthly" as const,
+                        label: "Monthly Payment",
+                        term: "3 monthly installments",
+                        perInstallment: price / 3,
+                      },
+                    ].map((opt) => (
+                      <button
+                        key={opt.plan}
+                        onClick={() => {
+                          setPayMenuOpen(false);
+                          if (!listingId) { toast.error("Product not available"); return; }
+                          const params = new URLSearchParams({
+                            productId: listingId,
+                            productName: product?.title ?? "Product",
+                            price: price.toString(),
+                            plan: opt.plan,
+                          });
+                          router.push(`/dashboard/payment?${params.toString()}`);
+                        }}
+                        className="w-full flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-white px-4 py-3 text-left transition-all hover:border-teal-500 hover:bg-teal-50/50 hover:shadow-sm active:scale-[0.99]"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{opt.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{opt.term}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-black text-teal-700">{formatPrice(opt.perInstallment, currency)}</p>
+                          <p className="text-[11px] text-gray-400">{opt.plan === "weekly" ? "per week" : "per month"}</p>
+                        </div>
+                      </button>
+                    ))}
+                    <p className="text-[11px] text-gray-400 leading-snug">
+                      Or pay in full — {formatPrice(price, currency)} once.
+                    </p>
+                  </div>
                 )}
               </div>
             </CardContent>
