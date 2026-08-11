@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Globe, ShieldCheck, FileText } from "lucide-react";
+import { Loader2, Sparkles, Globe, ShieldCheck } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { useCreateCommunityMutation } from "@/lib/api/communityApiSlice";
+import { CommunityTermsSummary } from "@/components/legal/community-terms-summary";
 
 interface CreateCommunityDialogProps {
   isOpen: boolean;
@@ -89,7 +90,8 @@ export default function CreateCommunityDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-lg shadow-2xl bg-slate-50">
-        <div className="bg-teal-900 p-8 text-white relative">
+        <div className="max-h-[85dvh] overflow-y-auto">
+          <div className="bg-teal-900 p-6 md:p-8 text-white relative">
           <Sparkles className="absolute top-4 right-4 opacity-20 w-12 h-12 rotate-12" />
           <DialogHeader className="text-left">
             <DialogTitle className="text-2xl font-black tracking-tight">
@@ -102,7 +104,7 @@ export default function CreateCommunityDialog({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-          <form onSubmit={handleSubmit} className="p-8 space-y-6 bg-white">
+          <form onSubmit={handleSubmit} className="p-5 md:p-8 space-y-5 bg-white">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -131,37 +133,7 @@ export default function CreateCommunityDialog({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-3.5 w-3.5 text-teal-900" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-teal-900">
-                  Community Terms & Conditions
-                </p>
-              </div>
-              <ul className="space-y-2">
-                {[
-                  "Respect members - no bullying, harassment, or stalking",
-                  "No hate speech, discrimination, or threats",
-                  "No nudity, sexual content, or exploitation",
-                  "No spam, scams, or misleading promotions",
-                  "No impersonation or sharing others' private information",
-                  "No illegal activity, fraud, or fake opportunities",
-                  "Jehostarter may remove content and restrict accounts that breach these terms",
-                ].map((rule) => (
-                  <li
-                    key={rule}
-                    className="flex items-start gap-2 text-[11px] font-semibold text-slate-600"
-                  >
-                    <span className="mt-[5px] h-1 w-1 rounded-full bg-teal-600 shrink-0" />
-                    {rule}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-[10px] font-medium text-slate-500">
-                By creating a community, you agree to these{" "}
-                <span className="font-black text-teal-900">Community Terms & Services</span>.
-              </p>
-            </div>
+            <CommunityTermsSummary agreementText="By creating a community, you agree to these Community Terms & Services." accent="teal" />
 
             <DialogFooter className="pt-4">
               <Button
@@ -182,7 +154,7 @@ export default function CreateCommunityDialog({
           </form>
 
           {/* Live preview */}
-          <div className="p-8 bg-slate-50 flex flex-col justify-center items-center border-l border-slate-100">
+          <div className="hidden md:flex p-8 bg-slate-50 flex-col justify-center items-center border-l border-slate-100">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6">
               Live Preview
             </p>
@@ -219,6 +191,7 @@ export default function CreateCommunityDialog({
               <b>Discover</b> feed.
             </p>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

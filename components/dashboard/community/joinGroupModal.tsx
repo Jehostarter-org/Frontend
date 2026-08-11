@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { Users, ShieldCheck, Zap, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { CommunityTermsSummary } from "@/components/legal/community-terms-summary";
 
 interface JoinGroupModalProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white rounded-[2.5rem] shadow-2xl">
+        <div className="max-h-[85dvh] overflow-y-auto">
         {/* Header Visual */}
         <div className="h-32 bg-gradient-to-br from-blue-500 to-sky-500 relative">
           <div className="absolute -bottom-10 left-8 p-1 bg-white rounded-[1.8rem] shadow-xl">
@@ -105,9 +107,12 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
               </li>
             </ul>
           </div>
+
+          <CommunityTermsSummary agreementText="By joining this community, you agree to these Community Terms & Services." accent="blue" />
+        </div>
         </div>
 
-        <DialogFooter className="p-8 bg-slate-50/50 border-t border-slate-100 sm:justify-between items-center">
+        <DialogFooter className="p-6 md:p-8 bg-slate-50/50 border-t border-slate-100 sm:justify-between items-center">
           <Button variant="ghost" onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] tracking-widest hover:bg-transparent hover:text-slate-600">
             Cancel
           </Button>
