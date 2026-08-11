@@ -55,6 +55,8 @@ const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
   US: "USD", CA: "CAD", AU: "AUD",
 };
 
+export { COUNTRY_TO_CURRENCY };
+
 const SUPPORTED      = Object.keys(EXCHANGE_RATES) as CurrencyCode[];
 const DEFAULT: CurrencyCode = "NGN";
 const API_URL        = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";

@@ -13,7 +13,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAirportData } from "@/hooks/useAirportData";
 import { FormSelect } from "@/components/reuseables/formSelect";
-import { useCurrency } from "@/components/contexts/currencyContext";
+import { useCurrency, COUNTRY_TO_CURRENCY } from "@/components/contexts/currencyContext";
 import { useBookAirportPickupMutation, useCalculateDistanceMutation, useUpdateServiceDistanceMutation } from "@/lib/api/riderApiSlice";
 import { LocationSearch } from "@/components/reuseables/locationSearch";
 import { bookingSchema } from "@/components/types/schemas/riders-booking-scehma";
@@ -78,12 +78,24 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       // Combine date + time into ISO datetime the backend expects
       const arrivalDatetime = `${data.arrivalDate}T${data.arrivalTime}:00`;
 
+      // The booking must be routed to drivers near the AIRPORT, not near the
+      // rider. e.g. a rider in Nigeria booking Brisbane → country_code "AU" so
+      // every approved Australian driver gets notified.
+      const airportInfo = airports.find(
+        (a) => a.label === data.airport || a.value === data.airport
+      );
+      const bookingCountry =
+        airportInfo?.country || detectedCountry || user?.current_country || "NG";
+      const bookingCurrency = COUNTRY_TO_CURRENCY[bookingCountry] ?? detectedCurrency;
+      const isCrossCountry = !!airportInfo && user?.current_country !== bookingCountry;
+      const bookingCity = isCrossCountry ? "" : user?.city || "";
+
       // Prepare payload matching Django serializer expectations EXACTLY
       const payload = {
         service_type: "airport_pickup" as const,
         description: `Airport pickup from ${data.airport} to ${data.destination || "TBD"}`,
-        country_code: detectedCountry || user?.current_country || "NG",
-        city: user?.city || "",
+        country_code: bookingCountry,
+        city: bookingCity,
         destination: data.destination || "",
         notes: data.destination,
         airport_pickup_details: {
@@ -109,8 +121,8 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       const serviceRequestId = response.id;
       const pickupAddr = data.airport || "";
       const arrivalAddr = data.destination || "";
-      const countryCode = detectedCountry || user?.current_country || "NG";
-      const city = user?.city || "";
+      const countryCode = bookingCountry;
+      const city = bookingCity;
 
       try {
         // 1. Calculate distance & price — pass coordinates when available
@@ -135,7 +147,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
 
         // Persist calculated values so vehicle-selection can read them
         sessionStorage.setItem("calculatedPrice", String(distResult.total_price));
-        sessionStorage.setItem("calculatedCurrency", detectedCurrency);
+        sessionStorage.setItem("calculatedCurrency", bookingCurrency);
         sessionStorage.setItem("tripDistance", String(distResult.distance_km));
         sessionStorage.setItem("tripDuration", String(distResult.duration_min));
         sessionStorage.setItem("flagDropFee", String(distResult.flag_drop_fee));
