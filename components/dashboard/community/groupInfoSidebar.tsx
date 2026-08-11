@@ -29,6 +29,7 @@ interface GroupInfoSidebarProps {
   currentUserId: string | null;
   onlineUsers?: Set<string>;
   dmParticipant?: Participant | null; // Add this for DM view
+  onUserClick?: (member: any) => void; // Opens profile quick view
 }
 
 type AdminModal = "share" | "addMember" | null;
@@ -40,6 +41,7 @@ export function GroupInfoSidebar({
   currentUserId,
   onlineUsers = new Set(),
   dmParticipant,
+  onUserClick,
 }: GroupInfoSidebarProps) {
   // ── Modal state ────────────────────────────────────────────────────────────
   const [activeModal, setActiveModal] = useState<AdminModal>(null);
@@ -474,7 +476,12 @@ export function GroupInfoSidebar({
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-slate-800 truncate leading-tight">{username}</p>
+                        <p
+                          onClick={() => { if (!isSelf) onUserClick?.(member); }}
+                          className={`text-[13px] font-medium text-slate-800 truncate leading-tight ${isSelf ? "" : "cursor-pointer hover:underline"}`}
+                        >
+                          {username}
+                        </p>
                         {(isCreator || member.role === "admin" || member.role === "moderator") && (
                           <p className="text-[10px] text-amber-500 font-semibold flex items-center gap-0.5">
                             <Crown size={9} /> {isCreator ? "Admin" : member.role}

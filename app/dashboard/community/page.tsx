@@ -7,7 +7,7 @@ import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import MessageContent from "@/components/reuseables/MessageContent";
 import type { CommunityItem } from "@/components/types/community";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import {
   Search,
@@ -34,6 +34,7 @@ import {
 import { SidebarItem } from "@/components/dashboard/community/communitySidebar";
 import { JoinGroupModal } from "@/components/dashboard/community/joinGroupModal";
 import { GroupInfoSidebar } from "@/components/dashboard/community/groupInfoSidebar";
+import { ProfileQuickView } from "@/components/dashboard/community/ProfileQuickView";
 import EmojiPicker from "@/components/dashboard/community/EmojiPicker";
 import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
 import { DMList } from "@/components/messaging/DMList";
@@ -54,6 +55,7 @@ import {
 } from "@/lib/api/communityApiSlice";
 import {
   useGetConversationQuery,
+  useStartConversationMutation,
   type Conversation,
 } from "@/lib/api/messagesApiSlice";
 
@@ -520,6 +522,7 @@ function AttachmentPreview({ url, type, name, size, onClick }: AttachmentPreview
 
 export default function CommunityPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(
     () => (searchParams.get("tab") === "messages" ? "messages" : "groups"),
   );
@@ -540,6 +543,14 @@ export default function CommunityPage() {
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string; name: string; size: number } | null>(null);
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [quickViewUser, setQuickViewUser] = useState<{
+    id: string;
+    name: string;
+    avatar: string;
+    role?: string;
+    location?: string;
+    joinedDate?: string;
+  } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -565,6 +576,7 @@ export default function CommunityPage() {
 
   const { token, user } = useAuth();
   const currentUserId = user?.id ?? getCurrentUserId();
+  const [startConversation] = useStartConversationMutation();
 
   const { data: myCommunitiesRaw = [], isLoading: loadingMy, refetch: refetchMy } = useGetMyCommunitiesQuery(undefined, {
     skip: !token,
@@ -779,6 +791,29 @@ export default function CommunityPage() {
 
   const handleDMBack = () => {
     setSelectedDM(null);
+  };
+
+  const handleOpenProfile = (userId: string, name: string, avatar: string, role?: string) => {
+    if (!userId || userId === String(currentUserIdRef.current)) return;
+    setQuickViewUser({ id: userId, name, avatar, role });
+  };
+
+  const handleMessageUser = async (userId: string) => {
+    if (!userId || userId === String(currentUserIdRef.current)) {
+      toast.error("You can't message yourself.");
+      return;
+    }
+    try {
+      const conversation = await startConversation({
+        recipient_id: userId,
+        initial_message: "Hi! I saw you in the community.",
+      }).unwrap();
+      setQuickViewUser(null);
+      toast.success("Chat opened!");
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch {
+      toast.error("Could not open conversation. Please try again.");
+    }
   };
 
   const handleJoinConfirm = async (groupId: string) => {
@@ -1073,7 +1108,10 @@ export default function CommunityPage() {
                                 )}
 
                                 {!isMe && !isConsecutive && (
-                                  <p className="text-[12px] font-bold text-blue-700 mb-0.5 hover:underline cursor-pointer select-none">
+                                  <p
+                                    onClick={() => handleOpenProfile(String(msg.sender), msg.sender_username, msg.sender_avatar ?? "", undefined)}
+                                    className="text-[12px] font-bold text-blue-700 mb-0.5 hover:underline cursor-pointer select-none"
+                                  >
                                     {msg.sender_username}
                                   </p>
                                 )}
@@ -1271,6 +1309,17 @@ export default function CommunityPage() {
               group={communities.find((c) => c.id === selectedGroupId)}
               currentUserId={currentUserIdRef.current}
               onlineUsers={onlineUsers}
+              onUserClick={(member) => {
+                const memberId = String(member.user ?? member.id ?? "");
+                const memberName = member.user?.username ?? member.username ?? "Community Member";
+                const memberAvatar = member.profile_picture ?? member.user?.profile_picture ?? "";
+                const memberRole = member.role === "admin"
+                  ? "Admin"
+                  : member.role === "moderator"
+                    ? "Moderator"
+                    : "Community Member";
+                handleOpenProfile(memberId, memberName, memberAvatar, memberRole);
+              }}
             />
           )}
         </main>
@@ -1280,6 +1329,14 @@ export default function CommunityPage() {
       <CreateCommunityDialog
         isOpen={showCreateCommunity}
         onOpenChange={setShowCreateCommunity}
+      />
+
+      {/* Profile Quick View */}
+      <ProfileQuickView
+        user={quickViewUser}
+        isOpen={!!quickViewUser}
+        onClose={() => setQuickViewUser(null)}
+        onMessage={handleMessageUser}
       />
 
       {/* Media Viewer */}
