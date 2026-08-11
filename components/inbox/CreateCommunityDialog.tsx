@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Globe, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, Globe, ShieldCheck, FileText } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
@@ -129,6 +129,38 @@ export default function CreateCommunityDialog({
                   rows={3}
                 />
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-teal-900" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-teal-900">
+                  Community Terms & Conditions
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {[
+                  "Respect members - no bullying, harassment, or stalking",
+                  "No hate speech, discrimination, or threats",
+                  "No nudity, sexual content, or exploitation",
+                  "No spam, scams, or misleading promotions",
+                  "No impersonation or sharing others' private information",
+                  "No illegal activity, fraud, or fake opportunities",
+                  "Jehostarter may remove content and restrict accounts that breach these terms",
+                ].map((rule) => (
+                  <li
+                    key={rule}
+                    className="flex items-start gap-2 text-[11px] font-semibold text-slate-600"
+                  >
+                    <span className="mt-[5px] h-1 w-1 rounded-full bg-teal-600 shrink-0" />
+                    {rule}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] font-medium text-slate-500">
+                By creating a community, you agree to these{" "}
+                <span className="font-black text-teal-900">Community Terms & Services</span>.
+              </p>
             </div>
 
             <DialogFooter className="pt-4">
