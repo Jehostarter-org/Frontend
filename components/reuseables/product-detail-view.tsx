@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin, BadgeCheck, Link2, Users } from "lucide-react";
+import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin, BadgeCheck, Link2, Users, CreditCard, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
 import { useCurrency } from "@/components/contexts/currencyContext";
@@ -29,6 +29,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
   const [shareOpen, setShareOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [payMenuOpen, setPayMenuOpen] = useState(false);
 
   const listingId = product?.id ?? '';
   const isSaved = listingId ? isInCart(listingId) : false;
@@ -268,20 +269,52 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 <ShieldCheck className="h-5 w-5" />
                 <span className="text-sm font-semibold">Buyer Protection Guaranteed</span>
               </div>
-              <Button
-                className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]"
-                onClick={() => {
-                  if (!listingId) { toast.error("Product not available"); return; }
-                  const params = new URLSearchParams({
-                    productId: listingId,
-                    productName: product?.title ?? "Product",
-                    price: price.toString(),
-                  });
-                  router.push(`/dashboard/payment?${params.toString()}`);
-                }}
-              >
-                Buy Now
-              </Button>
+              <div className="relative">
+                <Button
+                  className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]"
+                  onClick={() => {
+                    if (!listingId) { toast.error("Product not available"); return; }
+                    setPayMenuOpen((prev) => !prev);
+                  }}
+                >
+                  <CreditCard className="w-5 h-5 mr-2" /> Pay Installmentally
+                  <ChevronDown className={cn("w-4 h-4 ml-1 transition-transform", payMenuOpen && "rotate-180")} />
+                </Button>
+
+                {payMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setPayMenuOpen(false)} />
+                    <div className="absolute inset-x-0 top-full mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                      <p className="px-4 pt-1 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        Choose installment plan
+                      </p>
+                      {[
+                        { plan: "weekly", label: "Weekly Payment", hint: `${formatPrice(price / 4, currency)} per week` },
+                        { plan: "monthly", label: "Monthly Payment", hint: `${formatPrice(price / 3, currency)} per month` },
+                      ].map((opt) => (
+                        <button
+                          key={opt.plan}
+                          onClick={() => {
+                            setPayMenuOpen(false);
+                            if (!listingId) { toast.error("Product not available"); return; }
+                            const params = new URLSearchParams({
+                              productId: listingId,
+                              productName: product?.title ?? "Product",
+                              price: price.toString(),
+                              plan: opt.plan,
+                            });
+                            router.push(`/dashboard/payment?${params.toString()}`);
+                          }}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] text-gray-700 hover:bg-teal-50 transition-colors"
+                        >
+                          <span className="font-semibold">{opt.label}</span>
+                          <span className="text-xs text-teal-700 font-medium">{opt.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
 
