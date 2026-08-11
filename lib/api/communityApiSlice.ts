@@ -73,8 +73,15 @@ export interface InviteEmailResult {
 export const communityApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
 
-    getCommunities: builder.query<Community[], void>({
-      query: () => '/community/',
+    getCommunities: builder.query<Community[], { search?: string; country?: string } | void>({
+      query: (params) => {
+        const qs = new URLSearchParams();
+        const search = params?.search?.trim();
+        if (search) qs.set('search', search);
+        if (params?.country) qs.set('country', params.country);
+        const query = qs.toString();
+        return query ? `/community/?${query}` : '/community/';
+      },
       transformResponse: (raw: any) =>
         Array.isArray(raw) ? raw : (raw?.results ?? []),
       providesTags: [{ type: 'Community' as const, id: 'LIST' }],

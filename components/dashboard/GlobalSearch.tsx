@@ -9,6 +9,7 @@ import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { useGetCommunitiesQuery } from "@/lib/api/communityApiSlice";
 import { useGetAllProductsQuery } from "@/lib/api/productsApiSlice";
 import { useCurrency } from "@/components/contexts/currencyContext";
+import { useAuth } from "@/components/contexts/auth-context";
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_GROUPS = 5;
@@ -16,11 +17,14 @@ const MAX_ITEMS = 5;
 
 export default function GlobalSearch() {
   const router = useRouter();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, countryCode } = useCurrency();
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const country = user?.current_country || countryCode || undefined;
 
   const trimmed = query.trim();
 
@@ -32,22 +36,19 @@ export default function GlobalSearch() {
   const searching = debounced.length >= MIN_QUERY_LENGTH;
 
   const { data: communities = [], isFetching: isGroupsFetching } = useGetCommunitiesQuery(
-    undefined,
+    { search: debounced, country },
     { skip: !searching },
   );
 
   const { data: products = [], isFetching: isProductsFetching } = useGetAllProductsQuery(
-    { search: debounced },
+    { search: debounced, country },
     { skip: !searching },
   );
 
-  const groupResults = useMemo(() => {
-    const q = debounced.toLowerCase();
-    if (!q) return [];
-    return communities
-      .filter((c) => c.name.toLowerCase().includes(q))
-      .slice(0, MAX_GROUPS);
-  }, [communities, debounced]);
+  const groupResults = useMemo(
+    () => communities.slice(0, MAX_GROUPS),
+    [communities],
+  );
 
   const itemResults = useMemo(
     () => products.filter((p) => p.is_available !== false).slice(0, MAX_ITEMS),
@@ -94,7 +95,7 @@ export default function GlobalSearch() {
       <div className="relative">
         <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         <Input
-          placeholder="Search groups & items..."
+          placeholder="Search items & communities..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
