@@ -207,7 +207,7 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                                 </>
                             )}
                             {typingUsers.includes(otherParticipant.id) && (
-                                <span className="text-blue-500 ml-1 animate-pulse">• typing...</span>
+                                <span className="text-emerald-600 ml-1 animate-pulse">• typing...</span>
                             )}
                         </p>
                     </div>
@@ -256,21 +256,21 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
 
                                     <div
                                         className={`relative max-w-[76%] sm:max-w-[66%] md:max-w-[56%] p-2 rounded-lg shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] ${isMe
-                                            ? "bg-blue-50 text-slate-900 rounded-tr-none"
+                                            ? "bg-[#d9fdd3] text-slate-900 rounded-tr-none"
                                             : "bg-white text-slate-900 rounded-tl-none border border-slate-100"
                                             }`}
                                     >
-                                        {!isMe && !isConsecutive && (
-                                            <p className="text-[11px] font-bold text-blue-600 mb-0.5">
-                                                {msg.sender?.full_name?.split(" ")[0]}
-                                            </p>
+                                        {!isConsecutive && (
+                                            <div className={`absolute top-0 w-2.5 h-3 overflow-hidden ${isMe ? "right-[-10px]" : "left-[-10px]"}`}>
+                                                <div className={`w-3 h-3 rotate-45 transform origin-top-left ${isMe ? "bg-[#d9fdd3]" : "bg-white"}`} />
+                                            </div>
                                         )}
                                         {msg.reply_to && (
                                             <button
                                                 type="button"
-                                                className={`mb-1.5 block w-full text-left px-2 py-1.5 rounded-md border-l-[3px] border-blue-400 text-[12px] leading-snug ${isMe ? "bg-blue-100/70" : "bg-slate-100"}`}
+                                                className={`mb-1.5 block w-full text-left px-2 py-1.5 rounded-md border-l-[3px] border-emerald-400 text-[12px] leading-snug ${isMe ? "bg-[#cdebbb]" : "bg-slate-100"}`}
                                             >
-                                                <p className="font-bold text-blue-600 truncate">
+                                                <p className="font-bold text-emerald-600 truncate">
                                                     {msg.reply_to.sender?.full_name || "Message"}
                                                 </p>
                                                 <p className="text-slate-500 truncate">{msg.reply_to.body}</p>
@@ -345,7 +345,7 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                                             </span>
                                             {isMe && (
                                                 <span>
-                                                    {readState === "sent" && <Check size={11} className="text-slate-400" />}
+                                                    {readState === "sent" && <Check size={11} className="text-[#8696a0]" />}
                                                     {readState === "delivered" && <CheckCheck size={11} className="text-[#8696a0]" />}
                                                     {readState === "read" && <CheckCheck size={11} className="text-[#53bdeb]" />}
                                                 </span>
@@ -412,13 +412,13 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                             handleTyping();
                         }}
                         placeholder="Type a message..."
-                        className="flex-1 bg-slate-100 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                        className="flex-1 bg-slate-100 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-emerald-300 transition-all"
                     />
                     <Button
                         type="submit"
                         size="icon"
                         disabled={!newMessage.trim() || isSendingRest}
-                        className="h-10 w-10 rounded-full bg-blue-500 hover:bg-blue-600 text-white shrink-0 transition-all active:scale-95"
+                        className="h-10 w-10 rounded-full bg-[#00a884] hover:bg-[#008f6b] text-white shrink-0 transition-all active:scale-95"
                     >
                         {isSendingRest ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="translate-x-[1px]" />}
                     </Button>
