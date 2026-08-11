@@ -87,7 +87,7 @@ function MessageBubble({
     {/* Avatar */ }
 {
     !isOwn && (
-        <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-semibold flex-shrink-0 mb-1" >
+        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-[10px] font-semibold flex-shrink-0 mb-1" >
             { getInitials(message.sender.full_name) }
             </div>
       )
@@ -103,12 +103,15 @@ function MessageBubble({
     message.body && (
         <div
             className={
-        `px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${isOwn
-            ? 'bg-teal-600 text-white rounded-br-sm'
-            : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+        `relative px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${isOwn
+            ? 'bg-[#d9fdd3] text-slate-900 rounded-br-sm'
+            : 'bg-white border border-slate-200 text-gray-800 rounded-bl-sm'
         }`
     }
           >
+        <span className={`absolute top-0 w-2.5 h-3 overflow-hidden ${isOwn ? 'right-[-10px]' : 'left-[-10px]'}`}>
+            <span className={`w-3 h-3 rotate-45 transform origin-top-left ${isOwn ? 'bg-[#d9fdd3]' : 'bg-white'}`} />
+        </span>
         <MessageContent text={message.body} />
         </div>
         )
@@ -120,8 +123,8 @@ function MessageBubble({
 {
     isOwn && (
         message.is_read
-            ? <CheckCheck className="w-3 h-3 text-teal-500" />
-              : <Check className="w-3 h-3 text-gray-400" />
+            ? <CheckCheck className="w-3 h-3 text-[#53bdeb]" />
+              : <Check className="w-3 h-3 text-[#8696a0]" />
           )
 }
 </div>
@@ -343,7 +346,7 @@ className = "p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
         </button>
 
 {/* Avatar */ }
-<div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold text-sm flex-shrink-0" >
+<div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-semibold text-sm flex-shrink-0" >
     { other? getInitials(other.full_name) : '?'}
     </div>
 
@@ -411,7 +414,7 @@ style = {{ lineHeight: '1.5' }}
 onClick = { handleSend }
 disabled = {!input.trim()}
 className = {`p-2.5 rounded-xl transition-colors flex-shrink-0 ${input.trim()
-        ? 'bg-teal-600 hover:bg-teal-700 text-white'
+        ? 'bg-[#00a884] hover:bg-[#008f6b] text-white'
         : 'bg-gray-100 text-gray-400 cursor-not-allowed'
     }`}
         >
