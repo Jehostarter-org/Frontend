@@ -16,6 +16,7 @@ export interface Product {
   category: string;
   category_name: string;
   category_slug: string;
+  subcategory?: string;
   shop_name: string;
   shop_id: string;
   seller_id?: string;
@@ -59,6 +60,7 @@ function normalise(item: any): Product {
     category: item.category ?? '',
     category_name: item.category_name ?? item.category ?? 'Marketplace',
     category_slug: item.category_slug ?? item.category?.slug ?? '',
+    subcategory: item.subcategory ?? '',
     shop_name: item.shop?.name ?? item.shop_name ?? '',
     shop_id: item.shop?.id ?? item.shop_id ?? '',
     seller_id: item.seller_id ?? item.shop?.owner_id ?? item.shop?.owner ?? '',

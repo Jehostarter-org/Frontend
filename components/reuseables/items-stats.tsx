@@ -17,6 +17,17 @@ export const CONDITIONS = [
   { value: "FAIR", label: "Used - Fair" },
 ] as const;
 
+export const SUBCATEGORIES: Record<string, string[]> = {
+  electronics: ["All", "Phones", "Laptops", "Tablets", "Accessories", "Audio"],
+  vehicles: ["Sedan", "Hatchback", "Coupe", "Convertible", "SUV", "Crossover", "Minivan", "Station wagon", "Pickup truck", "Sports car"],
+  housing: ["Detached home", "Duplex", "Apartment", "Bungalow", "Cottage"],
+};
+
+export function getSubcategories(categorySlug?: string | null): string[] {
+  if (!categorySlug) return [];
+  return SUBCATEGORIES[categorySlug.toLowerCase()] ?? [];
+}
+
 export const AVAILABILITY = [
   { value: "STOCK", label: "In Stock" },
   { value: "OUT_OF_STOCK", label: "Out of Stock" },

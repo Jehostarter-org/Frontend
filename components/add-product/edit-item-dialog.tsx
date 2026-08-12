@@ -25,6 +25,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { getSubcategories } from "@/components/reuseables/items-stats";
 
 const editItemSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -33,6 +34,7 @@ const editItemSchema = z.object({
   listing_type: z.enum(["sale", "rent", "service"]),
   condition: z.enum(["new", "used", "refurbished"]).optional(),
   category: z.string().min(1, "Please select a category"),
+  subcategory: z.string().optional(),
 });
 
 type EditItemFormValues = z.input<typeof editItemSchema>;
@@ -76,8 +78,12 @@ export function EditProductDialog({
       listing_type: "sale",
       condition: undefined,
       category: "",
+      subcategory: "",
     },
   });
+
+  const selectedCategorySlug = categories?.find((c) => c.id === form.watch("category"))?.slug;
+  const subcategories = getSubcategories(selectedCategorySlug);
 
   useEffect(() => {
     if (!product) return;
@@ -88,6 +94,7 @@ export function EditProductDialog({
       listing_type: (product.listing_type as "sale" | "rent" | "service") || "sale",
       condition: (product.condition as "new" | "used" | "refurbished" | undefined) || undefined,
       category: product.category,
+      subcategory: product.subcategory || "",
     });
   }, [product, form]);
 
@@ -103,6 +110,7 @@ export function EditProductDialog({
         listing_type: data.listing_type,
         condition: data.condition,
         category: data.category,
+        subcategory: data.subcategory || "",
       }).unwrap();
       toast.success("Item updated successfully");
       onClose();
@@ -234,7 +242,7 @@ export function EditProductDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={(v) => { field.onChange(v); form.setValue("subcategory", ""); }} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue
@@ -260,6 +268,33 @@ export function EditProductDialog({
                       </FormItem>
                     )}
                   />
+
+                  {subcategories.length > 0 && (
+                    <FormField
+                      control={form.control}
+                      name="subcategory"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Subcategory</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select subcategory" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {subcategories.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <FormField
                     control={form.control}

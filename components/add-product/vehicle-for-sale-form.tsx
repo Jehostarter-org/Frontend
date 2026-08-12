@@ -26,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ProductImageUploader } from "@/components/reuseables/product-image-uploader";
+import { getSubcategories } from "@/components/reuseables/items-stats";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const vehicleSchema = z.object({
@@ -35,6 +36,7 @@ const vehicleSchema = z.object({
   listing_type: z.enum(["sale", "rent", "service"]),
   condition: z.enum(["new", "used", "refurbished"]).optional(),
   category: z.string().min(1, "Please select a category"),
+  subcategory: z.string().optional(),
   productImages: z.array(z.instanceof(File)).min(1, "Please upload at least one image").max(5, "Max 5 images"),
 });
 
@@ -69,9 +71,12 @@ export default function VehicleForSalePage() {
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       title: "", description: "", price: 0,
-      listing_type: "sale", condition: undefined, category: "", productImages: [],
+      listing_type: "sale", condition: undefined, category: "", subcategory: "", productImages: [],
     },
   });
+
+  const selectedCategorySlug = categories?.find((c) => c.id === form.watch("category"))?.slug;
+  const subcategories = getSubcategories(selectedCategorySlug);
 
   const onSubmit = async (data: VehicleFormData) => {
     setIsSubmitting(true);
@@ -82,6 +87,7 @@ export default function VehicleForSalePage() {
       formData.append("price", String(data.price));
       formData.append("listing_type", data.listing_type);
       formData.append("category", data.category);
+      if (data.subcategory) formData.append("subcategory", data.subcategory);
       if (data.condition) formData.append("condition", data.condition);
       formData.append("is_available", "true");
       data.productImages.forEach((file) => formData.append("images", file));
@@ -203,7 +209,7 @@ export default function VehicleForSalePage() {
                   <FormField control={form.control} name="category" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={(v) => { field.onChange(v); form.setValue("subcategory", ""); }} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select category"} />
@@ -224,6 +230,27 @@ export default function VehicleForSalePage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+
+                  {subcategories.length > 0 && (
+                    <FormField control={form.control} name="subcategory" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subcategory</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select subcategory" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {subcategories.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
 
                   <FormField control={form.control} name="condition" render={({ field }) => (
                     <FormItem>
