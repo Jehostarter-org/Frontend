@@ -11,6 +11,7 @@ export default function HousingPage() {
       subtitle="Find rentals and properties listed by verified sellers."
       searchPlaceholder="Search by location, type, or keyword..."
       backLabel="Back to Housing"
+      tabs={["All", "Detached home", "Duplex", "Apartment", "Bungalow", "Cottage"]}
       EmptyState={PropertyEmptyState}
     />
   );

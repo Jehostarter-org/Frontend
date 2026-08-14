@@ -32,6 +32,7 @@ export interface Product {
 
 export interface ListingsParams {
   category?: string;
+  subcategory?: string;
   country?: string;
   search?: string;
   ordering?: string;
@@ -91,6 +92,7 @@ export const productsApiSlice = apiSlice.injectEndpoints({
         const p = params ?? {};
         const qs = new URLSearchParams();
         if (p.category) qs.set('category', p.category);
+        if (p.subcategory) qs.set('subcategory', p.subcategory);
         if (p.country) qs.set('country', p.country);
         if (p.search) qs.set('search', p.search);
         if (p.ordering) qs.set('ordering', p.ordering);

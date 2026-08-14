@@ -16,17 +16,20 @@ export function resolveCategorySlug(urlSegment: string): string {
 
 export function useCategoryListings(
   urlSegment: string,
-  options?: { search?: string },
+  options?: { search?: string; subcategory?: string },
 ) {
   const slug = resolveCategorySlug(urlSegment);
 
   const params: ListingsParams = useMemo(() => {
     const p: ListingsParams = {};
     if (slug) p.category = slug;
+    if (options?.subcategory && options.subcategory !== "All") {
+      p.subcategory = options.subcategory;
+    }
     const q = options?.search?.trim();
     if (q) p.search = q;
     return p;
-  }, [slug, options?.search]);
+  }, [slug, options?.search, options?.subcategory]);
 
   const { data, isLoading, isError, isFetching, refetch } =
     useGetAllProductsQuery(params);
@@ -41,13 +44,9 @@ export function useCategoryListings(
   };
 }
 
-/** Client-side tab filter — matches keywords in title/description (backend has no subCategory). */
+/** Client-side tab filter — bypassed because filtering is now done on the backend. */
 export function filterByTab(listings: Product[], tab: string): Product[] {
-  if (!tab || tab === "All") return listings;
-  const needle = tab.toLowerCase();
-  return listings.filter((item) =>
-    `${item.title} ${item.description}`.toLowerCase().includes(needle),
-  );
+  return listings;
 }
 
 export type SortOption = "newest" | "price-low" | "price-high";

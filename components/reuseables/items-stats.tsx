@@ -21,11 +21,17 @@ export const SUBCATEGORIES: Record<string, string[]> = {
   electronics: ["All", "Phones", "Laptops", "Tablets", "Accessories", "Audio"],
   vehicles: ["Sedan", "Hatchback", "Coupe", "Convertible", "SUV", "Crossover", "Minivan", "Station wagon", "Pickup truck", "Sports car"],
   housing: ["Detached home", "Duplex", "Apartment", "Bungalow", "Cottage"],
+  furniture: ["All", "Living Room", "Bedroom", "Office", "Dining", "Outdoor"],
+  "baby-kids": ["All", "Toys", "Clothing", "Gear", "Feeding", "Safety"],
+  books: ["All", "Textbooks", "Fiction", "Study Aids", "Non-Fiction", "Children"],
+  "equipment-tools": ["All", "Power Tools", "Hand Tools", "Safety Gear", "Gardening", "Industrial"],
+  fashion: ["All", "Men's Clothing", "Women's Clothing", "Accessories", "Shoes"],
 };
 
 export function getSubcategories(categorySlug?: string | null): string[] {
   if (!categorySlug) return [];
-  return SUBCATEGORIES[categorySlug.toLowerCase()] ?? [];
+  const list = SUBCATEGORIES[categorySlug.toLowerCase()] ?? [];
+  return list.filter((item) => item !== "All");
 }
 
 export const AVAILABILITY = [

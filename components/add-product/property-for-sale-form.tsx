@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Card } from "@/components/ui/card";
@@ -77,6 +77,12 @@ export default function PropertyForSalePage() {
 
   const selectedCategorySlug = categories?.find((c) => c.id === form.watch("category"))?.slug;
   const subcategories = getSubcategories(selectedCategorySlug);
+
+  useEffect(() => {
+    if (!categories?.length || form.getValues("category")) return;
+    const preferred = categories.find((c) => c.slug === "housing");
+    if (preferred) form.setValue("category", preferred.id);
+  }, [categories, form]);
 
   const onSubmit = async (data: PropertyFormData) => {
     setIsSubmitting(true);

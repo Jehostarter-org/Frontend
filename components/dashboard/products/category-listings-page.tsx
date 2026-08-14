@@ -72,7 +72,7 @@ export default function CategoryListingsPage({
 
   const { listings, isLoading, isError, isFetching } = useCategoryListings(
     urlSegment,
-    { search: debouncedSearch },
+    { search: debouncedSearch, subcategory: activeTab },
   );
 
   const displayListings = useMemo(() => {
