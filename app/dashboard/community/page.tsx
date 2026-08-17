@@ -61,7 +61,7 @@ import {
 
 // ── File upload limits ──────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const MAX_FILE_SIZE = 250 * 1024 * 1024; // 250 MB
 const ALLOWED_FILE_TYPES = [
   // Images
   "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
@@ -368,7 +368,7 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
   return {
     id: c.id,
     title: c.name,
-    avatar: "",
+    avatar: c.cover_image || "",
     message: c.description ?? "",
     unreadCount: c.unread_count || 0,
     type: isMember ? "active_group" : "discovery",
@@ -377,6 +377,8 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
     isPrivate: c.visibility === "private",
     creator: c.creator,
     isAdmin: Boolean(c.is_admin) || isCreator,
+    requireApproval: Boolean(c.require_approval),
+    pendingCount: c.pending_count || 0,
   };
 }
 
@@ -818,10 +820,14 @@ export default function CommunityPage() {
 
   const handleJoinConfirm = async (groupId: string) => {
     try {
-      await joinCommunity(groupId).unwrap();
-      setActiveTab("groups");
-      setSelectedGroupId(groupId);
-      toast.success("Joined community successfully!");
+      const result = await joinCommunity(groupId).unwrap();
+      if (result.status === 'pending') {
+        toast.info("Request sent! Waiting for admin approval.");
+      } else {
+        setActiveTab("groups");
+        setSelectedGroupId(groupId);
+        toast.success("Joined community successfully!");
+      }
     } catch {
       toast.error("Failed to join. Please try again.");
     }
@@ -1036,6 +1042,7 @@ export default function CommunityPage() {
                     <div className="h-10 w-10 shrink-0">
                       <CommunityAvatar
                         name={chatHeader.title}
+                        src={chatHeader.avatar}
                         className="h-full w-full rounded-full ring-1 ring-black/5"
                         textClassName="text-[15px]"
                       />

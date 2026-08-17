@@ -9,6 +9,7 @@ export const CATEGORIES = [
   { value: "HOME_AND_FURNITURE", label: "Furniture" },
   { value: "HOUSING_AND_RENT", label: "Housing" },
   { value: "VEHICLES", label: "Vehicles" },
+  { value: "OTHER", label: "Other" },
 ] as const;
 
 export const CONDITIONS = [
@@ -26,6 +27,7 @@ export const SUBCATEGORIES: Record<string, string[]> = {
   books: ["All", "Textbooks", "Fiction", "Study Aids", "Non-Fiction", "Children"],
   "equipment-tools": ["All", "Power Tools", "Hand Tools", "Safety Gear", "Gardening", "Industrial"],
   fashion: ["All", "Men's Clothing", "Women's Clothing", "Accessories", "Shoes"],
+  other: ["All", "Miscellaneous", "Collectibles", "Sports & Outdoors", "Health & Beauty", "General"],
 };
 
 export function getSubcategories(categorySlug?: string | null): string[] {

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 
 const PALETTE = [
   "bg-teal-500",
@@ -32,15 +33,31 @@ function getColor(name: string): string {
 
 interface CommunityAvatarProps {
   name: string;
+  src?: string | null;
   className?: string;
   textClassName?: string;
 }
 
 export function CommunityAvatar({
   name,
+  src,
   className = "",
   textClassName = "",
 }: CommunityAvatarProps) {
+  if (src) {
+    return (
+      <div className={`relative overflow-hidden ${className}`} aria-label={name}>
+        <Image
+          src={src}
+          alt={name}
+          fill
+          className="object-cover"
+          sizes="96px"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`flex items-center justify-center select-none ${getColor(name)} ${className}`}

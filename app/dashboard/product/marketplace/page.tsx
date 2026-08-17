@@ -10,9 +10,10 @@ import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { ProductItemCard } from "@/components/reuseables/productItemCard";
 import ProductDetailView from "@/components/reuseables/product-detail-view";
 import { ProductItemCardSkeleton } from "@/components/reuseables/productItemCardSkeleton";
-import { Search, X, Loader2, ArrowLeft, SearchX, Sparkles, RefreshCw } from "lucide-react";
+import { Search, X, Loader2, ArrowLeft, SearchX, Sparkles, RefreshCw, Plus } from "lucide-react";
 import { useCategoryListings } from "@/hooks/use-category-listings";
 import type { Product } from "@/lib/api/productsApiSlice";
+import Link from "next/link";
 import { useGetSingleProductQuery } from "@/lib/api/productsApiSlice";
 
 function shuffleOnce<T>(arr: T[]): T[] {
@@ -120,6 +121,14 @@ export default function MarketPlacePage() {
               </p>
             </div>
 
+            <div className="flex items-center gap-3 shrink-0">
+              <Link href="/dashboard/add-products?tab=manage">
+                <Button className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm gap-2 shadow-md shadow-teal-600/15 transition-all active:scale-95">
+                  <Plus size={16} strokeWidth={3} />
+                  Add Product
+                </Button>
+              </Link>
+
             <div className="relative w-full lg:max-w-md group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 {isFetching ? (
@@ -140,6 +149,7 @@ export default function MarketPlacePage() {
                   <X size={20} />
                 </Button>
               )}
+            </div>
             </div>
           </div>
         </header>

@@ -26,6 +26,7 @@ interface JoinGroupModalProps {
     description?: string;
     memberCount?: number;
     isPrivate?: boolean;
+    requireApproval?: boolean;
   } | null;
   onJoin: (groupId: string) => void;
 }
@@ -37,12 +38,10 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
 
   const handleJoin = async () => {
     setIsJoining(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     onJoin(group.id);
     setIsJoining(false);
     onClose();
-    toast.success(`Welcome to ${group.title}!`);
   };
 
   return (
@@ -121,7 +120,7 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
             disabled={isJoining}
             className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95"
           >
-            {isJoining ? "Joining..." : "Request to Join"}
+            {isJoining ? "Joining..." : group.requireApproval ? "Request to Join" : "Join Now"}
           </Button>
         </DialogFooter>
       </DialogContent>

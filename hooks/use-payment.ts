@@ -25,7 +25,7 @@ export function usePaymentInitialization() {
       // 2. Initialize Transaction on Backend
       // Expected response: { authorization_url: "https://checkout.paystack.com/...", reference: "..." }
       const response = await initializePayment({
-        amount: 2000, // 20 NGN
+        amount: 2500, // $25 USD
         email: user.email,
         plan: "gold",
         callback_url: `${window.location.origin}/payment/verify`,

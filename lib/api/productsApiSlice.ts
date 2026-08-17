@@ -49,6 +49,7 @@ export const CATEGORY_SLUGS: Record<string, string> = {
   'baby-kids-store': 'baby-kids',
   books: 'books',
   'equipment-tools': 'equipment-tools',
+  other: 'other',
 };
 
 function normalise(item: any): Product {
@@ -162,11 +163,16 @@ export const productsApiSlice = apiSlice.injectEndpoints({
     }),
 
     updateListing: builder.mutation({
-      query: ({ id, ...body }) => ({
-        url: `/shops/listings/${id}/`,
-        method: 'PATCH',
-        body,
-      }),
+      query: ({ id, ...rest }) => {
+        const body = rest.body ?? rest;
+        const isFormData = body instanceof FormData;
+        return {
+          url: `/shops/listings/${id}/`,
+          method: 'PATCH',
+          body,
+          ...(isFormData && { formData: true }),
+        };
+      },
       invalidatesTags: (_result, _err, { id }) => [
         { type: 'Product', id },
         { type: 'Product', id: 'MY_LIST' },

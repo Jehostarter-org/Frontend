@@ -1,4 +1,4 @@
-import { Globe, Bell, Inbox, Package, ShoppingCart, Tag, Car, Building, Shirt, Laptop, Sofa, Baby, BookOpen, Wrench, Users, Zap } from "lucide-react";
+import { Globe, Bell, Inbox, Package, ShoppingCart, Tag, Car, Building, Shirt, Laptop, Sofa, Baby, BookOpen, Wrench, Users, Zap, Boxes } from "lucide-react";
 
 export const navigationItems = [
   { icon: Globe, label: "Shop", href: "/dashboard/product/marketplace" },
@@ -19,4 +19,5 @@ export const categories = [
   { icon: Baby, label: "Baby & Kids", href: "/dashboard/product/baby-kids-store", },
   { icon: BookOpen, label: "Books & Study Aids", href: "/dashboard/product/books", },
   { icon: Wrench, label: "Work Tools & Equipment", href: "/dashboard/product/equipment-tools", },
+  { icon: Boxes, label: "Other", href: "/dashboard/product/other", },
 ]

@@ -15,6 +15,8 @@ export interface CommunityItem {
   isPrivate?: boolean
   creator?: string
   isAdmin?: boolean
+  requireApproval?: boolean
+  pendingCount?: number
 }
 
 export interface CommunityGroupsResponse {

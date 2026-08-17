@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   X, Users, Lock, Globe, Loader2, Crown,
   LogOut, UserMinus, Link2, Mail, Copy, Check,
-  Send, Share2, UserPlus, MessageCircle, Star, Pencil,
+  Send, Share2, UserPlus, MessageCircle, Star, Pencil, Camera,
+  CheckCircle2, XCircle, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,10 @@ import {
   useRemoveCommunityMemberMutation,
   useGenerateInviteLinkMutation,
   useInviteByEmailMutation,
+  useUpdateCommunityMutation,
+  useGetPendingMembersQuery,
+  useApproveMemberMutation,
+  useRejectMemberMutation,
 } from "@/lib/api/communityApiSlice";
 
 interface GroupInfoSidebarProps {
@@ -51,19 +56,72 @@ export function GroupInfoSidebar({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; username: string } | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const [leaveCommunity, { isLoading: isLeaving }] = useLeaveCommunityMutation();
   const [removeMember, { isLoading: isRemoving }] = useRemoveCommunityMemberMutation();
   const [generateLink, { isLoading: isGeneratingLink }] = useGenerateInviteLinkMutation();
   const [sendEmailInvites, { isLoading: isSendingEmail }] = useInviteByEmailMutation();
+  const [updateCommunity] = useUpdateCommunityMutation();
+  const [approveMember, { isLoading: isApproving }] = useApproveMemberMutation();
+  const [rejectMember, { isLoading: isRejecting }] = useRejectMemberMutation();
 
   const { data: members = [], isLoading: isLoadingMembers } = useGetCommunityMembersQuery(
     group?.id ?? "",
-    { skip: !group?.id || !isOpen || !!dmParticipant }, // Skip if showing DM info
+    { skip: !group?.id || !isOpen || !!dmParticipant },
   );
 
   const isAdmin = group?.isAdmin ?? false;
+
+  const { data: pendingMembers = [], refetch: refetchPending } = useGetPendingMembersQuery(
+    group?.id ?? "",
+    { skip: !group?.id || !isOpen || !isAdmin || !!dmParticipant },
+  );
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !group?.id) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image too large", { description: "Maximum 5 MB allowed." });
+      return;
+    }
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("cover_image", file);
+      await updateCommunity({ id: group.id, body: formData }).unwrap();
+      toast.success("Community picture updated");
+    } catch {
+      toast.error("Failed to update picture");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleApprove = async (memberId: string, username: string) => {
+    if (!group?.id) return;
+    try {
+      await approveMember({ communityId: group.id, memberId }).unwrap();
+      toast.success(`${username} approved!`);
+      refetchPending();
+    } catch {
+      toast.error("Failed to approve member.");
+    }
+  };
+
+  const handleReject = async (memberId: string, username: string) => {
+    if (!group?.id) return;
+    try {
+      await rejectMember({ communityId: group.id, memberId }).unwrap();
+      toast.success(`${username} rejected.`);
+      refetchPending();
+    } catch {
+      toast.error("Failed to reject member.");
+    }
+  };
 
   const onlineCount = members.filter((m: any) => {
     const mid = String(m.user?.id ?? m.id ?? "");
@@ -290,12 +348,37 @@ export function GroupInfoSidebar({
 
           {/* ── Avatar ── */}
           <div className="flex flex-col items-center pt-8 pb-5 px-4 bg-gradient-to-b from-slate-50 to-white border-b border-slate-100">
-            <div className="h-20 w-20">
+            <div className="relative h-20 w-20">
               <CommunityAvatar
                 name={group.title}
+                src={group.avatar}
                 className="h-full w-full rounded-2xl shadow-md ring-2 ring-slate-100"
                 textClassName="text-[26px]"
               />
+              {isAdmin && (
+                <>
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="absolute -bottom-1 -right-1 h-7 w-7 bg-teal-600 hover:bg-teal-700 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white transition-colors"
+                    title="Change community picture"
+                  >
+                    {isUploadingImage ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Camera size={12} />
+                    )}
+                  </button>
+                </>
+              )}
             </div>
 
             <h2 className="mt-3 text-[15px] font-bold text-slate-900 text-center leading-snug flex items-center justify-center gap-1.5">
@@ -325,6 +408,34 @@ export function GroupInfoSidebar({
               <div className="mt-2 flex items-center gap-1 text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
                 <Crown size={11} />
                 <span className="text-[11px] font-semibold">You&apos;re the admin</span>
+              </div>
+            )}
+
+            {/* ── Require Approval toggle (admin only) ── */}
+            {isAdmin && !dmParticipant && (
+              <div className="mt-3 flex items-center justify-between w-full px-1">
+                <div className="flex items-center gap-2">
+                  <UserCheck size={13} className="text-slate-400" />
+                  <span className="text-[12px] font-medium text-slate-600">Require approval to join</span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!group?.id) return;
+                    updateCommunity({
+                      id: group.id,
+                      body: { require_approval: !group.requireApproval } as any,
+                    });
+                  }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    group.requireApproval ? "bg-teal-600" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                      group.requireApproval ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
               </div>
             )}
 
@@ -412,6 +523,66 @@ export function GroupInfoSidebar({
               </div>
             )}
           </div>
+
+          {/* ── Pending Join Requests (Admin only) ── */}
+          {isAdmin && !dmParticipant && pendingMembers.length > 0 && (
+            <div className="px-4 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <UserCheck size={14} className="text-amber-500" />
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Pending Requests · {pendingMembers.length}
+                </p>
+              </div>
+              <div className="space-y-2">
+                {pendingMembers.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center gap-3 p-2 rounded-xl bg-amber-50/60 border border-amber-100/60"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden shrink-0">
+                      {req.profile_picture ? (
+                        <img src={req.profile_picture} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700">
+                          {req.username?.charAt(0)?.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-slate-800 truncate">{req.username}</p>
+                      <p className="text-[10px] text-slate-400">Requested to join</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleApprove(req.id, req.username)}
+                        disabled={isApproving || isRejecting}
+                        className="h-7 w-7 flex items-center justify-center rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors disabled:opacity-50"
+                        title="Approve"
+                      >
+                        {isApproving ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleReject(req.id, req.username)}
+                        disabled={isApproving || isRejecting}
+                        className="h-7 w-7 flex items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors disabled:opacity-50"
+                        title="Reject"
+                      >
+                        {isRejecting ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <XCircle size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Description ── */}
           {group.description && (

@@ -35,8 +35,8 @@ export const SUBSCRIPTION_PLANS: PlanConfig[] = [
     id: "gold",
     title: "Gold Package",
     description: "For new migrants needing full, hands-on support for a smooth transition.",
-    priceLabel: "$ 20",
-    priceAmount: 2000, // This should match your backend expectation
+    priceLabel: "$ 25",
+    priceAmount: 2500, // This should match your backend expectation
     theme: "dark",
     highlight: true,
     features: [

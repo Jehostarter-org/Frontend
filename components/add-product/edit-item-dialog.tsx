@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
-import { Loader2, ImageIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, ImageIcon, X, Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,11 @@ const CONDITIONS = [
   { value: "refurbished", label: "Refurbished" },
 ];
 
+interface ExistingImage {
+  id: string;
+  url: string;
+}
+
 export function EditProductDialog({
   productId,
   onClose,
@@ -65,6 +70,12 @@ export function EditProductDialog({
   const [updateListing, { isLoading: isUpdating }] = useUpdateListingMutation();
   const { currency } = useCurrency();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const displayCurrency = currency || product?.currency || "NGN";
   const currencySymbols: Record<string, string> = { NGN: "₦", USD: "$", GBP: "£", EUR: "€", GHS: "₵", KES: "KSh", ZAR: "R", INR: "₹", NPR: "Rs", CNY: "¥", CAD: "C$", AUD: "A$" };
@@ -96,21 +107,67 @@ export function EditProductDialog({
       category: product.category,
       subcategory: product.subcategory || "",
     });
+    setExistingImages(
+      (product.images ?? []).map((img: { id: string; image: string }) => ({
+        id: img.id,
+        url: img.image,
+      }))
+    );
+    setDeletedImageIds([]);
+    setNewImages([]);
+    setNewImagePreviews([]);
   }, [product, form]);
+
+  useEffect(() => {
+    const urls = newImages.map((file) => URL.createObjectURL(file));
+    setNewImagePreviews(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [newImages]);
+
+  const removeExistingImage = (id: string) => {
+    setExistingImages((prev) => prev.filter((img) => img.id !== id));
+    setDeletedImageIds((prev) => [...prev, id]);
+  };
+
+  const addNewImages = (files: FileList | null) => {
+    if (!files) return;
+    const incoming = Array.from(files);
+    const totalAfter = existingImages.length + newImages.length + incoming.length;
+    if (totalAfter > 5) {
+      toast.error("Maximum 5 images allowed");
+      return;
+    }
+    setNewImages((prev) => [...prev, ...incoming]);
+  };
+
+  const removeNewImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const totalImages = existingImages.length + newImages.length;
 
   const onSubmit = async (data: EditItemFormData) => {
     if (!productId) return;
     setIsSubmitting(true);
     try {
+      const formData = new FormData();
+      formData.append("title", data.title);
+      formData.append("description", data.description);
+      formData.append("price", String(data.price));
+      formData.append("listing_type", data.listing_type);
+      formData.append("category", data.category);
+      if (data.subcategory) formData.append("subcategory", data.subcategory);
+      if (data.condition) formData.append("condition", data.condition);
+
+      // Append deleted image IDs
+      deletedImageIds.forEach((id) => formData.append("delete_images", id));
+
+      // Append new image files
+      newImages.forEach((file) => formData.append("images", file));
+
       await updateListing({
         id: productId,
-        title: data.title,
-        description: data.description,
-        price: data.price,
-        listing_type: data.listing_type,
-        condition: data.condition,
-        category: data.category,
-        subcategory: data.subcategory || "",
+        body: formData,
       }).unwrap();
       toast.success("Item updated successfully");
       onClose();
@@ -154,20 +211,69 @@ export function EditProductDialog({
           </div>
         ) : (
           <div className="space-y-6">
-            {product.images.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-teal-600" /> Current Images
-                </p>
-                <div className="grid grid-cols-4 gap-2">
-                  {product.images.map((img) => (
-                    <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                      <Image src={img.image} alt={product.title} fill className="object-cover" />
-                    </div>
-                  ))}
-                </div>
+            {/* ── Editable Images Section ── */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-teal-600" /> Product Images
+              </p>
+              <p className="text-xs text-gray-400 mb-3">First image is the cover. Max 5 images total.</p>
+
+              {/* Existing images */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {existingImages.map((img) => (
+                  <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
+                    <Image src={img.url} alt="Product" fill className="object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingImage(img.id)}
+                      className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* New image previews */}
+                {newImagePreviews.map((url, idx) => (
+                  <div key={`new-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-teal-300 group">
+                    <Image src={url} alt={`New ${idx}`} fill className="object-cover" />
+                    <div className="absolute top-1 left-1 bg-teal-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">NEW</div>
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(idx)}
+                      className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add more button */}
+                {totalImages < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50 transition-colors"
+                  >
+                    <Plus className="w-6 h-6 text-gray-400" />
+                    <span className="text-[10px] text-gray-500 font-medium mt-1">Add</span>
+                  </button>
+                )}
               </div>
-            )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => addNewImages(e.target.files)}
+                className="hidden"
+              />
+
+              {existingImages.length === 0 && newImages.length === 0 && (
+                <p className="text-xs text-red-500 font-medium">At least one image is required</p>
+              )}
+            </div>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -352,7 +458,7 @@ export function EditProductDialog({
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isSubmitting || isUpdating}
+                    disabled={isSubmitting || isUpdating || totalImages === 0}
                     className="h-11 rounded-xl font-bold text-sm bg-teal-800 hover:bg-teal-900 text-white"
                   >
                     {isSubmitting || isUpdating ? (

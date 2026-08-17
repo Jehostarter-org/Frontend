@@ -13,6 +13,7 @@ export interface Community {
   creator_username: string;
   country_code: string;
   visibility: 'public' | 'private';
+  require_approval: boolean;
   cover_image: string | null;
   is_active: boolean;
   purpose: string;
@@ -21,7 +22,16 @@ export interface Community {
   post_count: number;
   is_member: boolean;
   is_admin: boolean;
+  pending_count: number;
   created_at: string;
+}
+
+export interface PendingMember {
+  id: string;
+  user_id: string;
+  username: string;
+  profile_picture: string | null;
+  requested_at: string;
 }
 
 export interface CommunityMessage {
@@ -149,7 +159,7 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       ],
     }),
 
-    joinCommunity: builder.mutation<void, string>({
+    joinCommunity: builder.mutation<{ detail: string; status?: string }, string>({
       query: (id) => ({ url: `/community/${id}/join/`, method: 'POST' }),
       invalidatesTags: (_r, _e, id) => [
         { type: 'Community' as const, id },
@@ -184,6 +194,39 @@ export const communityApiSlice = apiSlice.injectEndpoints({
         { type: 'CommunityMembers' as const, id: communityId },
         { type: 'Community' as const, id: communityId },
         { type: 'Community' as const, id: 'LIST' },
+      ],
+    }),
+
+    // ── Admin: pending join requests ───────────────────────────────────────
+    getPendingMembers: builder.query<PendingMember[], string>({
+      query: (communityId) => `/community/${communityId}/members/pending/`,
+      transformResponse: (raw: any) => (Array.isArray(raw) ? raw : []),
+      providesTags: (_r, _e, id) => [{ type: 'CommunityMembers' as const, id: `${id}_pending` }],
+    }),
+
+    // ── Admin: approve a pending member ────────────────────────────────────
+    approveMember: builder.mutation<void, { communityId: string; memberId: string }>({
+      query: ({ communityId, memberId }) => ({
+        url: `/community/${communityId}/members/${memberId}/approve/`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, { communityId }) => [
+        { type: 'CommunityMembers' as const, id: communityId },
+        { type: 'CommunityMembers' as const, id: `${communityId}_pending` },
+        { type: 'Community' as const, id: communityId },
+        { type: 'Community' as const, id: 'LIST' },
+      ],
+    }),
+
+    // ── Admin: reject a pending member ─────────────────────────────────────
+    rejectMember: builder.mutation<void, { communityId: string; memberId: string }>({
+      query: ({ communityId, memberId }) => ({
+        url: `/community/${communityId}/members/${memberId}/reject/`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, { communityId }) => [
+        { type: 'CommunityMembers' as const, id: `${communityId}_pending` },
+        { type: 'Community' as const, id: communityId },
       ],
     }),
 
@@ -281,6 +324,9 @@ export const {
   useLeaveCommunityMutation,
   useGetCommunityMembersQuery,
   useRemoveCommunityMemberMutation,
+  useGetPendingMembersQuery,
+  useApproveMemberMutation,
+  useRejectMemberMutation,
   useGenerateInviteLinkMutation,
   useInviteByEmailMutation,
   useAcceptInviteMutation,

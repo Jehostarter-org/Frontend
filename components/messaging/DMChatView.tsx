@@ -2,14 +2,49 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Send, Loader2, Check, CheckCheck, ArrowLeft, Info, Wifi, WifiOff, MessageCircle, Reply, Trash2, X, File, FileText, Play, Music } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck, ArrowLeft, Info, Wifi, WifiOff, MessageCircle, Reply, Trash2, X, File, FileText, Play, Music, Paperclip } from "lucide-react";
 import { isMediaType } from "@/components/reuseables/media-viewer";
 import MessageContent from "@/components/reuseables/MessageContent";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useDeleteMessageMutation, useGetMessagesQuery, useMarkConversationReadMutation, useSendMessageMutation } from "@/lib/api/messagesApiSlice";
+import { useDeleteMessageMutation, useGetMessagesQuery, useMarkConversationReadMutation, useSendMessageMutation, useSendMessageWithAttachmentsMutation } from "@/lib/api/messagesApiSlice";
 import { useDirectMessage, type DMMessage } from "@/hooks/useDirectMessage";
 import type { Conversation } from "@/lib/api/messagesApiSlice";
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const ACCEPTED_FILE_EXTENSIONS = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+
+function validateFileSize(file: File): boolean {
+    if (file.size > MAX_FILE_SIZE) {
+        const maxMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+        const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+        toast.error("File too large", { description: `${fileMB} MB exceeds the ${maxMB} MB limit.` });
+        return false;
+    }
+    return true;
+}
+
+function validateFileType(file: File): boolean {
+    if (!file.type && file.name.includes(".")) return true;
+    const allowed = [
+        "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+        "video/mp4", "video/webm", "video/ogg", "video/quicktime",
+        "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain", "text/csv",
+    ];
+    if (!allowed.includes(file.type)) {
+        toast.error("Unsupported file type", { description: `"${file.name.split(".").pop()?.toUpperCase()}" files are not allowed.` });
+        return false;
+    }
+    return true;
+}
 
 interface DMChatViewProps {
     conversation: Conversation;
@@ -22,8 +57,10 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
     const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
     const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
     const [messageReadStates, setMessageReadStates] = useState<Record<number, "sent" | "delivered" | "read">>({});
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     const conversationId = String(conversation.id);
@@ -39,15 +76,10 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         } catch { }
     }, []);
 
-    // Fetch historical messages
-    const { data: historyMessages = [], isLoading: isLoadingHistory, refetch } = useGetMessagesQuery(conversation.id);
-
-    // Mark conversation as read via REST
-    const [markRead] = useMarkConversationReadMutation();
-    const [sendRestMessage, { isLoading: isSendingRest }] = useSendMessageMutation();
-    const [deleteRestMessage] = useDeleteMessageMutation();
-
-    // WebSocket for real-time
+    // WebSocket for real-time — declared BEFORE useGetMessagesQuery because the
+    // polling interval below depends on `isConnected`. Referencing it earlier
+    // than this caused a "Cannot access before initialization" crash, which is
+    // why the WhatsApp-style bubbles weren't rendering at all.
     const {
         messages: liveMessages,
         isConnected,
@@ -58,6 +90,18 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         removeMessage,
         sendDeleteMessage,
     } = useDirectMessage(conversationId);
+
+    // Fetch historical messages — poll every 10s when WS is disconnected as a safety net
+    const { data: historyMessages = [], isLoading: isLoadingHistory, refetch } = useGetMessagesQuery(conversation.id, {
+        pollingInterval: isConnected ? 0 : 10000,
+        refetchOnMountOrArgChange: true,
+    });
+
+    // Mark conversation as read via REST
+    const [markRead] = useMarkConversationReadMutation();
+    const [sendRestMessage, { isLoading: isSendingRest }] = useSendMessageMutation();
+    const [sendAttachments, { isLoading: isSendingAttachments }] = useSendMessageWithAttachmentsMutation();
+    const [deleteRestMessage] = useDeleteMessageMutation();
 
     // Merge history + live messages (deduplicate by id)
     const allMessages = [...historyMessages, ...liveMessages]
@@ -83,17 +127,29 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         }
     }, [allMessages.length]);
 
-    // Simulate read receipts for optimistic messages
+    // Track which messages already have read-receipt timeouts scheduled
+    const processedReceipts = useRef<Set<number>>(new Set());
+
+    // Simulate read receipts — only for NEW messages, with proper cleanup
     useEffect(() => {
+        const timeouts: ReturnType<typeof setTimeout>[] = [];
         allMessages.forEach((msg) => {
-            if (!messageReadStates[msg.id]) {
+            if (processedReceipts.current.has(msg.id)) return;
+            processedReceipts.current.add(msg.id);
+
+            timeouts.push(setTimeout(() => {
                 setMessageReadStates((prev) => ({ ...prev, [msg.id]: "sent" }));
-                setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "delivered" })), 800);
-                if (!msg.is_read && msg.sender?.id !== currentUserId) {
-                    setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "read" })), 2000);
-                }
+            }, 0));
+            timeouts.push(setTimeout(() => {
+                setMessageReadStates((prev) => ({ ...prev, [msg.id]: "delivered" }));
+            }, 800));
+            if (!msg.is_read && msg.sender?.id !== currentUserId) {
+                timeouts.push(setTimeout(() => {
+                    setMessageReadStates((prev) => ({ ...prev, [msg.id]: "read" }));
+                }, 2000));
             }
         });
+        return () => timeouts.forEach(clearTimeout);
     }, [allMessages, currentUserId]);
 
     const handleSend = async (e?: React.FormEvent) => {
@@ -101,6 +157,7 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         const trimmed = newMessage.trim();
         if (!trimmed) return;
 
+        // Text-only: try WebSocket first, fallback to REST
         if (isConnected && sendMessage(trimmed, replyingTo?.id ?? null)) {
             setNewMessage("");
             setReplyingTo(null);
@@ -123,6 +180,32 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         }
     };
 
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        if (!validateFileSize(file)) return;
+        if (!validateFileType(file)) return;
+
+        setIsUploadingFile(true);
+        try {
+            const formData = new FormData();
+            formData.append("conversation", String(conversation.id));
+            formData.append("body", file.name);
+            if (replyingTo) formData.append("reply_to", String(replyingTo.id));
+            formData.append("uploaded_images", file);
+
+            await sendAttachments(formData).unwrap();
+            setReplyingTo(null);
+            refetch();
+            toast.success("File shared");
+        } catch {
+            toast.error("Failed to send file");
+        } finally {
+            setIsUploadingFile(false);
+        }
+    };
+
     const handleTyping = useCallback(() => {
         sendTyping();
     }, [sendTyping]);
@@ -133,11 +216,10 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
         setDeletedIds((prev) => new Set([...prev, messageId]));
         removeMessage(messageId);
 
-        if (isConnected && sendDeleteMessage(messageId)) {
-            return;
-        }
-
         try {
+            if (isConnected && sendDeleteMessage(messageId)) {
+                return;
+            }
             await deleteRestMessage({ conversation: conversation.id, messageId }).unwrap();
             refetch();
         } catch {
@@ -403,7 +485,26 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                         </button>
                     </div>
                 )}
-                <form onSubmit={handleSend} className="flex items-center gap-3">
+                <form onSubmit={handleSend} className="flex items-center gap-2">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ACCEPTED_FILE_EXTENSIONS}
+                        onChange={handleFileUpload}
+                        disabled={isUploadingFile}
+                        className="hidden"
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={isUploadingFile}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="hover:bg-slate-100 rounded-full h-10 w-10 text-slate-500 shrink-0"
+                        title="Share file"
+                    >
+                        {isUploadingFile ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
+                    </Button>
                     <input
                         ref={inputRef}
                         value={newMessage}
@@ -426,4 +527,4 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
             </footer>
         </div>
     );
-}   
+}

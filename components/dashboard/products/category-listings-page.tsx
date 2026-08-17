@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, X, Loader2, ArrowUpDown } from "lucide-react";
+import { Search, X, Loader2, ArrowUpDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import { ProductItemCard } from "@/components/reuseables/productItemCard";
@@ -121,30 +122,39 @@ export default function CategoryListingsPage({
               <p className="text-muted-foreground mt-1">{subtitle}</p>
             </div>
 
-            <div className="relative w-full md:w-96 group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                {isFetching ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
-                ) : (
-                  <Search className="h-4 w-4 text-gray-400 group-focus-within:text-teal-600 transition-colors" />
+            <div className="flex items-center gap-3 shrink-0">
+              <Link href="/dashboard/add-products?tab=manage">
+                <Button className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm gap-2 shadow-md shadow-teal-600/15 transition-all active:scale-95">
+                  <Plus size={16} strokeWidth={3} />
+                  Add Product
+                </Button>
+              </Link>
+
+              <div className="relative w-full md:w-72 group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  {isFetching ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                  ) : (
+                    <Search className="h-4 w-4 text-gray-400 group-focus-within:text-teal-600 transition-colors" />
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 outline-none transition-all shadow-sm text-sm"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-900"
+                  >
+                    <X size={16} />
+                  </button>
                 )}
               </div>
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 outline-none transition-all shadow-sm text-sm"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-900"
-                >
-                  <X size={16} />
-                </button>
-              )}
             </div>
           </div>
 
