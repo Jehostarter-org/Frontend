@@ -379,6 +379,7 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
     isAdmin: Boolean(c.is_admin) || isCreator,
     requireApproval: Boolean(c.require_approval),
     pendingCount: c.pending_count || 0,
+    myStatus: c.my_status || null,
   };
 }
 
@@ -780,6 +781,10 @@ export default function CommunityPage() {
       setSelectedDiscoGroup(item);
       setIsJoinModalOpen(true);
     } else {
+      if (item.myStatus === 'pending') {
+        toast.info("Your request is still pending admin approval.");
+        return;
+      }
       setSelectedGroupId(item.id);
       setSelectedDM(null);
     }

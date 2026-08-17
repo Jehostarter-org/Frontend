@@ -17,6 +17,7 @@ export interface CommunityItem {
   isAdmin?: boolean
   requireApproval?: boolean
   pendingCount?: number
+  myStatus?: 'pending' | 'approved' | 'rejected' | null
 }
 
 export interface CommunityGroupsResponse {

@@ -27,6 +27,7 @@ interface JoinGroupModalProps {
     memberCount?: number;
     isPrivate?: boolean;
     requireApproval?: boolean;
+    myStatus?: 'pending' | 'approved' | 'rejected' | null;
   } | null;
   onJoin: (groupId: string) => void;
 }
@@ -115,12 +116,16 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
           <Button variant="ghost" onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] tracking-widest hover:bg-transparent hover:text-slate-600">
             Cancel
           </Button>
-          <Button 
-            onClick={handleJoin} 
-            disabled={isJoining}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+          <Button
+            onClick={handleJoin}
+            disabled={isJoining || group.myStatus === 'pending'}
+            className={`font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl transition-all active:scale-95 ${
+              group.myStatus === 'pending'
+                ? "bg-amber-100 text-amber-700 shadow-none cursor-default"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20"
+            }`}
           >
-            {isJoining ? "Joining..." : group.requireApproval ? "Request to Join" : "Join Now"}
+            {group.myStatus === 'pending' ? "Request Pending" : isJoining ? "Joining..." : group.requireApproval ? "Request to Join" : "Join Now"}
           </Button>
         </DialogFooter>
       </DialogContent>

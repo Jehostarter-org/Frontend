@@ -23,6 +23,7 @@ export interface Community {
   is_member: boolean;
   is_admin: boolean;
   pending_count: number;
+  my_status: 'pending' | 'approved' | 'rejected' | null;
   created_at: string;
 }
 
