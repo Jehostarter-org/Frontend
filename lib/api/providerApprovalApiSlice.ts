@@ -43,6 +43,7 @@ export const providerApprovalApi = apiSlice.injectEndpoints({
         // ── Admin: Approval statistics ─────────────────────────────────────────
         adminGetProviderStats: builder.query<ProviderStats, void>({
             query: () => "services/admin/providers/stats/",
+            providesTags: ["AdminProviders"],
         }),
     }),
     overrideExisting: false,
