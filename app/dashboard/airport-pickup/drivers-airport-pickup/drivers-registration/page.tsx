@@ -111,6 +111,7 @@ const INITIAL_REGISTRATION_DATA: RegistrationData = {
 // Hook to check if user already has a driver profile
 function useExistingDriverProfile(token: string | null) {
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -135,6 +136,9 @@ function useExistingDriverProfile(token: string | null) {
           );
           if (driverProfile) {
             setProfileStatus(driverProfile.approval_status || "approved");
+            if (driverProfile.approval_status === "rejected") {
+              setRejectionReason(driverProfile.rejection_reason || null);
+            }
           }
         }
       } catch {
@@ -147,14 +151,14 @@ function useExistingDriverProfile(token: string | null) {
     checkProfile();
   }, [token]);
 
-  return { profileStatus, checking };
+  return { profileStatus, rejectionReason, checking };
 }
 
 export default function DriversRegistrationPage() {
   const router = useRouter();
   const token = useAuthToken();
   const { location, loading: locationLoading } = useUserLocation(token);
-  const { profileStatus, checking: checkingProfile } = useExistingDriverProfile(token);
+  const { profileStatus, rejectionReason, checking: checkingProfile } = useExistingDriverProfile(token);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<RegistrationData>(INITIAL_REGISTRATION_DATA);
 
@@ -324,7 +328,7 @@ export default function DriversRegistrationPage() {
   }
 
   // Already registered or pending approval state
-  if (profileStatus) {
+  if (profileStatus && profileStatus !== "rejected") {
     const isPending = profileStatus === "pending";
     return (
       <div className="max-w-4xl mx-auto py-8 px-4">
@@ -372,6 +376,24 @@ export default function DriversRegistrationPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="bg-white rounded-2xl border border-gray-300 p-8 lg:p-12 shadow-sm">
+        {/* Rejection banner */}
+        {profileStatus === "rejected" && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="font-semibold text-red-800">Your previous application was rejected</p>
+                {rejectionReason && (
+                  <p className="text-sm text-red-700 mt-1">{rejectionReason}</p>
+                )}
+                <p className="text-sm text-red-600 mt-2">Please update your details below and submit again.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Show location info */}
         {location && (
           <div className="mb-6 p-3 bg-teal-50 rounded-lg border border-teal-200">
