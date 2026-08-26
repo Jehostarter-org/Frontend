@@ -14,6 +14,7 @@ import { Checkbox }  from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 
 import logo2 from '@/public/images/small logo WHITE.png';
+import loginGen from '@/public/images/image-gen.jpeg';
 import { useLogin } from '@/hooks/use-login';
 import { loginSchema, type LoginInput } from '@/lib/validations/loginAuth';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
@@ -39,7 +40,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col bg-white">
+    <div className="min-h-dvh flex flex-col bg-white relative">
+      {/* Bottom-left decorative image */}
+      <div className="absolute bottom-0 left-0 hidden md:block">
+        <Image src={loginGen} alt="decorative" className="w-36 md:w-44 lg:w-52 h-auto opacity-90" priority />
+      </div>
       <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20 px-5 sm:px-8 py-8">
 
         {/* Left panel — desktop only */}
@@ -159,6 +164,16 @@ export default function LoginPage() {
           </form>
         </section>
       </main>
+
+      {/* Tagline */}
+      <div className="w-full text-center py-6 px-4 border-t border-gray-100">
+        <p className="text-[#143B4A] text-base sm:text-lg font-semibold tracking-wide">
+          Jehostarter, your one-stop shop that gives you the right start abroad
+        </p>
+        <p className="text-teal-600 text-sm sm:text-base mt-1 italic">
+          Who needs a family member abroad when you have Jehostarter
+        </p>
+      </div>
     </div>
   );
 }
