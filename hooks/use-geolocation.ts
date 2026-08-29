@@ -69,6 +69,40 @@ export const useGeolocation = () => {
     };
   }, [user]);
 
+  // IP-based coordinates from the backend (/api/users/location/detect/) — used
+  // whenever the browser GPS is denied or not supported, so we still get real coords.
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
+
+  const detectViaIP = useCallback(async (): Promise<LocationData | null> => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const res = await fetch(`${API_URL}/api/users/location/detect/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (
+        data?.status === 'ok' &&
+        typeof data.lat === 'number' &&
+        typeof data.lng === 'number' &&
+        (data.lat !== 0 || data.lng !== 0)
+      ) {
+        const locationData: LocationData = {
+          lat:          data.lat,
+          lng:          data.lng,
+          address:      [data.city, data.country_code].filter(Boolean).join(', ') || `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`,
+          city:         data.city || '',
+          country_code: data.country_code || '',
+        };
+        localStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
+        return locationData;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [API_URL]);
+
   const requestLocation = useCallback(async (forceRefresh = false): Promise<LocationData | null> => {
     // The cache is only a display shortcut — an explicit "Update my location" must
     // always re-read live GPS so we never report the previous place.
@@ -81,6 +115,17 @@ export const useGeolocation = () => {
     }
 
     if (!navigator.geolocation) {
+      // No GPS support at all — get coordinates from the IP instead
+      const ipLocation = await detectViaIP();
+      if (ipLocation) {
+        setState({
+          location:        ipLocation,
+          isLocating:      false,
+          error:           null,
+          permissionState: 'denied',
+        });
+        return ipLocation;
+      }
       const fallback = getFallbackLocation();
       setState((s) => ({
         ...s,
@@ -97,11 +142,22 @@ export const useGeolocation = () => {
       setState((s) => ({ ...s, permissionState: permission.state }));
 
       if (permission.state === 'denied') {
+        const ipLocation = await detectViaIP();
+        if (ipLocation) {
+          setState({
+            location:        ipLocation,
+            isLocating:      false,
+            error:           'GPS is blocked — using IP-based location instead.',
+            permissionState: 'denied',
+          });
+          return ipLocation;
+        }
         const fallback = getFallbackLocation();
         setState((s) => ({
           ...s,
-          error:    'Location access denied — showing results for your profile location.',
+          error:    'Location access denied — using your profile location.',
           location: fallback,
+          permissionState: 'denied',
         }));
         return fallback;
       }
@@ -160,13 +216,24 @@ export const useGeolocation = () => {
             resolve(locationData);
           }
         },
-        (err) => {
-          // User denied or timeout
+        async (err) => {
+          // User denied, timed out or no fix — fall back to IP-based coordinates
+          const ipLocation = await detectViaIP();
+          if (ipLocation) {
+            setState({
+              location:        ipLocation,
+              isLocating:      false,
+              error:           null,
+              permissionState: err && (err as any).code === 1 ? 'denied' : 'unknown',
+            });
+            resolve(ipLocation);
+            return;
+          }
           const fallback = getFallbackLocation();
           setState({
             location:        fallback,
             isLocating:      false,
-            error:           'Location access denied — showing results for your profile location.',
+            error:           'Location access denied — using your profile location.',
             permissionState: 'denied',
           });
           resolve(fallback);
@@ -178,7 +245,7 @@ export const useGeolocation = () => {
         },
       );
     });
-  }, [user, getFallbackLocation]);
+  }, [user, getFallbackLocation, detectViaIP]);
 
   // Clear cached location (e.g. when user changes city in profile)
   const clearLocation = () => {
