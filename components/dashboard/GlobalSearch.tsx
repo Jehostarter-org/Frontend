@@ -15,7 +15,6 @@ import {
 } from "@/lib/api/communityApiSlice";
 import { useGetAllProductsQuery } from "@/lib/api/productsApiSlice";
 import { useCurrency } from "@/components/contexts/currencyContext";
-import { useAuth } from "@/components/contexts/auth-context";
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_GROUPS = 5;
@@ -23,8 +22,7 @@ const MAX_ITEMS = 5;
 
 export default function GlobalSearch() {
   const router = useRouter();
-  const { formatPrice, countryCode } = useCurrency();
-  const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
@@ -32,8 +30,6 @@ export default function GlobalSearch() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [joinCommunity] = useJoinCommunityMutation();
-
-  const country = user?.current_country || countryCode || undefined;
 
   const trimmed = query.trim();
 
@@ -45,12 +41,12 @@ export default function GlobalSearch() {
   const searching = debounced.length >= MIN_QUERY_LENGTH;
 
   const { data: communities = [], isFetching: isGroupsFetching } = useGetCommunitiesQuery(
-    { search: debounced, country },
+    { search: debounced },
     { skip: !searching },
   );
 
   const { data: products = [], isFetching: isProductsFetching } = useGetAllProductsQuery(
-    { search: debounced, country },
+    { search: debounced },
     { skip: !searching },
   );
 
