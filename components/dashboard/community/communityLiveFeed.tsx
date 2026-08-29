@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { ArrowRight, MessageSquare } from "lucide-react";
 import CommunityWidget from "../shop/community-widget";
-import { useGetCommunityFeedQuery, type Post } from "@/lib/api/communityApiSlice";
+import {
+  useGetCommunityFeedQuery,
+  useGetMyCommunitiesQuery,
+  type Post,
+} from "@/lib/api/communityApiSlice";
 
-function toWidgetItem(post: Post) {
+function toWidgetItem(post: Post, communityNames: Record<string, string>) {
   return {
     id: post.id,
-    groupName: post.community,
-    senderName: post.author_username,
+    groupName: communityNames[post.community] || post.community,
+    senderName: post.author_username || "Community member",
     senderAvatar: post.author_username ? `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author_username)}&background=0D9488&color=fff` : undefined,
     lastMessage: post.content,
     timestamp: post.created_at,
@@ -18,7 +22,18 @@ function toWidgetItem(post: Post) {
 
 export default function CommunityLiveFeed() {
   const { data: feed = [] } = useGetCommunityFeedQuery(undefined);
-  const latestActivity = feed.slice(-3).reverse().map(toWidgetItem);
+  const { data: myCommunities = [] } = useGetMyCommunitiesQuery(undefined);
+
+  const communityNames: Record<string, string> = {};
+  myCommunities.forEach((c) => {
+    communityNames[c.id] = c.name;
+  });
+
+  const latestActivity = feed
+    .filter((post) => post.content)
+    .slice(-3)
+    .reverse()
+    .map((post) => toWidgetItem(post, communityNames));
 
   return (
     <div className="space-y-8">

@@ -8,62 +8,34 @@ interface InteractiveMapProps {
   onLocationChange?: (location: { lat: number; lng: number }) => void;
 }
 
-// 1. Moving the loading logic outside the component to keep a single "source of truth"
-let googleMapsPromise: Promise<void> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let L: any = null;
 
-const loadGoogleMapsScript = (): Promise<void> => {
-  if (googleMapsPromise) return googleMapsPromise;
-
-  googleMapsPromise = new Promise((resolve, reject) => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-    if (!apiKey || apiKey === "your-google-maps-api-key") {
-      reject(new Error("Google Maps API key is not configured."));
-      return;
-    }
-
-    // Check if it already exists globally
-    if (typeof window !== "undefined" && window.google && window.google.maps) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => resolve();
-    script.onerror = () => {
-      googleMapsPromise = null; // Reset so we can try again if it fails
-      reject(new Error('Failed to load Google Maps script'));
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return googleMapsPromise;
+const loadLeaflet = async () => {
+  if (!L) L = await import('leaflet');
+  return L;
 };
 
 export default function InteractiveMap({ className = '', onLocationChange }: InteractiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leafletMapRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let map: google.maps.Map | null = null;
-    let circles: google.maps.Circle[] = [];
-    let labels: google.maps.Marker[] = [];
-    let userMarker: google.maps.Marker | null = null;
+    const el = mapRef.current;
+    if (!el) return;
+    let cancelled = false;
 
-    const initializeMap = async () => {
-      if (!mapRef.current) return;
-
+    (async () => {
       try {
-        await loadGoogleMapsScript();
+        const leaflet = await loadLeaflet();
+        if (cancelled || !mapRef.current) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((mapRef.current as any)._leaflet_id) return;
 
-        // 2. Extra safety: Check if navigator exists (Client-side only)
-        if (typeof navigator === "undefined" || !navigator.geolocation) {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
           throw new Error('Geolocation is not supported.');
         }
 
@@ -75,6 +47,8 @@ export default function InteractiveMap({ className = '', onLocationChange }: Int
           });
         });
 
+        if (cancelled || !mapRef.current) return;
+
         const userPos = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
@@ -82,55 +56,61 @@ export default function InteractiveMap({ className = '', onLocationChange }: Int
 
         if (onLocationChange) onLocationChange(userPos);
 
-        // 3. Ensure we use window.google
-        map = new window.google.maps.Map(mapRef.current, {
-          center: userPos,
+        const map = leaflet.map(mapRef.current, {
+          center: [userPos.lat, userPos.lng],
           zoom: 13,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+          zoomControl: false,
+          attributionControl: false,
         });
+        leafletMapRef.current = map;
 
-        userMarker = new window.google.maps.Marker({
-          position: userPos,
-          map: map,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#0D9488', // Teal color to match your brand
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-          }
-        });
+        leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+        }).addTo(map);
+
+        setTimeout(() => map.invalidateSize(), 200);
+
+        // User marker — pulse-style teal dot
+        const userMarker = leaflet.circleMarker([userPos.lat, userPos.lng], {
+          radius: 9,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#0D9488',
+          fillOpacity: 1,
+        }).addTo(map);
 
         const ranges = [1000, 2000, 5000];
         const colors = ['#F43F5E', '#F59E0B', '#0D9488']; // Pink, Amber, Teal
 
-        circles = ranges.map((radius, index) => new window.google.maps.Circle({
-          strokeColor: colors[index],
-          strokeOpacity: 0.6,
-          strokeWeight: 2,
-          fillColor: colors[index],
-          fillOpacity: 0.05,
-          map: map!,
-          center: userPos,
-          radius: radius,
-        }));
+        ranges.forEach((radius, index) => {
+          leaflet.circle([userPos.lat, userPos.lng], {
+            radius,
+            stroke: true,
+            color: colors[index],
+            weight: 2,
+            opacity: 0.6,
+            fillColor: colors[index],
+            fillOpacity: 0.05,
+          }).addTo(map);
+        });
+
+        map.fitBounds(userMarker.getBounds().pad(0.4), { maxZoom: 14 });
 
         setIsLoading(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load map');
-        setIsLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load map');
+          setIsLoading(false);
+        }
       }
-    };
-    initializeMap();
+    })();
 
     return () => {
-      circles.forEach(c => c.setMap(null));
-      labels.forEach(l => l.setMap(null));
-      if (userMarker) userMarker.setMap(null);
+      cancelled = true;
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
     };
   }, []);
 

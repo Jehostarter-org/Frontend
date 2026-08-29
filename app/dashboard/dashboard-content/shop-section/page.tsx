@@ -6,7 +6,6 @@ import { useAuth } from "@/components/contexts/auth-context";
 import WelcomeBanner from "@/components/dashboard/shop/welcome-banner";
 import ShopHighlights from "@/components/dashboard/shop/shop-highlight";
 import ProgressTracker from "@/components/dashboard/shop/progress-tracker";
-import CommunityWidget from "@/components/dashboard/shop/community-widget";
 import LocalNavigation from "@/components/dashboard/shop/local-navigation";
 import { SystemAlertsBanner } from "@/components/reuseables/system-alert-banner";
 import CommunityLiveFeed from "@/components/dashboard/community/communityLiveFeed";
@@ -44,7 +43,6 @@ export default function ShopSection() {
             <MigrationSpecialistCard />
           </div>
 
-          <CommunityWidget />
           <CommunityLiveFeed />
         </div>
 
