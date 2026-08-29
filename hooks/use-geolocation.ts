@@ -69,12 +69,15 @@ export const useGeolocation = () => {
     };
   }, [user]);
 
-  const requestLocation = useCallback(async (): Promise<LocationData | null> => {
-    // Return cached location if available
-    const cached = getCachedLocation();
-    if (cached) {
-      setState((s) => ({ ...s, location: cached }));
-      return cached;
+  const requestLocation = useCallback(async (forceRefresh = false): Promise<LocationData | null> => {
+    // The cache is only a display shortcut — an explicit "Update my location" must
+    // always re-read live GPS so we never report the previous place.
+    if (!forceRefresh) {
+      const cached = getCachedLocation();
+      if (cached) {
+        setState((s) => ({ ...s, location: cached }));
+        return cached;
+      }
     }
 
     if (!navigator.geolocation) {
