@@ -61,20 +61,8 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     const conversationId = String(conversation.id);
-
-    // Get current user ID
-    useEffect(() => {
-        try {
-            const userStr = localStorage.getItem("user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                setCurrentUserId(Number(user.id));
-            }
-        } catch { }
-    }, []);
 
     // WebSocket for real-time — declared BEFORE useGetMessagesQuery because the
     // polling interval below depends on `isConnected`. Referencing it earlier
@@ -143,14 +131,14 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
             timeouts.push(setTimeout(() => {
                 setMessageReadStates((prev) => ({ ...prev, [msg.id]: "delivered" }));
             }, 800));
-            if (!msg.is_read && msg.sender?.id !== currentUserId) {
+            if (!msg.is_read && msg.sender?.id !== conversation.other_participant?.id) {
                 timeouts.push(setTimeout(() => {
                     setMessageReadStates((prev) => ({ ...prev, [msg.id]: "read" }));
                 }, 2000));
             }
         });
         return () => timeouts.forEach(clearTimeout);
-    }, [allMessages, currentUserId]);
+    }, [allMessages, conversation.other_participant?.id]);
 
     const handleSend = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -319,7 +307,7 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                             <span className="bg-white text-[11px] font-medium text-slate-500 px-3 py-1 rounded-md shadow-sm border border-slate-100 uppercase tracking-wider">TODAY</span>
                         </div>
                         {allMessages.map((msg, idx) => {
-                            const isMe = msg.sender?.id === currentUserId;
+                            const isMe = msg.sender?.id !== otherParticipant?.id;
                             const prevMsg = idx > 0 ? allMessages[idx - 1] : null;
                             const isConsecutive = prevMsg && String(prevMsg.sender?.id) === String(msg.sender?.id);
                             const readState = messageReadStates[msg.id];

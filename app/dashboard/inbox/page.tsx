@@ -47,7 +47,27 @@ function toMessage(n: Notification): Message {
     unreadCount: n.is_read ? 0 : 1,
     isCommunityRequest: isCommunityRequest,
     link: n.link || undefined,
+    href: resolveHref(n),
   };
+}
+
+// Resolve the frontend route a notification should deep-link to.
+function resolveHref(n: Notification): string | undefined {
+  // Direct messages arrive with link like "/messages/{conversationId}/"
+  if (n.notification_type === "direct_message") {
+    const match = n.link.match(/\/messages\/(\d+)\/?/);
+    const conversationId = match?.[1] ?? n.actor;
+    return conversationId
+      ? `/dashboard/community?conversation=${conversationId}`
+      : undefined;
+  }
+
+  // Community messages/activity arrive with link like "/dashboard/community?group={groupId}"
+  if (n.link) {
+    return n.link.startsWith("/") ? n.link : `/${n.link}`;
+  }
+
+  return undefined;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────

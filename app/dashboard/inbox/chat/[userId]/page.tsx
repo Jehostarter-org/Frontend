@@ -11,7 +11,7 @@ export default async function Page({ params }: PageProps) {
 
   const chatUser = {
     id: userId,
-    name: "Michael", 
+    name: "this user",
     avatar: "/images/photo1.png"
   };
 

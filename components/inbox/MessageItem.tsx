@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,12 +51,8 @@ export default function MessageItem({ message, onAction, onDismiss }: MessageIte
     );
   };
 
-  return (
-    <div
-      className={`flex items-start gap-4 rounded-lg border bg-white p-4 ${
-        isUnread ? "border-l-4 border-l-[#2C5F6F]" : ""
-      }`}
-    >
+  const content = (
+    <>
       <Avatar className="h-12 w-12">
         <AvatarImage src={message.senderAvatar} alt={message.senderName} />
         <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
@@ -79,6 +76,22 @@ export default function MessageItem({ message, onAction, onDismiss }: MessageIte
         <p className="text-sm text-gray-600 truncate">{message.content}</p>
         <span className="text-xs text-gray-400">{message.timestamp}</span>
       </div>
+    </>
+  );
+
+  return (
+    <div
+      className={`flex items-start gap-4 rounded-lg border bg-white p-4 ${
+        isUnread ? "border-l-4 border-l-[#2C5F6F]" : ""
+      }`}
+    >
+      {message.href ? (
+        <Link href={message.href} className="flex flex-1 items-start gap-4 min-w-0">
+          {content}
+        </Link>
+      ) : (
+        <div className="flex flex-1 items-start gap-4 min-w-0">{content}</div>
+      )}
 
       <div className="flex items-center gap-2">{renderAction()}</div>
     </div>

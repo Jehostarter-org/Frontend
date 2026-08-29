@@ -14,6 +14,7 @@ export interface Message {
   groupChatCount?: number
   isCommunityRequest?: boolean
   link?: string
+  href?: string
 }
 
 export interface ChatMessage {
