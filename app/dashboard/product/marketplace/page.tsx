@@ -122,7 +122,7 @@ export default function MarketPlacePage() {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <Link href="/dashboard/add-products?tab=manage">
+              <Link href="/dashboard/add-products/item-for-sale">
                 <Button className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm gap-2 shadow-md shadow-teal-600/15 transition-all active:scale-95">
                   <Plus size={16} strokeWidth={3} />
                   Add Product

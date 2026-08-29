@@ -19,6 +19,18 @@ import {
 import type { Product } from "@/lib/api/productsApiSlice";
 import { useGetSingleProductQuery } from "@/lib/api/productsApiSlice";
 
+const ADD_PRODUCT_ROUTE: Record<string, string> = {
+  vehicles: "/dashboard/add-products/vehicles",
+  "baby-kids-store": "/dashboard/add-products/baby-kids",
+  books: "/dashboard/add-products/books",
+  electronics: "/dashboard/add-products/electronics",
+  "equipment-tools": "/dashboard/add-products/equipment-tools",
+  fashion: "/dashboard/add-products/fashion",
+  furniture: "/dashboard/add-products/furniture",
+  housing: "/dashboard/add-products/housing",
+  other: "/dashboard/add-products/other",
+};
+
 export interface CategoryListingsPageProps {
   urlSegment: string;
   title: string;
@@ -123,7 +135,7 @@ export default function CategoryListingsPage({
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <Link href="/dashboard/add-products?tab=manage">
+              <Link href={ADD_PRODUCT_ROUTE[urlSegment] ?? "/dashboard/add-products?tab=manage"}>
                 <Button className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm gap-2 shadow-md shadow-teal-600/15 transition-all active:scale-95">
                   <Plus size={16} strokeWidth={3} />
                   Add Product
