@@ -134,18 +134,39 @@ function toNearbyItems(elements: any[], lat: number, lon: number): NearbyItem[] 
     .filter((item: NearbyItem) => item.name && item.name !== 'Unnamed place');
 }
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
 async function searchNearbyOverpass(lat: number, lon: number, category: PlaceCategory): Promise<NearbyItem[]> {
   const data = OVERPASS_SELECTORS[category]
     .replaceAll('{lat}', String(lat))
     .replaceAll('{lon}', String(lon));
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(data)}`,
-  });
-  if (!res.ok) throw new Error(`Overpass failed (${res.status})`);
-  const json = await res.json();
-  return toNearbyItems(json?.elements ?? [], lat, lon);
+  const body = `data=${encodeURIComponent(data)}`;
+
+  let lastError: unknown;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      if (!res.ok) {
+        lastError = new Error(`Overpass failed (${res.status})`);
+        continue;
+      }
+      const json = await res.json();
+      const items = toNearbyItems(json?.elements ?? [], lat, lon);
+      if (items.length > 0) return items;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError ?? new Error('Overpass unreachable');
 }
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
