@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import ServiceCards from "../service-cards/page";
-import { useAuth } from "@/components/contexts/auth-context";
 import WelcomeBanner from "@/components/dashboard/shop/welcome-banner";
 import ShopHighlights from "@/components/dashboard/shop/shop-highlight";
 import ProgressTracker from "@/components/dashboard/shop/progress-tracker";
@@ -13,7 +12,6 @@ import MigrationSpecialistCard from "@/components/dashboard/shop/migration-speci
 
 
 export default function ShopSection() {
-  const { user } = useAuth();
   const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | undefined>();
 
   const handleLocationChange = (location: { lat: number; lng: number }) => {
@@ -21,11 +19,11 @@ export default function ShopSection() {
   };
 
   return (
-    <main className="flex-1 bg-gray-50/50 w-full custom-scrollbar">
+    <div className="bg-gray-50/50 w-full">
       <div className="flex flex-col xl:flex-row gap-6 max-w-7xl mx-auto">
         
         <div className="flex-1 space-y-6 min-w-0">
-          <WelcomeBanner firstName={user?.firstName}  plan={user?.plan} />
+          <WelcomeBanner />
 
           <ServiceCards />
 
@@ -53,6 +51,6 @@ export default function ShopSection() {
         </aside>
 
       </div>
-    </main>
+    </div>
   );
 }

@@ -16,8 +16,23 @@ function toWidgetItem(post: Post, communityNames: Record<string, string>) {
     senderName: post.author_username || "Community member",
     senderAvatar: post.author_username ? `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author_username)}&background=0D9488&color=fff` : undefined,
     lastMessage: post.content,
-    timestamp: post.created_at,
+    timestamp: timeAgo(post.created_at),
   };
+}
+
+function timeAgo(value?: string): string {
+  if (!value) return "";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 export default function CommunityLiveFeed() {
