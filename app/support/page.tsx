@@ -22,6 +22,7 @@ import {
 import { useDirectMessage, type DMMessage } from "@/hooks/useDirectMessage";
 import MessageContent from "@/components/reuseables/MessageContent";
 import { isMediaType } from "@/components/reuseables/media-viewer";
+import { SafeImage } from "@/components/reuseables/SafeImage";
 
 // When a support thread has been idle for this long, the user's view resets to
 // a fresh chat (the admin portal still keeps the full history).
@@ -154,8 +155,9 @@ export default function SupportPage() {
         .filter((msg) => !deletedIds.has(msg.id))
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    const myId = Number(user?.id);
-    const isMe = (msg: DMMessage) => Number(msg.sender?.id) === myId;
+    // ULID ids are strings — compare as strings or every own message looks "not mine"
+    const myId = user?.id;
+    const isMe = (msg: DMMessage) => String(msg.sender?.id) === String(myId);
 
     // Restore the last reset boundary for this conversation (if any)
     useEffect(() => {
@@ -426,8 +428,20 @@ export default function SupportPage() {
                                         className={`flex w-full ${mine ? "justify-end" : "justify-start"} ${isConsecutive ? "mt-0.5" : "mt-2.5"} group/msg`}
                                     >
                                         {!mine && !isConsecutive && (
-                                            <div className="w-8 h-8 rounded-full bg-[#00a884] flex items-center justify-center text-white shrink-0 mr-2 self-end mb-1">
-                                                <Headphones size={14} />
+                                            <div className="w-8 h-8 shrink-0 mr-2 self-end">
+                                                {msg.sender?.avatar_url ? (
+                                                    <SafeImage
+                                                        src={msg.sender.avatar_url}
+                                                        alt={msg.sender.full_name || "Support"}
+                                                        width={32}
+                                                        height={32}
+                                                        className="rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-[#00a884] flex items-center justify-center">
+                                                        <Headphones size={14} className="text-white" />
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         {!mine && isConsecutive && <div className="w-10 shrink-0" />}

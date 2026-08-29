@@ -6,8 +6,9 @@ export interface DMMessage {
     id: number;
     body: string;
     sender: {
-        id: number;
+        id: string | number;
         full_name: string;
+        avatar_url?: string | null;
     };
     reply_to?: DMMessage | null;
     service_card: any;
