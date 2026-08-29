@@ -12,6 +12,7 @@ import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
+import { useGetEligibilitySubmittedQuery } from "@/lib/api/plansApiSlice";
 import { ProductImageGallery } from "@/components/reuseables/product-image-gallery";
 import ShareToGroupsSheet from "@/components/reuseables/share-to-groups-sheet";
 import { CATEGORY_SLUGS } from "@/lib/api/productsApiSlice";
@@ -27,6 +28,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const { isInCart, toggleBookmark } = useCart();
   const { formatPrice } = useCurrency();
   const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
+  const { data: eligibilityStatus } = useGetEligibilitySubmittedQuery();
   const [shareOpen, setShareOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [payMenuOpen, setPayMenuOpen] = useState(false);
@@ -305,6 +307,13 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                         onClick={() => {
                           setPayMenuOpen(false);
                           if (!listingId) { toast.error("Product not available"); return; }
+
+                          if (!eligibilityStatus?.submitted) {
+                            toast.info("Complete your eligibility check to use installment payment.");
+                            router.push("/dashboard/eligibility-check");
+                            return;
+                          }
+
                           const params = new URLSearchParams({
                             productId: listingId,
                             productName: product?.title ?? "Product",

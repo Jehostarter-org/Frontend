@@ -14,7 +14,7 @@ import { Checkbox }  from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 
 import logo2 from '@/public/images/small logo WHITE.png';
-import loginImg from '@/public/images/background-1.jpeg';
+import loginImg from '@/public/images/background-2.png';
 import { useLogin } from '@/hooks/use-login';
 import { loginSchema, type LoginInput } from '@/lib/validations/loginAuth';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
