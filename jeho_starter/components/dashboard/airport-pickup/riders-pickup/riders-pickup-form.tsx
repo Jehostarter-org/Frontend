@@ -13,7 +13,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAirportData } from "@/hooks/useAirportData";
 import { FormSelect } from "@/components/reuseables/formSelect";
-import { useCurrency } from "@/components/contexts/currencyContext";
+import { useCurrency, COUNTRY_TO_CURRENCY } from "@/components/contexts/currencyContext";
 import { useBookAirportPickupMutation, useCalculateDistanceMutation, useUpdateServiceDistanceMutation } from "@/lib/api/riderApiSlice";
 import { LocationSearch } from "@/components/reuseables/locationSearch";
 import { bookingSchema } from "@/components/types/schemas/riders-booking-scehma";
@@ -37,6 +37,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
   const [updateServiceDistance] = useUpdateServiceDistanceMutation();
   const { currency: detectedCurrency, countryCode: detectedCountry } = useCurrency();
   const { airports, terminals, pickupZones, isLoading: isDataLoading } = useAirportData();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [airportSearch, setAirportSearch] = useState("");
   const [isAirportSelected, setIsAirportSelected] = useState(!!defaultValues?.airport);
   const [destinationCoords, setDestinationCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -72,16 +73,29 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
   }, [airportSearch, airports, isAirportSelected]);
 
   const onSubmit = async (data: BookingFormData) => {
+    setIsSubmitting(true);
     try {
       // Combine date + time into ISO datetime the backend expects
       const arrivalDatetime = `${data.arrivalDate}T${data.arrivalTime}:00`;
+
+      // The booking must be routed to drivers near the AIRPORT, not near the
+      // rider. e.g. a rider in Nigeria booking Brisbane → country_code "AU" so
+      // every approved Australian driver gets notified.
+      const airportInfo = airports.find(
+        (a) => a.label === data.airport || a.value === data.airport
+      );
+      const bookingCountry =
+        airportInfo?.country || detectedCountry || user?.current_country || "NG";
+      const bookingCurrency = COUNTRY_TO_CURRENCY[bookingCountry] ?? detectedCurrency;
+      const isCrossCountry = !!airportInfo && user?.current_country !== bookingCountry;
+      const bookingCity = isCrossCountry ? "" : user?.city || "";
 
       // Prepare payload matching Django serializer expectations EXACTLY
       const payload = {
         service_type: "airport_pickup" as const,
         description: `Airport pickup from ${data.airport} to ${data.destination || "TBD"}`,
-        country_code: detectedCountry || user?.current_country || "NG",
-        city: user?.city || "",
+        country_code: bookingCountry,
+        city: bookingCity,
         destination: data.destination || "",
         notes: data.destination,
         airport_pickup_details: {
@@ -107,8 +121,8 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       const serviceRequestId = response.id;
       const pickupAddr = data.airport || "";
       const arrivalAddr = data.destination || "";
-      const countryCode = detectedCountry || user?.current_country || "NG";
-      const city = user?.city || "";
+      const countryCode = bookingCountry;
+      const city = bookingCity;
 
       try {
         // 1. Calculate distance & price — pass coordinates when available
@@ -133,7 +147,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
 
         // Persist calculated values so vehicle-selection can read them
         sessionStorage.setItem("calculatedPrice", String(distResult.total_price));
-        sessionStorage.setItem("calculatedCurrency", detectedCurrency);
+        sessionStorage.setItem("calculatedCurrency", bookingCurrency);
         sessionStorage.setItem("tripDistance", String(distResult.distance_km));
         sessionStorage.setItem("tripDuration", String(distResult.duration_min));
         sessionStorage.setItem("flagDropFee", String(distResult.flag_drop_fee));
@@ -209,12 +223,28 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
       }
 
       toast.error(errorMessage);
+      setIsSubmitting(false);
     }
   };
 
   const today = new Date().toISOString().split("T")[0];
 
   return (
+    <>
+      {isSubmitting && (
+        <div className="fixed inset-0 z-[100] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 border border-gray-100">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-teal-100 border-t-teal-600 rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 bg-teal-600 rounded-full animate-pulse" />
+              </div>
+            </div>
+            <p className="text-lg font-bold text-gray-800">Booking your ride...</p>
+            <p className="text-sm text-gray-400">Calculating the best fare for you</p>
+          </div>
+        </div>
+      )}
     <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-10">
       <div className="mb-6">
         <Button
@@ -384,14 +414,14 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
 
         <Button
           type="submit"
-          disabled={!isValid || isDataLoading || isApiLoading}
+          disabled={!isValid || isDataLoading || isSubmitting}
           className={cn(
             "w-full py-8 text-lg font-black rounded-sm transition-all shadow-xl",
             "bg-teal-700 hover:bg-teal-800 text-white hover:shadow-teal-900/20 active:scale-[0.98]",
             "disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
           )}
         >
-          {isApiLoading ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="w-6 h-6 mr-3 animate-spin" /> Processing...
             </>
@@ -401,5 +431,6 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
         </Button>
       </form>
     </div>
+    </>
   );
 }

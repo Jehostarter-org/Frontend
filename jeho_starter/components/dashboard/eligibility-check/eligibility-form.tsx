@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle, ArrowRight } from "lucide-react";
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useGetEligibilitySubmittedQuery } from "@/lib/api/plansApiSlice";
 import { StepOnePathwaySelection } from "./page";
 import { EligibilityResult } from "./eligibility-result";
 import { StepFourFinancial } from "./pathway-A/financials";
@@ -13,8 +15,6 @@ import { StepFiveAddressPhone } from "./pathway-A/address-phone";
 import { StepThreeMigrationIntent } from "./pathway-B/migration-intent";
 import { StepTwoVisaVerification } from "./pathway-A/visa-verification";
 import { StepFourDestinationContact } from "./pathway-B/destination-content";
-import { useCheckGoldEligibilityDestinationMutation } from "@/lib/api/plansApiSlice";
-
 
 
 type Pathway = "a" | "b" | null
@@ -28,9 +28,8 @@ export function EligibilityForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<String>("selection")
   const [formData, setFormData] = useState<{ pathway: Pathway }>({ pathway: null });
+  const { data: eligibilityStatus, isLoading: checkingStatus } = useGetEligibilitySubmittedQuery();
  
-  const [checkEligibilityStatus] = useCheckGoldEligibilityDestinationMutation();
-
   const steps = useMemo(() => {
     return formData.pathway ? STEPS_CONFIG[formData.pathway] : STEPS_CONFIG.a;
   }, [formData.pathway]);
@@ -44,7 +43,6 @@ export function EligibilityForm() {
     if (nextIndex < steps.length) {
       const nextStep = steps[nextIndex];
       setCurrentStep(nextStep);
-      if (nextStep === "result") checkEligibilityStatus(undefined);
     }
   };
 
@@ -70,10 +68,50 @@ export function EligibilityForm() {
       case "pathway-b-2": return <StepTwoPassport onNext={handleNext} />;
       case "pathway-b-3": return <StepThreeMigrationIntent onNext={handleNext} />;
       case "pathway-b-4": return <StepFourDestinationContact onNext={handleNext} />;
-      case "result":      return <EligibilityResult pathway={formData.pathway} />;
+      case "result":      return <EligibilityResult pathway={formData.pathway} formData={formData} />;
       default:            return null;
     }
   };
+
+  if (checkingStatus) {
+    return (
+      <div className="max-w-5xl mx-auto animate-in fade-in duration-500 text-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto" />
+      </div>
+    );
+  }
+
+  if (eligibilityStatus?.submitted) {
+    return (
+      <div className="max-w-2xl mx-auto animate-in fade-in duration-500 text-center py-16">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10">
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Already Submitted</h2>
+          <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            You have already submitted your eligibility check. Only one submission is allowed per account.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              onClick={() => router.push("/dashboard")}
+              className="bg-teal-700 hover:bg-teal-800 text-white h-12 px-8 rounded-xl"
+            >
+              Return to Dashboard
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard/notification")}
+              className="h-12 px-8 rounded-xl"
+            >
+              View Status
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500">

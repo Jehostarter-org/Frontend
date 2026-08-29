@@ -9,6 +9,7 @@ interface PropertyResultProps {
   title: string;
   desc: string;
   price: number;
+  currency?: string;
   city?: string;
   state?: string;
   propertyType?: string;
@@ -17,7 +18,7 @@ interface PropertyResultProps {
 }
 
 export function PropertyResultCard({
-  id, title, desc, price, city, state, propertyType, availableFrom, images
+  id, title, desc, price, currency, city, state, propertyType, availableFrom, images
 }: PropertyResultProps) {
   const locationText = [city, state].filter(Boolean).join(', ');
   const coverImage = images?.[0];
@@ -65,7 +66,7 @@ export function PropertyResultCard({
             </div>
             <div className="text-left sm:text-right flex-shrink-0">
               <p className="font-bold text-teal-800 text-xl">
-                {formatCurrency(price)}
+                {formatCurrency(price, currency)}
               </p>
               <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
                 Per Month

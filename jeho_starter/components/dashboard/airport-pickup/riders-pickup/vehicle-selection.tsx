@@ -245,6 +245,21 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
   }
 
   return (
+    <>
+      {isConfirming && (
+        <div className="fixed inset-0 z-[100] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 border border-gray-100">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-teal-100 border-t-teal-600 rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 bg-teal-600 rounded-full animate-pulse" />
+              </div>
+            </div>
+            <p className="text-lg font-bold text-gray-800">Confirming your ride...</p>
+            <p className="text-sm text-gray-400">Securing your booking</p>
+          </div>
+        </div>
+      )}
     <div className="max-w-3xl mx-auto py-10 px-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between mb-8">
         <Button
@@ -481,5 +496,6 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
         </div>
       </div>
     </div>
+    </>
   );
 }

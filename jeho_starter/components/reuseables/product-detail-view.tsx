@@ -2,17 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin } from "lucide-react";
+import { MessageCircle, Bookmark, Share2, ShieldCheck, MapPin, BadgeCheck, Link2, Users, CreditCard, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useCart } from "@/components/contexts/cart-context";
 import { useCurrency } from "@/components/contexts/currencyContext";
 import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
 import { ProductImageGallery } from "@/components/reuseables/product-image-gallery";
+import ShareToGroupsSheet from "@/components/reuseables/share-to-groups-sheet";
+import { CATEGORY_SLUGS } from "@/lib/api/productsApiSlice";
 
 interface ProductDetailViewProps {
   product: any; // accepts both old shape and new API shape
@@ -25,6 +27,9 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const { isInCart, toggleBookmark } = useCart();
   const { formatPrice } = useCurrency();
   const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [payMenuOpen, setPayMenuOpen] = useState(false);
 
   const listingId = product?.id ?? '';
   const isSaved = listingId ? isInCart(listingId) : false;
@@ -85,6 +90,61 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // ── Build a shareable URL for this product ─────────────────────────────────
+  const productUrl = useMemo(() => {
+    if (typeof window === "undefined" || !listingId) return "";
+    // Reverse-map category_slug → URL segment
+    const categorySlug = product?.category_slug ?? product?.category ?? "";
+    const reverseMap = Object.fromEntries(
+      Object.entries(CATEGORY_SLUGS).map(([urlSeg, slug]) => [slug, urlSeg]),
+    );
+    const urlSegment = reverseMap[categorySlug] ?? categorySlug ?? "marketplace";
+    const base = window.location.origin;
+    return `${base}/dashboard/product/${urlSegment}?listing=${listingId}`;
+  }, [listingId, product?.category_slug, product?.category]);
+
+  const handleShareLink = useCallback(async () => {
+    setShareMenuOpen(false);
+    if (!productUrl) return;
+
+    const shareData = {
+      title: product?.title ?? "Check out this product",
+      text: `${product?.title ?? "Product"} — ${formattedPrice}`,
+      url: productUrl,
+    };
+
+    // Try native Web Share API first (works on mobile & some desktop browsers)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    // Fallback: copy link to clipboard
+    try {
+      await navigator.clipboard.writeText(productUrl);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  }, [productUrl, product?.title, formattedPrice]);
+
+  const handleShareToGroups = () => {
+    setShareMenuOpen(false);
+    if (!isLoggedIn) {
+      toast.error("Sign in to share listings to groups");
+      return;
+    }
+    setShareOpen(true);
+  };
+
+  const handleShare = () => {
+    setShareMenuOpen((prev) => !prev);
   };
 
   const handleMessageSeller = async () => {
@@ -151,7 +211,12 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                   {product?.title}
                 </h1>
                 {sellerName && (
-                  <p className="text-sm text-gray-500">by <span className="font-semibold text-gray-700">{sellerName}</span></p>
+                  <p className="text-sm text-gray-500">
+                    by <span className="font-semibold text-gray-700">{sellerName}</span>
+                    {(product?.shop?.is_verified || product?.is_verified) && (
+                      <BadgeCheck className="inline h-4 w-4 ml-1 text-blue-500 -mt-0.5" />
+                    )}
+                  </p>
                 )}
               </div>
               <div className="flex gap-1 shrink-0">
@@ -164,7 +229,30 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 >
                   <Bookmark className={cn("h-5 w-5", isSaved && "fill-teal-600 text-teal-600")} />
                 </Button>
-                <Button variant="ghost" size="icon"><Share2 className="h-5 w-5" /></Button>
+                <div className="relative">
+                  <Button variant="ghost" size="icon" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
+                  {shareMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShareMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          onClick={handleShareLink}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        >
+                          <Link2 size={15} className="text-teal-600" />
+                          Copy link
+                        </button>
+                        <button
+                          onClick={handleShareToGroups}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        >
+                          <Users size={15} className="text-blue-600" />
+                          Share to groups
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -181,9 +269,68 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 <ShieldCheck className="h-5 w-5" />
                 <span className="text-sm font-semibold">Buyer Protection Guaranteed</span>
               </div>
-              <Button className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]">
-                Buy Now
-              </Button>
+              <div>
+                <Button
+                  className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-md transition-all active:scale-[0.98]"
+                  onClick={() => {
+                    if (!listingId) { toast.error("Product not available"); return; }
+                    setPayMenuOpen((prev) => !prev);
+                  }}
+                >
+                  <CreditCard className="w-5 h-5 mr-2" /> Pay Installmentally
+                  <ChevronDown className={cn("w-4 h-4 ml-1 transition-transform", payMenuOpen && "rotate-180")} />
+                </Button>
+
+                {payMenuOpen && (
+                  <div className="mt-3 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      Choose how you want to pay
+                    </p>
+                    {[
+                      {
+                        plan: "weekly" as const,
+                        label: "Weekly Payment",
+                        term: "4 weekly installments",
+                        perInstallment: price / 4,
+                      },
+                      {
+                        plan: "monthly" as const,
+                        label: "Monthly Payment",
+                        term: "3 monthly installments",
+                        perInstallment: price / 3,
+                      },
+                    ].map((opt) => (
+                      <button
+                        key={opt.plan}
+                        onClick={() => {
+                          setPayMenuOpen(false);
+                          if (!listingId) { toast.error("Product not available"); return; }
+                          const params = new URLSearchParams({
+                            productId: listingId,
+                            productName: product?.title ?? "Product",
+                            price: price.toString(),
+                            plan: opt.plan,
+                          });
+                          router.push(`/dashboard/payment?${params.toString()}`);
+                        }}
+                        className="w-full flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-white px-4 py-3 text-left transition-all hover:border-teal-500 hover:bg-teal-50/50 hover:shadow-sm active:scale-[0.99]"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{opt.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{opt.term}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-black text-teal-700">{formatPrice(opt.perInstallment, currency)}</p>
+                          <p className="text-[11px] text-gray-400">{opt.plan === "weekly" ? "per week" : "per month"}</p>
+                        </div>
+                      </button>
+                    ))}
+                    <p className="text-[11px] text-gray-400 leading-snug">
+                      Or pay in full — {formatPrice(price, currency)} once.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -223,6 +370,17 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
           </div>
         </div>
       </div>
+
+      <ShareToGroupsSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        listingId={listingId}
+        listingTitle={product?.title ?? ""}
+        listingImage={currentImage}
+        listingPrice={price}
+        listingCurrency={currency}
+        listingLocation={location}
+      />
     </div>
   );
 }

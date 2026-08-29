@@ -123,6 +123,7 @@ export default function TenantSearchPage() {
                     title={prop.property_title || prop.title}
                     desc={`${prop.bedrooms || 0} bed · ${prop.bathrooms || 0} bath · ${(prop.amenities || []).slice(0, 3).join(', ')}`}
                     price={Number(prop.price_amount || prop.price || 0)}
+                    currency={prop.currency || "NGN"}
                     city={prop.city}
                     state={prop.state}
                     propertyType={prop.property_type}

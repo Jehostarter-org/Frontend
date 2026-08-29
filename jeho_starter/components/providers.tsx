@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { store } from "@/lib/store";
 import { hydrateAuth, selectCurrentToken } from "@/lib/features/auth/authSlice";
+import { useInactivityLogout } from "@/hooks/use-inactivity-logout";
 import { AuthProvider } from "@/components/contexts/auth-context";
 import { NotificationProvider } from "@/components/contexts/notification-context";
 import { CartProvider } from "@/components/contexts/cart-context";
@@ -23,6 +24,9 @@ function AuthHydrator({ children }: { children: React.ReactNode }) {
   const dispatch  = useDispatch();
   const hydrated  = useRef(false);
   const [ready, setReady] = useState(false);
+
+  // Automatically log out after a period of inactivity
+  useInactivityLogout();
 
   useEffect(() => {
     if (!hydrated.current) {

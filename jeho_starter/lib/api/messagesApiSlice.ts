@@ -157,6 +157,22 @@ export const messagesApiSlice = apiSlice.injectEndpoints({
             ],
         }),
 
+        // POST /api/messaging/conversations/<id>/messages/send/ (with files)
+        sendMessageWithAttachments: builder.mutation<Message, FormData>({
+            query: (formData) => ({
+                url: `/messaging/conversations/${formData.get('conversation')}/messages/send/`,
+                method: 'POST',
+                body: formData,
+                formData: true,
+            }),
+            invalidatesTags: (_result, _err, formData) => [
+                { type: 'Message' as const, id: Number(formData.get('conversation')) },
+                { type: 'Conversation' as const, id: Number(formData.get('conversation')) },
+                { type: 'Conversation' as const, id: 'LIST' },
+                { type: 'Conversation' as const, id: 'UNREAD' },
+            ],
+        }),
+
         // POST /api/messaging/conversations/<id>/read/
         markConversationRead: builder.mutation<{ marked_read: number }, number>({
             query: (conversationId) => ({
@@ -194,6 +210,7 @@ export const {
     useGetConversationQuery,
     useGetMessagesQuery,
     useSendMessageMutation,
+    useSendMessageWithAttachmentsMutation,
     useMarkConversationReadMutation,
     useDeleteMessageMutation,
 } = messagesApiSlice;

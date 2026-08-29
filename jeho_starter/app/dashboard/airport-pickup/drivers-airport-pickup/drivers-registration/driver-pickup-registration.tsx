@@ -26,6 +26,8 @@ export interface RegistrationData {
     driverLicenseImage: string | File | null;
     frontViewPicture: string | File | null;
     backViewPicture: string | File | null;
+    sideViewPicture: string | File | null;
+    interiorPicture: string | File | null;
     plateNumberFrontViewPicture: string | File | null;
     plateNumberBackViewPicture: string | File | null;
 }

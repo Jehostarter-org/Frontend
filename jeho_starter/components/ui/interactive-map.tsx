@@ -136,7 +136,7 @@ export default function InteractiveMap({ className = '', onLocationChange }: Int
 
   if (error) {
     return (
-      <div className={`flex items-center justify-center h-48 bg-slate-50 rounded-[1.5rem] border border-slate-100 ${className}`}>
+      <div className={`flex items-center justify-center h-full min-h-[200px] bg-slate-50 rounded-[1.5rem] border border-slate-100 ${className}`}>
         <div className="text-center p-4">
           <p className="text-rose-500 font-bold text-xs uppercase tracking-widest">Map Error</p>
           <p className="text-[10px] text-slate-400 mt-1">{error}</p>
@@ -146,7 +146,7 @@ export default function InteractiveMap({ className = '', onLocationChange }: Int
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative h-full ${className}`}>
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-[1.5rem] z-10 animate-pulse">
           <div className="flex flex-col items-center gap-3">
@@ -155,7 +155,7 @@ export default function InteractiveMap({ className = '', onLocationChange }: Int
           </div>
         </div>
       )}
-      <div ref={mapRef} className="w-full h-48 rounded-[1.5rem] border border-slate-100 shadow-inner overflow-hidden" />
+      <div ref={mapRef} className="w-full h-full min-h-[200px] rounded-[1.5rem] border border-slate-100 shadow-inner overflow-hidden" />
     </div>
   );
 }

@@ -16,12 +16,15 @@ export interface Product {
   category: string;
   category_name: string;
   category_slug: string;
+  subcategory?: string;
   shop_name: string;
   shop_id: string;
   seller_id?: string;
   images: ProductImage[];
   is_available: boolean;
   is_boosted: boolean;
+  listing_type?: string;
+  condition?: string;
   country_code: string;
   city: string;
   created_at: string;
@@ -29,6 +32,7 @@ export interface Product {
 
 export interface ListingsParams {
   category?: string;
+  subcategory?: string;
   country?: string;
   search?: string;
   ordering?: string;
@@ -45,6 +49,7 @@ export const CATEGORY_SLUGS: Record<string, string> = {
   'baby-kids-store': 'baby-kids',
   books: 'books',
   'equipment-tools': 'equipment-tools',
+  other: 'other',
 };
 
 function normalise(item: any): Product {
@@ -57,12 +62,15 @@ function normalise(item: any): Product {
     category: item.category ?? '',
     category_name: item.category_name ?? item.category ?? 'Marketplace',
     category_slug: item.category_slug ?? item.category?.slug ?? '',
+    subcategory: item.subcategory ?? '',
     shop_name: item.shop?.name ?? item.shop_name ?? '',
     shop_id: item.shop?.id ?? item.shop_id ?? '',
     seller_id: item.seller_id ?? item.shop?.owner_id ?? item.shop?.owner ?? '',
     images: item.images ?? [],
     is_available: item.is_available ?? true,
     is_boosted: item.is_boosted ?? false,
+    listing_type: item.listing_type ?? 'sale',
+    condition: item.condition ?? '',
     country_code: item.shop?.country_code ?? item.country_code ?? '',
     city: item.shop?.city ?? item.city ?? '',
     created_at: item.created_at ?? '',
@@ -85,6 +93,7 @@ export const productsApiSlice = apiSlice.injectEndpoints({
         const p = params ?? {};
         const qs = new URLSearchParams();
         if (p.category) qs.set('category', p.category);
+        if (p.subcategory) qs.set('subcategory', p.subcategory);
         if (p.country) qs.set('country', p.country);
         if (p.search) qs.set('search', p.search);
         if (p.ordering) qs.set('ordering', p.ordering);
@@ -154,12 +163,21 @@ export const productsApiSlice = apiSlice.injectEndpoints({
     }),
 
     updateListing: builder.mutation({
-      query: ({ id, ...body }) => ({
-        url: `/shops/listings/${id}/`,
-        method: 'PATCH',
-        body,
-      }),
-      invalidatesTags: (_result, _err, { id }) => [{ type: 'Product', id }],
+      query: ({ id, ...rest }) => {
+        const body = rest.body ?? rest;
+        const isFormData = body instanceof FormData;
+        return {
+          url: `/shops/listings/${id}/`,
+          method: 'PATCH',
+          body,
+          ...(isFormData && { formData: true }),
+        };
+      },
+      invalidatesTags: (_result, _err, { id }) => [
+        { type: 'Product', id },
+        { type: 'Product', id: 'MY_LIST' },
+        { type: 'Product', id: 'LIST' },
+      ],
     }),
 
     deleteListing: builder.mutation({

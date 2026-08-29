@@ -13,6 +13,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { Users, Lock, Plus } from "lucide-react";
 
 export interface SidebarItemData {
@@ -69,13 +70,21 @@ export function SidebarItem({ item, isActive, onClick, isDM = false }: SidebarIt
         }`}
     >
       <div className="h-12 w-12 flex-shrink-0 relative">
-        <SafeImage
-          src={item.avatar}
-          alt={item.title}
-          width={48}
-          height={48}
-          className="h-full w-full object-cover rounded-full shadow-sm ring-1 ring-slate-100"
-        />
+        {item.avatar ? (
+          <SafeImage
+            src={item.avatar}
+            alt={item.title}
+            width={48}
+            height={48}
+            className="h-full w-full object-cover rounded-full shadow-sm ring-1 ring-slate-100"
+          />
+        ) : (
+          <CommunityAvatar
+            name={item.title}
+            className="h-full w-full rounded-full shadow-sm ring-1 ring-slate-100"
+            textClassName="text-[15px]"
+          />
+        )}
         {isDM && (
           <span className="absolute bottom-0 right-0 h-3 w-3 bg-blue-500 border-2 border-white rounded-full shadow-md animate-pulse" />
         )}

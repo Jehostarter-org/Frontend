@@ -41,11 +41,13 @@ export function useDirectMessage(conversationId: string | null) {
 
     const wsRef = useRef<WebSocket | null>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const retryRef = useRef(0);
+    const closedRef = useRef(false);
+    const maxRetries = 10;
 
-    useEffect(() => {
+    const connect = useCallback(() => {
         if (!conversationId) return;
 
-        // Close existing connection
         if (wsRef.current) {
             wsRef.current.close();
         }
@@ -64,6 +66,7 @@ export function useDirectMessage(conversationId: string | null) {
 
         ws.onopen = () => {
             setIsConnected(true);
+            retryRef.current = 0;
         };
 
         ws.onmessage = (event) => {
@@ -96,7 +99,6 @@ export function useDirectMessage(conversationId: string | null) {
                         break;
 
                     case "read_receipt":
-                        // Update read status of messages from this user
                         setMessages((prev) =>
                             prev.map((msg) =>
                                 msg.sender.id === data.user_id && !msg.is_read
@@ -116,15 +118,30 @@ export function useDirectMessage(conversationId: string | null) {
         };
 
         ws.onerror = () => {
-            console.warn("Direct message WebSocket unavailable; using REST fallback.");
             setIsConnected(false);
         };
 
         ws.onclose = () => {
             setIsConnected(false);
+            if (closedRef.current) return;
+            retryRef.current++;
+            if (retryRef.current > maxRetries) return;
+            const delay = Math.min(1000 * Math.pow(2, retryRef.current - 1), 30000);
+            setTimeout(() => {
+                if (!closedRef.current) connect();
+            }, delay);
         };
+    }, [conversationId]);
+
+    useEffect(() => {
+        closedRef.current = false;
+        retryRef.current = 0;
+        setMessages([]);
+        setTypingUsers([]);
+        connect();
 
         return () => {
+            closedRef.current = true;
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current);
             }
@@ -132,7 +149,7 @@ export function useDirectMessage(conversationId: string | null) {
                 wsRef.current.close();
             }
         };
-    }, [conversationId]);
+    }, [connect]);
 
     const sendMessage = useCallback(
         (body: string, replyToId?: number | null, serviceCard?: any) => {
@@ -160,12 +177,10 @@ export function useDirectMessage(conversationId: string | null) {
         if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "typing", is_typing: true }));
 
-            // Clear previous timeout
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current);
             }
 
-            // Stop typing after 2 seconds of inactivity
             typingTimeoutRef.current = setTimeout(() => {
                 if (ws?.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: "typing", is_typing: false }));

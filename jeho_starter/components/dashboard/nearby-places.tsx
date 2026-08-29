@@ -210,8 +210,8 @@ export default function NearbyPlaces({ userLocation }: { userLocation?: { lat: n
                       </div>
                       {placeDetails.opening_hours.weekday_text && (
                         <div className="grid grid-cols-1 gap-1 text-gray-500 text-xs bg-gray-50 p-3 rounded-lg">
-                          {placeDetails.opening_hours.weekday_text.map((day, index) => (
-                            <div key={index} className="flex justify-between border-b border-gray-100 last:border-none py-1">
+                          {placeDetails.opening_hours.weekday_text.map((day) => (
+                            <div key={day} className="flex justify-between border-b border-gray-100 last:border-none py-1">
                                 {day}
                             </div>
                           ))}
@@ -226,8 +226,8 @@ export default function NearbyPlaces({ userLocation }: { userLocation?: { lat: n
                 <div className="border-t pt-4">
                   <h4 className="font-bold text-lg mb-4">What people are saying</h4>
                   <div className="space-y-4">
-                    {placeDetails.reviews.slice(0, 3).map((review, index) => (
-                      <div key={index} className="bg-white border p-4 rounded-xl shadow-sm">
+                    {placeDetails.reviews.slice(0, 3).map((review) => (
+                      <div key={review.time ?? review.author_name} className="bg-white border p-4 rounded-xl shadow-sm">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-bold text-sm">{review.author_name}</span>
                           <div className="flex items-center gap-1 text-yellow-600">

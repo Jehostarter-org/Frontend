@@ -9,7 +9,7 @@ import { useGetServiceRequestQuery } from "@/lib/api/riderApiSlice";
 import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Phone, MessageSquare, Star, CarFront, MapPin, Loader2, ChevronLeft, ChevronRight,
+  ArrowLeft, Phone, MessageSquare, Star, CarFront, MapPin, Loader2, ChevronLeft, ChevronRight, BadgeCheck,
 } from "lucide-react";
 
 /**
@@ -107,10 +107,10 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
     );
   }
 
-  // Waiting but booking details loaded
-  if (!driver && serviceRequest) {
-    const airport = serviceRequest.airport_pickup_details?.airport;
-    const arrivalTime = serviceRequest.airport_pickup_details?.arrival_datetime
+  // Waiting — driver not yet assigned
+  if (!driver) {
+    const airport = serviceRequest?.airport_pickup_details?.airport;
+    const arrivalTime = serviceRequest?.airport_pickup_details?.arrival_datetime
       ? new Date(serviceRequest.airport_pickup_details.arrival_datetime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
       : null;
     return (
@@ -120,32 +120,34 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
           <h2 className="text-2xl font-bold text-gray-900">Searching for a driver…</h2>
           <p className="text-gray-500 mt-1">Your booking is confirmed — we're finding a driver near you.</p>
         </div>
-        <div className="max-w-md mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Status</span>
-              <span className="font-semibold text-amber-600">Pending</span>
+        {serviceRequest && (
+          <div className="max-w-md mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status</span>
+                <span className="font-semibold text-amber-600">Pending</span>
+              </div>
+              {airport && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Airport</span>
+                  <span className="font-semibold text-right">{airport}</span>
+                </div>
+              )}
+              {arrivalTime && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Flight arrives</span>
+                  <span className="font-semibold">{arrivalTime}</span>
+                </div>
+              )}
+              {serviceRequest.notes && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Destination</span>
+                  <span className="font-semibold text-right max-w-[200px] truncate">{serviceRequest.notes}</span>
+                </div>
+              )}
             </div>
-            {airport && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Airport</span>
-                <span className="font-semibold text-right">{airport}</span>
-              </div>
-            )}
-            {arrivalTime && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Flight arrives</span>
-                <span className="font-semibold">{arrivalTime}</span>
-              </div>
-            )}
-            {serviceRequest.notes && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Destination</span>
-                <span className="font-semibold text-right max-w-[200px] truncate">{serviceRequest.notes}</span>
-              </div>
-            )}
           </div>
-        </div>
+        )}
         {isError && (
           <p className="text-sm text-red-500 text-center mt-4">
             Could not load request details. Please refresh the page.
@@ -248,7 +250,12 @@ export default function StepFourDriverArrived({ onNext, serviceRequestId }: Step
             </div>
 
             <div className="text-center mt-4 space-y-1">
-              <h3 className="text-2xl font-bold text-gray-900">{driver.full_name}</h3>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {driver.full_name}
+                {driver.is_verified && (
+                  <BadgeCheck className="inline h-5 w-5 ml-1.5 text-blue-500 -mt-0.5" />
+                )}
+              </h3>
               <p className="text-sm text-gray-500">{driver.total_trips} trips completed</p>
             </div>
 

@@ -3,11 +3,12 @@
 import React, { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Bell, MessageSquare, Heart, ShoppingCart,
-  User, Inbox, Trash2, BellOff, MoreVertical, Loader2,
+  User, Inbox, Trash2, MoreVertical, Loader2,
   Plane, MapPin, Clock, Users, Briefcase, CheckCircle2,
-  Car, AlertCircle, RotateCcw, ChevronRight,
+  Car, AlertCircle, RotateCcw, ChevronRight, Shield,
 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { Button } from "@/components/ui/button";
@@ -17,9 +18,11 @@ import {
   DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNotifications, type GqlNotification } from "@/components/contexts/notification-context";
+import { useDismissNotificationMutation } from "@/lib/api/notificationsApiSlice";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useDriverJobSocket } from "@/hooks/Usedriverjobsocket";
 import { useGetMyServiceRequestsQuery, useGetMyProviderProfilesQuery, useGetAvailableServiceRequestsQuery, type ServiceRequest } from "@/lib/api/riderApiSlice";
+import { useStartConversationMutation } from "@/lib/api/messagesApiSlice";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -35,6 +38,7 @@ interface FeedItem {
   // ride fields
   ride?: {
     id: string;
+    serviceType?: string;
     airport?: string;
     terminal?: string;
     pickupPoint?: string;
@@ -48,6 +52,7 @@ interface FeedItem {
     createdAt: string;
     status?: string;
     isOwnBooking?: boolean;
+    providerId?: string | number;
   };
 }
 
@@ -107,14 +112,23 @@ function resolveNotifLink(notification: GqlNotification): string | null {
   const { notificationType, link } = notification;
   // If no link at all, nothing to view
   if (!link) return null;
-  // Community-related notifications → community page (link has post ID, not group ID)
-  if (notificationType === "community_post" || notificationType === "community_message" || notificationType === "community_invite") {
+  // Community message → straight to the group chat (backend link has ?group=<id>)
+  if (notificationType === "community_message") {
+    const groupMatch = link.match(/[?&]group=([^&]+)/);
+    return groupMatch
+      ? `/dashboard/community?group=${encodeURIComponent(groupMatch[1])}`
+      : "/dashboard/community";
+  }
+  // Other community notifications (post/invite) → community page
+  if (notificationType === "community_post" || notificationType === "community_invite") {
     return "/dashboard/community";
   }
-  // Direct message → inbox with conversation
+  // Direct message → straight to the person's chat thread (backend link: /messages/<id>/)
   if (notificationType === "direct_message") {
-    const match = link.match(/\/(\d+)$/);
-    return match ? `/dashboard/inbox?conversation=${match[1]}` : "/dashboard/inbox";
+    const match = link.match(/\/(\d+)\/?$/);
+    return match
+      ? `/dashboard/community?tab=messages&conversation=${match[1]}`
+      : "/dashboard/community?tab=messages";
   }
   // Service/ride notifications → activity page (they're already here)
   if (notificationType?.startsWith("service_")) {
@@ -227,10 +241,7 @@ function NotificationItem({
             onClick={onDelete}
             className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 focus:text-red-600 focus:bg-red-50"
           >
-            <Trash2 size={14} /> Delete
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-            <BellOff size={14} /> Mute
+            <Trash2 size={14} /> Dismiss
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -253,23 +264,33 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
 function MyBookingItem({
   ride,
   onView,
+  onMessage,
 }: {
   ride: FeedItem["ride"];
   onView: (id: string) => void;
+  onMessage?: (serviceType: string, providerId: string | number) => void;
 }) {
   const { formatPrice: convertPrice } = useCurrency();
   if (!ride) return null;
   const status = ride.status || "pending";
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const isChaperone = ride.serviceType === "chaperone";
+
+  const statusLabel = isChaperone && status === "accepted" ? "Chaperone Assigned" : cfg.label;
+  const statusIcon = isChaperone && status === "accepted" ? <Shield className="w-3.5 h-3.5" /> : cfg.icon;
+
+  const accentBarClass = isChaperone ? "bg-purple-500" : "bg-blue-500";
+  const iconBgClass = isChaperone ? "bg-purple-50" : "bg-slate-100";
+  const iconColorClass = isChaperone ? "text-purple-600" : "text-slate-600";
 
   return (
     <div className="group relative bg-white rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-md p-6 transition-all duration-300 shadow-sm">
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-2xl" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentBarClass} rounded-l-2xl`} />
 
       {/* Status badge */}
       <div className="absolute top-4 right-4">
         <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full", cfg.bg, cfg.text)}>
-          {cfg.icon} {cfg.label}
+          {statusIcon} {statusLabel}
         </span>
       </div>
 
@@ -277,15 +298,21 @@ function MyBookingItem({
         {/* Ride Info */}
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-100 p-2 rounded-xl">
-              <Plane className="w-5 h-5 text-slate-600" />
+            <div className={`${iconBgClass} p-2 rounded-xl`}>
+              {isChaperone ? (
+                <Shield className={`w-5 h-5 ${iconColorClass}`} />
+              ) : (
+                <Plane className={`w-5 h-5 ${iconColorClass}`} />
+              )}
             </div>
             <div>
               <p className="font-bold text-gray-900">
-                {ride.airport || "Airport Pickup"}
+                {isChaperone ? "Chaperone Service" : (ride.airport || "Airport Pickup")}
               </p>
               <p className="text-xs text-gray-500">
-                {ride.terminal && `${ride.terminal} · `}{ride.pickupPoint || "Terminal pickup"}
+                {isChaperone
+                  ? (ride.description || "Help requested")
+                  : `${ride.terminal && `${ride.terminal} · `}${ride.pickupPoint || "Terminal pickup"}`}
               </p>
             </div>
           </div>
@@ -293,12 +320,14 @@ function MyBookingItem({
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <MapPin className="w-4 h-4 text-gray-400" />
             <span className="line-clamp-1">
-              {ride.destination || "Destination not specified"}
+              {isChaperone
+                ? (ride.description || "Service location")
+                : (ride.destination || "Destination not specified")}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
-            {ride.arrivalTime && (
+            {!isChaperone && ride.arrivalTime && (
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 {new Date(ride.arrivalTime).toLocaleTimeString("en-US", {
@@ -306,13 +335,13 @@ function MyBookingItem({
                 })}
               </span>
             )}
-            {ride.numPassengers && (
+            {!isChaperone && ride.numPassengers && (
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" />
                 {ride.numPassengers} pax
               </span>
             )}
-            {ride.numBags && (
+            {!isChaperone && ride.numBags && (
               <span className="flex items-center gap-1">
                 <Briefcase className="w-3.5 h-3.5" />
                 {ride.numBags} bags
@@ -322,7 +351,7 @@ function MyBookingItem({
           </div>
         </div>
 
-        {/* Price + View */}
+        {/* Price + Actions */}
         <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3">
           <div className="text-right">
             <p className="text-2xl font-black text-slate-900">
@@ -332,6 +361,15 @@ function MyBookingItem({
               {ride.currency}
             </p>
           </div>
+
+          {isChaperone && status === "accepted" && onMessage && ride.providerId && (
+            <Button
+              onClick={() => onMessage(ride.serviceType!, ride.providerId!)}
+              className="px-6 py-2 rounded-xl font-bold text-xs transition-all shadow-md bg-purple-600 hover:bg-purple-700 text-white active:scale-[0.98]"
+            >
+              Message Chaperone
+            </Button>
+          )}
 
           <button
             onClick={() => onView(ride.id)}
@@ -353,20 +391,38 @@ function RideRequestItem({
   onView,
 }: {
   ride: FeedItem["ride"];
-  onAccept: (id: string) => void;
-  onView: (id: string) => void;
+  onAccept: (id: string, serviceType?: string) => void;
+  onView: (id: string, serviceType?: string) => void;
 }) {
   const { formatPrice: convertPrice } = useCurrency();
   if (!ride) return null;
 
+  const isChaperone = ride.serviceType === "chaperone";
+
+  const accentColor = isChaperone ? "purple" : "teal";
+  const borderClass = isChaperone
+    ? "border-2 border-purple-100 hover:border-purple-200"
+    : "border-2 border-teal-100 hover:border-teal-200";
+  const barClass = isChaperone ? "bg-purple-500" : "bg-teal-500";
+  const badgeClass = isChaperone
+    ? "bg-purple-100 text-purple-700"
+    : "bg-teal-100 text-teal-700";
+  const iconBgClass = isChaperone ? "bg-purple-50" : "bg-teal-50";
+  const iconColorClass = isChaperone ? "text-purple-600" : "text-teal-600";
+  const priceColorClass = isChaperone ? "text-purple-700" : "text-teal-700";
+  const btnBgClass = isChaperone
+    ? "bg-purple-700 hover:bg-purple-800"
+    : "bg-teal-700 hover:bg-teal-800";
+  const linkColorClass = isChaperone ? "text-purple-600" : "text-teal-600";
+
   return (
-    <div className="group relative bg-white rounded-2xl border-2 border-teal-100 hover:border-teal-200 hover:shadow-md p-6 transition-all duration-300 shadow-sm">
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500 rounded-l-2xl" />
+    <div className={`group relative bg-white rounded-2xl ${borderClass} hover:shadow-md p-6 transition-all duration-300 shadow-sm`}>
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${barClass} rounded-l-2xl`} />
 
       {/* New badge */}
       <div className="absolute top-4 right-4">
-        <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-[10px] font-black uppercase tracking-widest rounded-full">
-          New Ride
+        <span className={`px-2 py-0.5 ${badgeClass} text-[10px] font-black uppercase tracking-widest rounded-full`}>
+          {isChaperone ? "New Request" : "New Ride"}
         </span>
       </div>
 
@@ -374,15 +430,21 @@ function RideRequestItem({
         {/* Ride Info */}
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="bg-teal-50 p-2 rounded-xl">
-              <Plane className="w-5 h-5 text-teal-600" />
+            <div className={`${iconBgClass} p-2 rounded-xl`}>
+              {isChaperone ? (
+                <Shield className={`w-5 h-5 ${iconColorClass}`} />
+              ) : (
+                <Plane className={`w-5 h-5 ${iconColorClass}`} />
+              )}
             </div>
             <div>
               <p className="font-bold text-gray-900">
-                {ride.airport || "Airport Pickup"}
+                {isChaperone ? "Chaperone Service" : (ride.airport || "Airport Pickup")}
               </p>
               <p className="text-xs text-gray-500">
-                {ride.terminal && `${ride.terminal} · `}{ride.pickupPoint || "Terminal pickup"}
+                {isChaperone
+                  ? (ride.description || "Help requested")
+                  : `${ride.terminal && `${ride.terminal} · `}${ride.pickupPoint || "Terminal pickup"}`}
               </p>
             </div>
           </div>
@@ -390,12 +452,14 @@ function RideRequestItem({
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <MapPin className="w-4 h-4 text-gray-400" />
             <span className="line-clamp-1">
-              {ride.destination || "Destination not specified"}
+              {isChaperone
+                ? (ride.description || "Service location not specified")
+                : (ride.destination || "Destination not specified")}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
-            {ride.arrivalTime && (
+            {!isChaperone && ride.arrivalTime && (
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 {new Date(ride.arrivalTime).toLocaleTimeString("en-US", {
@@ -403,13 +467,13 @@ function RideRequestItem({
                 })}
               </span>
             )}
-            {ride.numPassengers && (
+            {!isChaperone && ride.numPassengers && (
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" />
                 {ride.numPassengers} pax
               </span>
             )}
-            {ride.numBags && (
+            {!isChaperone && ride.numBags && (
               <span className="flex items-center gap-1">
                 <Briefcase className="w-3.5 h-3.5" />
                 {ride.numBags} bags
@@ -422,7 +486,7 @@ function RideRequestItem({
         {/* Price + Accept */}
         <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3">
           <div className="text-right">
-            <p className="text-2xl font-black text-teal-700">
+            <p className={`text-2xl font-black ${priceColorClass}`}>
               {formatCurrencyConverted(ride.price ?? null, ride.currency ?? "NGN", convertPrice)}
             </p>
             <p className="text-[10px] text-gray-400 font-bold uppercase">
@@ -432,22 +496,24 @@ function RideRequestItem({
 
           <div className="flex flex-col gap-2">
             <Button
-              onClick={() => onAccept(ride.id)}
+              onClick={() => onAccept(ride.id, ride.serviceType)}
               className={cn(
                 "px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-md",
-                "bg-teal-700 hover:bg-teal-800 text-white",
+                btnBgClass, "text-white",
                 "active:scale-[0.98]"
               )}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Accept Ride
+              {isChaperone ? "Accept Request" : "Accept Ride"}
             </Button>
-            <button
-              onClick={() => onView(ride.id)}
-              className="text-[10px] font-black text-teal-600 uppercase tracking-widest hover:underline cursor-pointer text-center"
-            >
-              View Details →
-            </button>
+            {!isChaperone && (
+              <button
+                onClick={() => onView(ride.id, ride.serviceType)}
+                className={`text-[10px] font-black ${linkColorClass} uppercase tracking-widest hover:underline cursor-pointer text-center`}
+              >
+                View Details →
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -483,11 +549,12 @@ export default function NotificationPage() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
   const [localReadIds, setLocalReadIds] = useState<Set<string>>(() => new Set());
+  const [dismissNotification] = useDismissNotificationMutation();
 
   // ── Check if user is a registered driver ────────────────────────────
   const { data: providerProfiles } = useGetMyProviderProfilesQuery();
   const isDriver = useMemo(
-    () => (providerProfiles ?? []).some((p) => p.is_active && p.service_type === "airport_pickup"),
+    () => (providerProfiles ?? []).some((p) => p.is_active && ["airport_pickup", "chaperone"].includes(p.service_type)),
     [providerProfiles]
   );
 
@@ -536,6 +603,7 @@ export default function NotificationPage() {
       isRead: true,
       ride: {
         id: sr.id,
+        serviceType: sr.service_type,
         airport: sr.airport_pickup_details?.airport,
         terminal: sr.airport_pickup_details?.terminal,
         pickupPoint: sr.airport_pickup_details?.pickup_point,
@@ -549,6 +617,7 @@ export default function NotificationPage() {
         createdAt: sr.created_at,
         status: sr.status,
         isOwnBooking: true,
+        providerId: sr.provider ?? undefined,
       },
     }));
   }, [myServiceRequests]);
@@ -619,6 +688,7 @@ export default function NotificationPage() {
       isRead: false,
       ride: {
         id: r.id ?? r.service_id,
+        serviceType:   r.service_type,
         // REST shape: r.airport_pickup_details.airport  |  WS shape: r.airport
         airport:       r.airport_pickup_details?.airport      ?? r.airport,
         terminal:      r.airport_pickup_details?.terminal     ?? r.terminal,
@@ -659,15 +729,42 @@ export default function NotificationPage() {
     await markAllAsRead("notifications");
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     setHiddenIds((prev) => new Set([...prev, id]));
+    try {
+      await dismissNotification(id).unwrap();
+    } catch {
+      toast.error("Failed to dismiss notification.");
+    }
   };
 
-  const handleAcceptRide = (serviceRequestId: string) => {
+  const handleAcceptRide = (serviceRequestId: string, serviceType?: string) => {
     sessionStorage.setItem("activeDriverServiceId", serviceRequestId);
-    router.push(
-      "/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/drivers-pickup-confirmation?id=" + serviceRequestId
-    );
+    if (serviceType === "chaperone") {
+      router.push("/dashboard/chaperone/chaperone-confirmation?id=" + serviceRequestId);
+    } else {
+      router.push(
+        "/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/drivers-pickup-confirmation?id=" + serviceRequestId
+      );
+    }
+  };
+
+  const [startConversation] = useStartConversationMutation();
+
+  const handleMessage = async (serviceType: string, providerId: string | number) => {
+    try {
+      const conversation = await startConversation({
+        recipient_id: providerId,
+        service_type: serviceType,
+        initial_message: "Hi! I see you've accepted my request.",
+        linked_object_type: "chaperone_service",
+        linked_object_id: providerId,
+      }).unwrap();
+      toast.success("Chat opened with chaperone");
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch {
+      toast.error("Could not open conversation. Please try again.");
+    }
   };
 
   const isLoading = loadingNotifs || loadingMyRides || (isDriver && loadingAvailableJobs);
@@ -760,11 +857,19 @@ export default function NotificationPage() {
                 if (item.kind === "ride" && item.ride) {
                   // Rider's own bookings show status card; available rides show Accept
                   if (item.ride.isOwnBooking) {
+                    const isChaperone = item.ride.serviceType === "chaperone";
                     return (
                       <MyBookingItem
                         key={item.id}
                         ride={item.ride}
-                        onView={(id) => router.push(`/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/vehicle-selection?serviceRequestId=${id}`)}
+                        onView={(id) => {
+                          if (isChaperone) {
+                            router.push(`/dashboard/chaperone/book-chaperone?serviceRequestId=${id}`);
+                          } else {
+                            router.push(`/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/vehicle-selection?serviceRequestId=${id}`);
+                          }
+                        }}
+                        onMessage={(st, pid) => handleMessage(st, pid)}
                       />
                     );
                   }
@@ -772,8 +877,8 @@ export default function NotificationPage() {
                     <RideRequestItem
                       key={item.id}
                       ride={item.ride}
-                      onAccept={handleAcceptRide}
-                      onView={handleAcceptRide}
+                      onAccept={(id, st) => handleAcceptRide(id, st)}
+                      onView={(id, st) => handleAcceptRide(id, st)}
                     />
                   );
                 }

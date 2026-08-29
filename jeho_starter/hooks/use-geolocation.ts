@@ -17,8 +17,9 @@ interface GeolocationState {
   permissionState: 'granted' | 'denied' | 'prompt' | 'unknown';
 }
 
-// Store location in sessionStorage so it persists across page navigations
-// but resets when the browser is closed
+// Persist location in localStorage so it survives page navigations,
+// refreshes, and browser restarts — the user's operating location is held
+// until they explicitly change it.
 const LOCATION_KEY = 'jehostarter_location';
 
 export const useGeolocation = () => {
@@ -31,11 +32,25 @@ export const useGeolocation = () => {
     permissionState: 'unknown',
   });
 
-  // Check if we already have a cached location from this session
+  // Restore the previously obtained location on mount so it does not
+  // disappear on refresh/navigation and the prompt does not resurface.
+  useEffect(() => {
+    const cached = getCachedLocation();
+    if (cached) {
+      setState((s) => ({
+        ...s,
+        location:        cached,
+        permissionState: 'granted',
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check if we already have a cached location from a previous visit
   const getCachedLocation = (): LocationData | null => {
     if (typeof window === 'undefined') return null;
     try {
-      const cached = sessionStorage.getItem(LOCATION_KEY);
+      const cached = localStorage.getItem(LOCATION_KEY);
       return cached ? JSON.parse(cached) : null;
     } catch {
       return null;
@@ -116,8 +131,8 @@ export const useGeolocation = () => {
               country_code: (addr.country_code || '').toUpperCase(),
             };
 
-            // Cache for this session
-            sessionStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
+            // Persist the resolved location
+            localStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
 
             setState({
               location:        locationData,
@@ -137,7 +152,7 @@ export const useGeolocation = () => {
               country_code: user?.current_country || '',
             };
 
-            sessionStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
+            localStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
             setState((s) => ({ ...s, location: locationData, isLocating: false }));
             resolve(locationData);
           }
@@ -164,7 +179,7 @@ export const useGeolocation = () => {
 
   // Clear cached location (e.g. when user changes city in profile)
   const clearLocation = () => {
-    sessionStorage.removeItem(LOCATION_KEY);
+    localStorage.removeItem(LOCATION_KEY);
     setState({
       location:        null,
       isLocating:      false,

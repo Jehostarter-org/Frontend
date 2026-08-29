@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, XCircle, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCheckGoldEligibilityDestinationMutation, useCheckGoldEligibilityHomeMutation } from "@/lib/api/plansApiSlice";
 
 
@@ -13,7 +14,34 @@ interface EligibilityResultProps {
   formData?: any;
 }
 
-export function EligibilityResult({ pathway }: EligibilityResultProps) {
+function buildFormData(data: any): FormData {
+  const fd = new FormData();
+
+  if (data.visaExpiry) fd.append('visa_expiry', data.visaExpiry);
+  if (data.phoneNumber) fd.append('phone', data.phoneNumber);
+  if (data.email) fd.append('email', data.email);
+  if (data.destinationCountry) fd.append('destination_country', data.destinationCountry);
+  if (data.destinationCity) fd.append('destination_city', data.destinationCity);
+  if (data.expiryDate) fd.append('passport_expiry', data.expiryDate);
+  if (data.type) fd.append('migration_type', data.type);
+
+  if (data.file) fd.append('visa_document', data.file);
+  if (data.passport) fd.append('passport', data.passport);
+  if (data.bankStatement) fd.append('bank_statement', data.bankStatement);
+  if (data.addressProof) fd.append('address_proof', data.addressProof);
+  if (data.migrationIntent) fd.append('migration_intent', data.migrationIntent);
+
+  if (data.payslips && Array.isArray(data.payslips)) {
+    for (const p of data.payslips) {
+      fd.append('payslips', p);
+    }
+  }
+
+  return fd;
+}
+
+export function EligibilityResult({ pathway, formData }: EligibilityResultProps) {
+  const router = useRouter();
   const [checkDestination, { data: destData, isLoading: destLoading, error: destError }] = useCheckGoldEligibilityDestinationMutation();
   const [checkHome, { data: homeData, isLoading: homeLoading, error: homeError }] = useCheckGoldEligibilityHomeMutation();
   const hasTriggered = useRef(false);
@@ -24,17 +52,18 @@ export function EligibilityResult({ pathway }: EligibilityResultProps) {
     const triggerVerification = async () => {
       hasTriggered.current = true;
       try {
+        const body = buildFormData(formData);
         if (pathway === "a") {
-          await checkDestination({}).unwrap();
+          await checkDestination(body).unwrap();
         } else if (pathway === "b") {
-          await checkHome({}).unwrap();
+          await checkHome(body).unwrap();
         }
       } catch (err) {
         console.error("Verification POST failed:", err);
       }
     };
     triggerVerification();
-  }, [pathway, checkDestination, checkHome]);
+  }, [pathway, formData, checkDestination, checkHome]);
 
   const isLoading = destLoading || homeLoading;
   const error = destError || homeError;
@@ -43,7 +72,7 @@ export function EligibilityResult({ pathway }: EligibilityResultProps) {
     if (isLoading || !hasTriggered.current) return "processing";
     const status = pathway === "a" ? destData?.status : homeData?.status;
     if (status === "approved") return "approved";
-    if (status === "conditionally-approved" || (pathway === "b" && status === "approved")) { return "conditionally-approved"; }
+    if (status === "conditionally_approved") return "conditionally-approved";
     if (status === "rejected") return "rejected";
     return "processing";
   }, [destData, homeData, pathway, isLoading]);
@@ -127,6 +156,24 @@ export function EligibilityResult({ pathway }: EligibilityResultProps) {
   if (isLoading) return statusConfig.processing.icon;
 
   if (error) {
+    const isAlreadySubmitted = (error as any)?.status === 409 ||
+      (error as any)?.data?.detail?.toLowerCase().includes("already submitted");
+    if (isAlreadySubmitted) {
+      return (
+        <div className="text-center py-10 animate-in fade-in">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900">Already Submitted</h2>
+          <p className="text-gray-600 mb-6 max-w-sm mx-auto">
+            You have already submitted your eligibility check. Only one submission is allowed per account.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button onClick={() => router.push("/dashboard")} className="bg-[#2d7a7a]">
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="text-center py-10 animate-in fade-in">
         <AlertCircle className="h-16 w-16 text-amber-500 mx-auto mb-4" />

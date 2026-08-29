@@ -11,7 +11,11 @@ interface DMListProps {
 }
 
 export function DMList({ selectedId, onSelect }: DMListProps) {
-    const { data: conversations, isLoading, error } = useGetInboxQuery();
+    const { data: conversations, isLoading, error } = useGetInboxQuery(undefined, {
+        pollingInterval: 15000,
+        refetchOnMountOrArgChange: true,
+        refetchOnFocus: true,
+    });
 
     if (isLoading) {
         return (
@@ -54,14 +58,14 @@ export function DMList({ selectedId, onSelect }: DMListProps) {
                         }`}
                 >
                     {/* Avatar */}
-                    <div className="relative shrink-0">
+                    <div className="relative w-12 h-12 shrink-0">
                         {conv.other_participant?.avatar_url ? (
                             <Image
                                 src={conv.other_participant.avatar_url}
                                 alt=""
                                 width={48}
                                 height={48}
-                                className="rounded-full object-cover"
+                                className="rounded-full object-cover w-12 h-12"
                             />
                         ) : (
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg">

@@ -364,8 +364,6 @@ export default function SignupPage() {
                   <Label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed">
                     I agree to the{' '}
                     <Link href="/terms" className="text-teal-600 underline">Terms & Conditions</Link>
-                    {' '}and{' '}
-                    <Link href="/privacy" className="text-teal-600 underline">Privacy Policy</Link>
                   </Label>
                 </div>
                 {errors.acceptedTerms && <p className="text-red-500 text-xs">{errors.acceptedTerms.message}</p>}

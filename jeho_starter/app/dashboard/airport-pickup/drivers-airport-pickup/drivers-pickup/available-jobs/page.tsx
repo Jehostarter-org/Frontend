@@ -11,6 +11,7 @@ import {
   Users,
   Briefcase,
   Plane,
+  Shield,
   Loader2,
   RefreshCw,
   CheckCircle2,
@@ -59,6 +60,8 @@ function ServiceTypeIcon({ type }: { type: string }) {
   switch (type) {
     case "airport_pickup":
       return <Plane className="h-5 w-5 text-teal-600" />;
+    case "chaperone":
+      return <Shield className="h-5 w-5 text-purple-600" />;
     case "home_inspection":
       return <MapPin className="h-5 w-5 text-blue-600" />;
     default:
@@ -75,39 +78,30 @@ function RideCard({
 }) {
   const { formatPrice: convertPrice } = useCurrency();
   const price = formatCurrencyConverted(ride.price, ride.currency, convertPrice);
-  const airport = ride.airport_pickup_details?.airport;
-  const terminal = ride.airport_pickup_details?.terminal;
-  const numPassengers = ride.airport_pickup_details?.num_passengers;
-  const numBags = ride.airport_pickup_details?.num_bags;
-  const arrivalDatetime = ride.airport_pickup_details?.arrival_datetime;
-
-  const arrivalTime = arrivalDatetime
-    ? new Date(arrivalDatetime).toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  const isChaperone = ride.service_type === "chaperone";
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:border-teal-300 hover:shadow-md transition-all duration-200 p-5">
+    <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-5 ${
+      isChaperone ? "hover:border-purple-300" : "hover:border-teal-300"
+    }`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+            isChaperone ? "bg-purple-50" : "bg-teal-50"
+          }`}>
             <ServiceTypeIcon type={ride.service_type} />
           </div>
           <div>
             <p className="font-bold text-gray-900 text-sm capitalize">
-              {ride.service_type.replace(/_/g, " ")}
+              {isChaperone ? "Chaperone Service" : ride.service_type.replace(/_/g, " ")}
             </p>
             <p className="text-xs text-gray-400">{timeAgo(ride.created_at)}</p>
           </div>
         </div>
         {price && (
           <div className="text-right">
-            <p className="text-lg font-black text-teal-700">{price}</p>
+            <p className={`text-lg font-black ${isChaperone ? "text-purple-700" : "text-teal-700"}`}>{price}</p>
           </div>
         )}
       </div>
@@ -130,55 +124,78 @@ function RideCard({
           </div>
         )}
 
-        {/* Airport details */}
-        {airport && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Plane className="h-4 w-4 text-teal-500 flex-shrink-0" />
-            <span>
-              {airport}
-              {terminal ? ` — ${terminal}` : ""}
-            </span>
-          </div>
-        )}
-
-        {/* Arrival time */}
-        {arrivalTime && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
-            <span>Flight arrives: {arrivalTime}</span>
-          </div>
-        )}
-
-        {/* Passengers & bags */}
-        {(numPassengers || numBags) && (
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            {numPassengers && (
-              <span className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5" />
-                {numPassengers} {numPassengers === 1 ? "passenger" : "passengers"}
-              </span>
+        {isChaperone ? (
+          <>
+            {ride.chaperone_details?.help_type && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Shield className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                <span>Help: {ride.chaperone_details.help_type.replace(/_/g, " ")}</span>
+              </div>
             )}
-            {numBags && numBags > 0 && (
-              <span>{numBags} {numBags === 1 ? "bag" : "bags"}</span>
+            {ride.description && (
+              <div className="mt-2 p-2 bg-purple-50 rounded-lg text-xs text-gray-500">
+                <span className="font-semibold text-gray-600">Details: </span>
+                {ride.description}
+              </div>
             )}
-          </div>
-        )}
+          </>
+        ) : (
+          <>
+            {/* Airport details */}
+            {ride.airport_pickup_details?.airport && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Plane className="h-4 w-4 text-teal-500 flex-shrink-0" />
+                <span>
+                  {ride.airport_pickup_details.airport}
+                  {ride.airport_pickup_details.terminal ? ` — ${ride.airport_pickup_details.terminal}` : ""}
+                </span>
+              </div>
+            )}
 
-        {/* Pickup address */}
-        {ride.pickup_address && (
-          <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-            <span className="font-semibold text-gray-600">Pickup: </span>
-            {ride.pickup_address}
-          </div>
+            {/* Arrival time */}
+            {ride.airport_pickup_details?.arrival_datetime && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <span>Flight arrives: {new Date(ride.airport_pickup_details.arrival_datetime).toLocaleString("en-US", {
+                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                })}</span>
+              </div>
+            )}
+
+            {/* Passengers & bags */}
+            {(ride.airport_pickup_details?.num_passengers || ride.airport_pickup_details?.num_bags) && (
+              <div className="flex items-center gap-4 text-xs text-gray-400">
+                {ride.airport_pickup_details?.num_passengers && (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    {ride.airport_pickup_details.num_passengers} {ride.airport_pickup_details.num_passengers === 1 ? "passenger" : "passengers"}
+                  </span>
+                )}
+                {ride.airport_pickup_details?.num_bags && ride.airport_pickup_details.num_bags > 0 && (
+                  <span>{ride.airport_pickup_details.num_bags} {ride.airport_pickup_details.num_bags === 1 ? "bag" : "bags"}</span>
+                )}
+              </div>
+            )}
+
+            {/* Pickup address */}
+            {ride.pickup_address && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+                <span className="font-semibold text-gray-600">Pickup: </span>
+                {ride.pickup_address}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Action */}
       <Button
         onClick={() => onAccept(ride.id)}
-        className="w-full bg-[#2d7a7a] hover:bg-[#246060] text-white font-bold py-3 rounded-xl transition-all active:scale-[0.98]"
+        className={`w-full text-white font-bold py-3 rounded-xl transition-all active:scale-[0.98] ${
+          isChaperone ? "bg-purple-700 hover:bg-purple-800" : "bg-[#2d7a7a] hover:bg-[#246060]"
+        }`}
       >
-        Accept Job
+        {isChaperone ? "Accept Request" : "Accept Job"}
       </Button>
     </div>
   );
@@ -234,9 +251,14 @@ export default function AvailableJobsPage() {
 
   const handleAccept = (serviceRequestId: string) => {
     sessionStorage.setItem("activeDriverServiceId", serviceRequestId);
-    router.push(
-      `/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/drivers-pickup-confirmation?id=${serviceRequestId}`
-    );
+    const ride = rides.find((r) => r.id === serviceRequestId);
+    if (ride?.service_type === "chaperone") {
+      router.push(`/dashboard/chaperone/chaperone-confirmation?id=${serviceRequestId}`);
+    } else {
+      router.push(
+        `/dashboard/airport-pickup/drivers-airport-pickup/drivers-pickup/drivers-pickup-confirmation?id=${serviceRequestId}`
+      );
+    }
   };
 
   return (

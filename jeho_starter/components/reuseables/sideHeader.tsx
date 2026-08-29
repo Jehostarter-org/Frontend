@@ -12,7 +12,7 @@ export const SidebarHeader = ({ onClose }: { onClose: () => void }) => (
       </Button>
     </div>
 
-    <Link href="/" className="flex items-center gap-2 group">
+    <Link href="/dashboard" className="flex items-center gap-2 group">
       <div className="relative w-12 h-14 transition-transform group-hover:scale-105">
         <Image src={logo} alt="JehoStarter Logo" fill className="object-contain" priority />
       </div>

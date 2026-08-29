@@ -6,10 +6,25 @@ import { Button } from '@/components/ui/button';
 import { useGeolocation } from '@/hooks/use-geolocation';
 import { sendLocationToBackend } from '@/lib/api/location';
 
+const DISMISS_KEY = 'jehostarter_location_prompt_dismissed';
+
 export function LocationPermissionBanner() {
   const { permissionState, location, error, requestLocation, isLocating } = useGeolocation();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(DISMISS_KEY) === '1';
+  });
   const [shown, setShown] = useState(false);
+
+  const dismiss = () => {
+    setDismissed(true);
+    setShown(false);
+    try {
+      localStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      // storage unavailable — keep dismissal for this session only
+    }
+  };
 
   useEffect(() => {
     if (permissionState !== 'granted' && !location && !dismissed) {
@@ -59,7 +74,7 @@ export function LocationPermissionBanner() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => { setDismissed(true); setShown(false); }}
+              onClick={dismiss}
               className="text-xs h-8"
             >
               Not now
@@ -68,7 +83,7 @@ export function LocationPermissionBanner() {
         </div>
 
         <button
-          onClick={() => { setDismissed(true); setShown(false); }}
+          onClick={dismiss}
           className="text-gray-400 hover:text-gray-600 shrink-0"
         >
           <X className="w-4 h-4" />

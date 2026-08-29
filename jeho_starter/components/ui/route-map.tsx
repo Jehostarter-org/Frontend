@@ -17,6 +17,44 @@ interface RouteMapProps {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let L: any = null;
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+async function fetchRoute(
+  pickupLat: number,
+  pickupLng: number,
+  dropoffLat: number,
+  dropoffLng: number,
+): Promise<[number, number][] | null> {
+  const qs = new URLSearchParams({
+    pickup_lat: String(pickupLat),
+    pickup_lon: String(pickupLng),
+    dropoff_lat: String(dropoffLat),
+    dropoff_lon: String(dropoffLng),
+  });
+
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(`${API_URL}/api/services/route/?${qs}`, { headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.coordinates && Array.isArray(data.coordinates) && data.coordinates.length >= 2) {
+      return data.coordinates as [number, number][];
+    }
+    return null;
+  } catch (err) {
+    console.error("Route fetch failed:", err);
+    return null;
+  }
+}
+
 export default function RouteMap({
   pickupLat, pickupLng, pickupLabel,
   dropoffLat, dropoffLng, dropoffLabel,
@@ -26,6 +64,7 @@ export default function RouteMap({
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<ReturnType<typeof initMap> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [route, setRoute] = useState<[number, number][] | null>(null);
 
   useEffect(() => {
     const el = elRef.current;
@@ -68,6 +107,27 @@ export default function RouteMap({
     });
   }, [pickupLat, pickupLng, dropoffLat, dropoffLng, driverLat, driverLng, pickupLabel, dropoffLabel]);
 
+  // Fetch the real road route (Uber-style) once we have both points
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      pickupLat == null || pickupLng == null ||
+      dropoffLat == null || dropoffLng == null
+    ) {
+      setRoute(null);
+      return;
+    }
+    fetchRoute(pickupLat, pickupLng, dropoffLat, dropoffLng).then((coords) => {
+      if (!cancelled) {
+        setRoute(coords);
+        mapRef.current?.setRoute(coords);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
+
   if (error) {
     return (
       <div className="w-full h-full bg-[#e5e3df] flex items-center justify-center">
@@ -94,15 +154,33 @@ function initMap(
 
   setTimeout(() => map.invalidateSize(), 200);
 
-  const instance = { map, update: (o: RouteMapProps) => render(map, o) };
-  render(map, opts);
+  const state = {
+    opts,
+    route: null as [number, number][] | null,
+  };
+
+  const renderAll = () => render(map, state);
+
+  const instance = {
+    map,
+    update: (o: RouteMapProps) => {
+      state.opts = o;
+      renderAll();
+    },
+    setRoute: (r: [number, number][] | null) => {
+      state.route = r;
+      renderAll();
+    },
+  };
+  renderAll();
   return instance;
 }
 
 function render(
   map: ReturnType<typeof L.map>,
-  opts: RouteMapProps,
+  state: { opts: RouteMapProps; route: [number, number][] | null },
 ) {
+  const { opts, route } = state;
   const { pickupLat, pickupLng, pickupLabel,
           dropoffLat, dropoffLng, dropoffLabel,
           driverLat, driverLng } = opts;
@@ -130,15 +208,16 @@ function render(
   L.marker([pickupLat, pickupLng], { icon: pickupIcon }).addTo(map);
   L.marker([dropoffLat, dropoffLng], { icon: dropoffIcon }).addTo(map);
 
-  L.polyline([
-    [pickupLat, pickupLng],
-    [dropoffLat, dropoffLng],
-  ], {
-    color: "#2563eb",
-    weight: 3,
-    opacity: 0.6,
-    dashArray: "8 8",
-  }).addTo(map);
+  // Uber-style road route when available, dashed straight line as fallback
+  const hasRoute = route && route.length >= 2;
+  const line = hasRoute
+    ? route.map((p) => [p[0], p[1]])
+    : [[pickupLat, pickupLng], [dropoffLat, dropoffLng]];
+
+  L.polyline(line, hasRoute
+    ? { color: "#2563eb", weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" }
+    : { color: "#2563eb", weight: 3, opacity: 0.6, dashArray: "8 8" },
+  ).addTo(map);
 
   if (driverLat !== undefined && driverLng !== undefined) {
     const driverIcon = L.divIcon({

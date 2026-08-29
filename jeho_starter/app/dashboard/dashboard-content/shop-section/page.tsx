@@ -8,7 +8,6 @@ import ShopHighlights from "@/components/dashboard/shop/shop-highlight";
 import ProgressTracker from "@/components/dashboard/shop/progress-tracker";
 import CommunityWidget from "@/components/dashboard/shop/community-widget";
 import LocalNavigation from "@/components/dashboard/shop/local-navigation";
-import { mockGroupMessages } from "@/components/dashboard/community/message-community";
 import { SystemAlertsBanner } from "@/components/reuseables/system-alert-banner";
 import CommunityLiveFeed from "@/components/dashboard/community/communityLiveFeed";
 import MigrationSpecialistCard from "@/components/dashboard/shop/migration-specialist-card";
@@ -46,7 +45,7 @@ export default function ShopSection() {
           </div>
 
           <CommunityWidget />
-          <CommunityLiveFeed allMessages={Object.values(mockGroupMessages).flat()} />
+          <CommunityLiveFeed />
         </div>
 
         <aside className="hidden xl:block w-80 space-y-6 shrink-0">

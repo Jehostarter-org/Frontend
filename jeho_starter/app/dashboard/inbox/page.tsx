@@ -15,6 +15,7 @@ import {
   useGetNotificationsQuery,
   useMarkReadMutation,
   useMarkAllReadMutation,
+  useDismissNotificationMutation,
   type Notification,
 } from "@/lib/api/notificationsApiSlice";
 
@@ -46,7 +47,27 @@ function toMessage(n: Notification): Message {
     unreadCount: n.is_read ? 0 : 1,
     isCommunityRequest: isCommunityRequest,
     link: n.link || undefined,
+    href: resolveHref(n),
   };
+}
+
+// Resolve the frontend route a notification should deep-link to.
+function resolveHref(n: Notification): string | undefined {
+  // Direct messages arrive with link like "/messages/{conversationId}/"
+  if (n.notification_type === "direct_message") {
+    const match = n.link.match(/\/messages\/(\d+)\/?/);
+    const conversationId = match?.[1] ?? n.actor;
+    return conversationId
+      ? `/dashboard/community?conversation=${conversationId}`
+      : undefined;
+  }
+
+  // Community messages/activity arrive with link like "/dashboard/community?group={groupId}"
+  if (n.link) {
+    return n.link.startsWith("/") ? n.link : `/${n.link}`;
+  }
+
+  return undefined;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -59,6 +80,7 @@ export default function InboxPage() {
   const { data: notifications = [], isLoading } = useGetNotificationsQuery();
   const [markRead] = useMarkReadMutation();
   const [markAllRead] = useMarkAllReadMutation();
+  const [dismissNotification] = useDismissNotificationMutation();
 
   const messages: Message[] = useMemo(
     () => notifications.map(toMessage),
@@ -91,6 +113,14 @@ export default function InboxPage() {
       await markRead(id).unwrap();
     } catch {
       toast.error("Failed to update notification.");
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    try {
+      await dismissNotification(id).unwrap();
+    } catch {
+      toast.error("Failed to dismiss notification.");
     }
   };
 
@@ -180,6 +210,7 @@ export default function InboxPage() {
                     key={msg.id}
                     message={msg}
                     onAction={handleAction}
+                    onDismiss={handleDismiss}
                   />
                 ))}
               </div>

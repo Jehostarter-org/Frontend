@@ -11,6 +11,7 @@ export default function VehiclesPage() {
       subtitle="Discover verified automotive deals near you."
       searchPlaceholder="Search by model or brand..."
       backLabel="Back to Inventory"
+      tabs={["All", "Sedan", "Hatchback", "Coupe", "Convertible", "SUV", "Crossover", "Minivan", "Station wagon", "Pickup truck", "Sports car"]}
       EmptyState={VehiclesEmptyState}
     />
   );

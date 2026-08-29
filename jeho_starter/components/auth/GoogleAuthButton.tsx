@@ -49,9 +49,9 @@ export default function GoogleAuthButton({
         { description: 'Redirecting to your dashboard...' },
       );
 
-      // New Google users need to complete their profile
-      if (result.created || !user.current_country) {
-        setTimeout(() => router.push('/auth/complete-profile'), 500);
+      // New Google users need to accept the terms of service first
+      if (result.created || !user.accepted_terms) {
+        setTimeout(() => router.push('/auth/accept-terms'), 500);
       } else {
         setTimeout(() => router.push(redirectPath), 500);
       }

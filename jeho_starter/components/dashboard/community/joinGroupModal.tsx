@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { Users, ShieldCheck, Zap, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { CommunityTermsSummary } from "@/components/legal/community-terms-summary";
 
 interface JoinGroupModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ interface JoinGroupModalProps {
     description?: string;
     memberCount?: number;
     isPrivate?: boolean;
+    requireApproval?: boolean;
+    myStatus?: 'pending' | 'approved' | 'rejected' | null;
   } | null;
   onJoin: (groupId: string) => void;
 }
@@ -36,26 +39,23 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
 
   const handleJoin = async () => {
     setIsJoining(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     onJoin(group.id);
     setIsJoining(false);
     onClose();
-    toast.success(`Welcome to ${group.title}!`);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white rounded-[2.5rem] shadow-2xl">
+        <div className="max-h-[85dvh] overflow-y-auto">
         {/* Header Visual */}
         <div className="h-32 bg-gradient-to-br from-blue-500 to-sky-500 relative">
           <div className="absolute -bottom-10 left-8 p-1 bg-white rounded-[1.8rem] shadow-xl">
-            <SafeImage
-              src={group.avatar}
-              alt={group.title}
-              width={80}
-              height={80}
-              className="rounded-[1.5rem] object-cover"
+            <CommunityAvatar
+              name={group.title}
+              className="h-20 w-20 rounded-[1.5rem]"
+              textClassName="text-[26px]"
             />
           </div>
           <div className="absolute top-4 right-6 flex gap-2">
@@ -107,18 +107,25 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
               </li>
             </ul>
           </div>
+
+          <CommunityTermsSummary agreementText="By joining this community, you agree to these Community Terms & Services." accent="blue" />
+        </div>
         </div>
 
-        <DialogFooter className="p-8 bg-slate-50/50 border-t border-slate-100 sm:justify-between items-center">
+        <DialogFooter className="p-6 md:p-8 bg-slate-50/50 border-t border-slate-100 sm:justify-between items-center">
           <Button variant="ghost" onClick={onClose} className="text-slate-400 font-black uppercase text-[10px] tracking-widest hover:bg-transparent hover:text-slate-600">
             Cancel
           </Button>
-          <Button 
-            onClick={handleJoin} 
-            disabled={isJoining}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+          <Button
+            onClick={handleJoin}
+            disabled={isJoining || group.myStatus === 'pending'}
+            className={`font-black uppercase text-[11px] tracking-[0.2em] px-8 py-6 rounded-2xl shadow-xl transition-all active:scale-95 ${
+              group.myStatus === 'pending'
+                ? "bg-amber-100 text-amber-700 shadow-none cursor-default"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20"
+            }`}
           >
-            {isJoining ? "Joining..." : "Request to Join"}
+            {group.myStatus === 'pending' ? "Request Pending" : isJoining ? "Joining..." : group.requireApproval ? "Request to Join" : "Join Now"}
           </Button>
         </DialogFooter>
       </DialogContent>

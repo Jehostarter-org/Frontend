@@ -6,14 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePlus, Loader2, Sparkles, Globe, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, Globe, ShieldCheck } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { FaUserFriends } from "react-icons/fa";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
 import { useCreateCommunityMutation } from "@/lib/api/communityApiSlice";
+import { CommunityTermsSummary } from "@/components/legal/community-terms-summary";
 
 interface CreateCommunityDialogProps {
   isOpen: boolean;
@@ -27,9 +28,6 @@ export default function CreateCommunityDialog({
   const router = useRouter();
   const [communityName, setCommunityName] = useState("");
   const [description, setDescription] = useState("");
-  const [coverImage, setCoverImage] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
   const [createCommunity, { isLoading: isSubmitting }] = useCreateCommunityMutation();
 
@@ -38,37 +36,8 @@ export default function CreateCommunityDialog({
     if (!isOpen) {
       setCommunityName("");
       setDescription("");
-      setCoverImage(null);
-      setCoverPreview(null);
-      setIsUploading(false);
     }
   }, [isOpen]);
-
-  // Create preview URL when file is selected
-  useEffect(() => {
-    if (!coverImage) {
-      setCoverPreview(null);
-      return;
-    }
-
-    // Validate file type and size
-    if (!coverImage.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      setCoverImage(null);
-      return;
-    }
-
-    if (coverImage.size > 5 * 1024 * 1024) {
-      toast.error("Image must be smaller than 5 MB.");
-      setCoverImage(null);
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(coverImage);
-    setCoverPreview(previewUrl);
-
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [coverImage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,18 +47,11 @@ export default function CreateCommunityDialog({
       return;
     }
 
-    setIsUploading(true);
-
     try {
       const formData = new FormData();
       formData.append("name", communityName.trim());
       formData.append("description", description.trim());
       formData.append("visibility", "public");
-
-      // Only append cover_image if a file was selected
-      if (coverImage) {
-        formData.append("cover_image", coverImage);
-      }
 
       const created = await createCommunity(formData).unwrap();
 
@@ -117,27 +79,19 @@ export default function CreateCommunityDialog({
         errorMessage = err.data.detail;
       } else if (err?.data?.name) {
         errorMessage = Array.isArray(err.data.name) ? err.data.name[0] : err.data.name;
-      } else if (err?.data?.cover_image) {
-        errorMessage = Array.isArray(err.data.cover_image) ? err.data.cover_image[0] : err.data.cover_image;
       } else if (err?.message) {
         errorMessage = err.message;
       }
 
       toast.error("Failed to create community", { description: errorMessage });
-    } finally {
-      setIsUploading(false);
     }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setCoverImage(file);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-lg shadow-2xl bg-slate-50">
-        <div className="bg-teal-900 p-8 text-white relative">
+        <div className="max-h-[85dvh] overflow-y-auto">
+          <div className="bg-teal-900 p-6 md:p-8 text-white relative">
           <Sparkles className="absolute top-4 right-4 opacity-20 w-12 h-12 rotate-12" />
           <DialogHeader className="text-left">
             <DialogTitle className="text-2xl font-black tracking-tight">
@@ -150,7 +104,7 @@ export default function CreateCommunityDialog({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-          <form onSubmit={handleSubmit} className="p-8 space-y-6 bg-white">
+          <form onSubmit={handleSubmit} className="p-5 md:p-8 space-y-5 bg-white">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -177,40 +131,17 @@ export default function CreateCommunityDialog({
                   rows={3}
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Group Picture
-                </Label>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-                    <ImagePlus size={18} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">
-                    {coverImage ? coverImage.name : "Choose a community picture"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </label>
-                {coverImage && (
-                  <p className="text-[10px] text-teal-600 mt-1">
-                    ✓ Image ready to upload ({(coverImage.size / 1024).toFixed(1)} KB)
-                  </p>
-                )}
-              </div>
             </div>
+
+            <CommunityTermsSummary agreementText="By creating a community, you agree to these Community Terms & Services." accent="teal" />
 
             <DialogFooter className="pt-4">
               <Button
                 type="submit"
-                disabled={!communityName.trim() || isSubmitting || isUploading}
+                disabled={!communityName.trim() || isSubmitting}
                 className="w-full bg-teal-900 hover:bg-teal-800 text-white font-black rounded-xl h-12 shadow-lg shadow-teal-900/20 transition-all active:scale-95"
               >
-                {(isSubmitting || isUploading) ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="animate-spin mr-2 h-4 w-4" />
                     Creating...
@@ -223,23 +154,19 @@ export default function CreateCommunityDialog({
           </form>
 
           {/* Live preview */}
-          <div className="p-8 bg-slate-50 flex flex-col justify-center items-center border-l border-slate-100">
+          <div className="hidden md:flex p-8 bg-slate-50 flex-col justify-center items-center border-l border-slate-100">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6">
               Live Preview
             </p>
 
             <div className="w-full max-w-[240px] bg-white rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white transition-all duration-500 transform hover:scale-105">
-              {coverPreview ? (
-                <img
-                  src={coverPreview}
-                  alt="Community cover preview"
-                  className="h-16 w-16 rounded-xl object-cover mb-4 ring-4 ring-teal-500/5"
+              <div className="h-16 w-16 rounded-xl overflow-hidden mb-4 ring-4 ring-teal-500/5">
+                <CommunityAvatar
+                  name={communityName || "Your Community Name"}
+                  className="h-full w-full rounded-xl"
+                  textClassName="text-[22px]"
                 />
-              ) : (
-                <div className="h-12 w-12 bg-teal-50 rounded-lg flex items-center justify-center text-teal-700 mb-4 ring-4 ring-teal-500/5">
-                  <FaUserFriends size={40} />
-                </div>
-              )}
+              </div>
 
               <h4 className="font-black text-slate-900 leading-tight mb-2 break-words">
                 {communityName || "Your Community Name"}
@@ -264,6 +191,7 @@ export default function CreateCommunityDialog({
               <b>Discover</b> feed.
             </p>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

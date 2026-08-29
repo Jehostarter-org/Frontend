@@ -1,14 +1,20 @@
 import { toast } from 'sonner';
 import { useDispatch } from 'react-redux';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { setCredentials } from '@/lib/features/auth/authSlice';
 import { useLoginUserMutation } from '@/lib/api/authApiSlice';
 import { LoginInput } from '@/lib/validations/loginAuth';
 
 export const useLogin = () => {
-  const router   = useRouter();
-  const dispatch = useDispatch();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const dispatch     = useDispatch();
   const [login, { isLoading }] = useLoginUserMutation();
+
+  const nextPath = (() => {
+    const next = searchParams.get('next');
+    return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+  })();
 
   const handleLogin = async (formData: LoginInput) => {
     try {
@@ -59,7 +65,7 @@ export const useLogin = () => {
         return;
       }
 
-      setTimeout(() => router.push('/dashboard'), 500);
+      setTimeout(() => router.push(nextPath), 500);
 
     } catch (err: any) {
       // Django returns errors as { detail: "..." } or { non_field_errors: [...] }

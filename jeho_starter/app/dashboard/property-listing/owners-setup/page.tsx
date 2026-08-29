@@ -255,6 +255,7 @@ export default function OwnerPropertiesPage() {
               const status = property.status || (property.is_published ? "published" : "draft");
               const coverImage = property.images?.[0];
               const price = Number(property.price_amount || 0);
+              const currency = property.currency || "NGN";
 
               return (
                 <Card key={property.id} className="border-gray-200 hover:shadow-lg transition-all duration-300 group overflow-hidden">
@@ -288,7 +289,7 @@ export default function OwnerPropertiesPage() {
                               </p>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <p className="font-bold text-teal-800 text-xl">{formatCurrency(price)}</p>
+                              <p className="font-bold text-teal-800 text-xl">{formatCurrency(price, currency)}</p>
                               <p className="text-xs text-gray-400 uppercase tracking-wide">
                                 Per {property.price_type || "month"}
                               </p>

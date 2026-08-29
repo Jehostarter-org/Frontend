@@ -23,11 +23,19 @@ export default function PaymentPage() {
   const productId = searchParams.get("productId");
   const productName = searchParams.get("productName");
   const productPrice = searchParams.get("price");
-  
+  const plan = searchParams.get("plan");
+
   const [paymentMethod, setPaymentMethod] = useState<"card" | "transfer">("card");
   const [email, setEmail] = useState("");
 
   const price = productPrice ? parseFloat(productPrice) : 0;
+
+  const PLAN_CONFIG: Record<string, { label: string; period: string; splits: number }> = {
+    weekly: { label: "Weekly Payment", period: "week", splits: 4 },
+    monthly: { label: "Monthly Payment", period: "month", splits: 3 },
+  };
+  const selectedPlan = plan ? PLAN_CONFIG[plan] : null;
+  const installmentAmount = selectedPlan ? price / selectedPlan.splits : 0;
 
   const handlePayment = async () => {
     if (!email) {
@@ -88,6 +96,20 @@ export default function PaymentPage() {
                   </div>
                   <span className="text-xl font-black text-teal-600">${price.toFixed(2)}</span>
                 </div>
+
+                {selectedPlan && (
+                  <div className="p-4 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
+                    <p className="text-sm font-bold text-teal-800 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" /> {selectedPlan.label}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {selectedPlan.splits} × <span className="font-semibold text-teal-700">${installmentAmount.toFixed(2)}</span> per {selectedPlan.period}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Full amount: <span className="font-semibold text-gray-700">${price.toFixed(2)}</span> split over {selectedPlan.splits} {selectedPlan.period}s
+                    </p>
+                  </div>
+                )}
                 
                 <div className="border-t border-gray-100 pt-4 space-y-2">
                   <div className="flex justify-between text-sm text-gray-600">
@@ -184,7 +206,9 @@ export default function PaymentPage() {
                   ) : (
                     <>
                       <Lock className="w-4 h-4 mr-2" />
-                      Pay ${price.toFixed(2)}
+                      {selectedPlan
+                        ? `Pay $${installmentAmount.toFixed(2)} — 1st of ${selectedPlan.splits}`
+                        : `Pay $${price.toFixed(2)}`}
                     </>
                   )}
                 </Button>

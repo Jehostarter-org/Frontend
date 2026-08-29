@@ -3,9 +3,11 @@
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/reuseables/SafeImage";
+import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
+import MessageContent from "@/components/reuseables/MessageContent";
 import type { CommunityItem } from "@/components/types/community";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import {
   Search,
@@ -32,12 +34,15 @@ import {
 import { SidebarItem } from "@/components/dashboard/community/communitySidebar";
 import { JoinGroupModal } from "@/components/dashboard/community/joinGroupModal";
 import { GroupInfoSidebar } from "@/components/dashboard/community/groupInfoSidebar";
+import { ProfileQuickView } from "@/components/dashboard/community/ProfileQuickView";
+import EmojiPicker from "@/components/dashboard/community/EmojiPicker";
 import CreateCommunityDialog from "@/components/inbox/CreateCommunityDialog";
 import { DMList } from "@/components/messaging/DMList";
 import { DMChatView } from "@/components/messaging/DMChatView";
 import { MediaViewer, isMediaType } from "@/components/reuseables/media-viewer";
 
 import { useAuth } from "@/components/contexts/auth-context";
+import { useCommunityEvents } from "@/hooks/useCommunityEvents";
 import {
   useGetCommunitiesQuery,
   useGetMyCommunitiesQuery,
@@ -45,16 +50,18 @@ import {
   useJoinCommunityMutation,
   useGetCommunityMessagesQuery,
   useSendCommunityMessageMutation,
+  useToggleReactionMutation,
   type CommunityMessage,
 } from "@/lib/api/communityApiSlice";
 import {
   useGetConversationQuery,
+  useStartConversationMutation,
   type Conversation,
 } from "@/lib/api/messagesApiSlice";
 
 // ── File upload limits ──────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const MAX_FILE_SIZE = 250 * 1024 * 1024; // 250 MB
 const ALLOWED_FILE_TYPES = [
   // Images
   "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
@@ -111,21 +118,18 @@ function getCurrentUserId(): string | null {
   return null;
 }
 
-// ── Helper: make a relative media URL absolute ────────────────────────────────
-function resolveMediaUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
-    return url;
-  }
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
-    "http://127.0.0.1:8000";
-  return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
-}
-
 // ── WebSocket hook ────────────────────────────────────────────────────────────
 
-function useCommunityChat(communityId: string | null) {
+function useCommunityChat(
+  communityId: string | null,
+  callbacks?: {
+    onCommunityUpdated?: (community: any) => void;
+    onCommunityDeleted?: (communityId: string) => void;
+    onMemberJoined?: (data: any) => void;
+    onMemberLeft?: (data: any) => void;
+    onMemberRemoved?: (data: any) => void;
+  },
+) {
   const [liveMessages, setLiveMessages] = useState<CommunityMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
@@ -133,10 +137,14 @@ function useCommunityChat(communityId: string | null) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+  const retryRef = useRef(0);
+  const closedRef = useRef(false);
 
   const { data: history = [], isLoading: isLoadingHistory } = useGetCommunityMessagesQuery(
     communityId!,
-    { skip: !communityId },
+    { skip: !communityId, pollingInterval: 15000 },
   );
 
   const seededRef = useRef(false);
@@ -156,13 +164,13 @@ function useCommunityChat(communityId: string | null) {
 
   useEffect(() => {
     seededRef.current = false;
+    retryRef.current = 0;
     setLiveMessages([]);
     setOnlineUsers(new Set());
   }, [communityId]);
 
-  useEffect(() => {
-    if (!communityId) return;
-    wsRef.current?.close();
+  const connect = useCallback(() => {
+    if (!communityId || closedRef.current) return;
 
     const token =
       typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
@@ -177,6 +185,7 @@ function useCommunityChat(communityId: string | null) {
 
     ws.onopen = () => {
       setIsConnected(true);
+      retryRef.current = 0;
       setOnlineUsers(new Set());
     };
 
@@ -199,6 +208,7 @@ function useCommunityChat(communityId: string | null) {
             attachment_type: data.attachment_type ?? "",
             attachment_size: data.attachment_size ?? 0,
             created_at: data.created_at,
+            reactions: data.reactions ?? {},
           };
           setLiveMessages((prev) =>
             prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming],
@@ -234,20 +244,61 @@ function useCommunityChat(communityId: string | null) {
           });
         }
 
+        if (data.type === "reaction_toggled") {
+          setLiveMessages((prev) =>
+            prev.map((m) =>
+              m.id === data.message_id ? { ...m, reactions: data.reactions } : m,
+            ),
+          );
+        }
+
+        if (data.type === "member_joined") {
+          callbacksRef.current?.onMemberJoined?.(data);
+        }
+
+        if (data.type === "member_left") {
+          callbacksRef.current?.onMemberLeft?.(data);
+        }
+
+        if (data.type === "member_removed") {
+          callbacksRef.current?.onMemberRemoved?.(data);
+        }
+
+        if (data.type === "community_updated") {
+          callbacksRef.current?.onCommunityUpdated?.(data.community);
+        }
+
+        if (data.type === "community_deleted") {
+          callbacksRef.current?.onCommunityDeleted?.(data.community_id);
+        }
+
       } catch { }
     };
 
     ws.onerror = () => setIsConnected(false);
+
     ws.onclose = () => {
       setIsConnected(false);
       setOnlineUsers(new Set());
-    };
-
-    return () => {
-      ws.close();
-      Object.values(typingTimers.current).forEach(clearTimeout);
+      if (closedRef.current) return;
+      retryRef.current++;
+      const delay = Math.min(1000 * Math.pow(2, retryRef.current - 1), 30000);
+      setTimeout(() => { if (!closedRef.current) connect(); }, delay);
     };
   }, [communityId]);
+
+  useEffect(() => {
+    closedRef.current = false;
+    wsRef.current?.close();
+    retryRef.current = 0;
+    connect();
+
+    return () => {
+      closedRef.current = true;
+      wsRef.current?.close();
+      Object.values(typingTimers.current).forEach(clearTimeout);
+    };
+  }, [connect]);
 
   const sendMessage = useCallback((content: string, replyToId?: string | null) => {
     const ws = wsRef.current;
@@ -284,6 +335,12 @@ function useCommunityChat(communityId: string | null) {
     setLiveMessages((prev) => prev.filter((m) => m.id !== messageId));
   }, []);
 
+  const updateMessageReactions = useCallback((messageId: string, reactions: Record<string, string[]>) => {
+    setLiveMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
+    );
+  }, []);
+
   return {
     messages: liveMessages,
     isConnected,
@@ -295,6 +352,7 @@ function useCommunityChat(communityId: string | null) {
     sendDeleteMessage,
     appendMessage,
     removeMessage,
+    updateMessageReactions,
   };
 }
 
@@ -310,7 +368,7 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
   return {
     id: c.id,
     title: c.name,
-    avatar: resolveMediaUrl(c.cover_image),
+    avatar: c.cover_image || "",
     message: c.description ?? "",
     unreadCount: c.unread_count || 0,
     type: isMember ? "active_group" : "discovery",
@@ -319,6 +377,9 @@ function apiToCommunityItem(c: any, currentUserId?: string | null): CommunityIte
     isPrivate: c.visibility === "private",
     creator: c.creator,
     isAdmin: Boolean(c.is_admin) || isCreator,
+    requireApproval: Boolean(c.require_approval),
+    pendingCount: c.pending_count || 0,
+    myStatus: c.my_status || null,
   };
 }
 
@@ -464,6 +525,7 @@ function AttachmentPreview({ url, type, name, size, onClick }: AttachmentPreview
 
 export default function CommunityPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(
     () => (searchParams.get("tab") === "messages" ? "messages" : "groups"),
   );
@@ -483,6 +545,15 @@ export default function CommunityPage() {
   const [showCreateCommunity, setShowCreateCommunity] = useState(false);
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string; name: string; size: number } | null>(null);
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [quickViewUser, setQuickViewUser] = useState<{
+    id: string;
+    name: string;
+    avatar: string;
+    role?: string;
+    location?: string;
+    joinedDate?: string;
+  } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -508,20 +579,28 @@ export default function CommunityPage() {
 
   const { token, user } = useAuth();
   const currentUserId = user?.id ?? getCurrentUserId();
+  const [startConversation] = useStartConversationMutation();
 
-  const { data: myCommunities = [], isLoading: loadingMy } = useGetMyCommunitiesQuery(undefined, {
+  const { data: myCommunitiesRaw = [], isLoading: loadingMy, refetch: refetchMy } = useGetMyCommunitiesQuery(undefined, {
     skip: !token,
     refetchOnMountOrArgChange: true,
   });
 
-  const { data: allCommunities = [], isLoading: loadingAll } = useGetCommunitiesQuery(undefined, {
+  const { data: allCommunitiesRaw = [], isLoading: loadingAll, refetch: refetchAll } = useGetCommunitiesQuery(undefined, {
     skip: !token,
     refetchOnMountOrArgChange: true,
   });
+
+  const [myCommunities, setMyCommunities] = useState<any[]>([]);
+  const [allCommunities, setAllCommunities] = useState<any[]>([]);
+
+  useEffect(() => { setMyCommunities(myCommunitiesRaw); }, [myCommunitiesRaw]);
+  useEffect(() => { setAllCommunities(allCommunitiesRaw); }, [allCommunitiesRaw]);
 
   const isLoading = loadingMy || loadingAll;
   const [joinCommunity] = useJoinCommunityMutation();
   const [sendCommunityMessage, { isLoading: isUploadingFile }] = useSendCommunityMessageMutation();
+  const [toggleReaction] = useToggleReactionMutation();
 
   const isDM = selectedGroupId?.startsWith("dm-") ?? false;
   const wsGroupId = selectedGroupId && !isDM ? selectedGroupId : null;
@@ -561,7 +640,60 @@ export default function CommunityPage() {
     sendDeleteMessage: sendCommunityDeleteMessage,
     appendMessage: appendCommunityMessage,
     removeMessage: removeCommunityMessage,
-  } = useCommunityChat(wsGroupId);
+    updateMessageReactions: updateCommunityMessageReactions,
+  } = useCommunityChat(wsGroupId, {
+    onCommunityUpdated(community) {
+      setAllCommunities((prev) => prev.map((c) => (c.id === community.id ? community : c)));
+      setMyCommunities((prev) => prev.map((c) => (c.id === community.id ? community : c)));
+    },
+    onCommunityDeleted(communityId) {
+      setAllCommunities((prev) => prev.filter((c) => c.id !== communityId));
+      setMyCommunities((prev) => prev.filter((c) => c.id !== communityId));
+      if (selectedGroupId === communityId) {
+        setSelectedGroupId(null);
+        setIsInfoBarOpen(false);
+      }
+    },
+    onMemberJoined(data) {
+      toast(`${data.username} joined the community`, { duration: 3000 });
+    },
+    onMemberLeft(data) {
+      if (data.user_id === String(currentUserId)) {
+        setSelectedGroupId(null);
+        setIsInfoBarOpen(false);
+      }
+      toast(`${data.username} left the community`, { duration: 3000 });
+    },
+    onMemberRemoved(data) {
+      if (data.user_id === String(currentUserId)) {
+        setSelectedGroupId(null);
+        setIsInfoBarOpen(false);
+        setTimeout(() => window.location.reload(), 500);
+        return;
+      }
+      toast("A member was removed", { duration: 3000 });
+    },
+  });
+
+  useCommunityEvents({
+    onCommunityCreated(data) {
+      setAllCommunities((prev) => {
+        if (prev.some((c) => c.id === data.community.id)) return prev;
+        return [data.community, ...prev];
+      });
+    },
+    onCommunityDeleted(data) {
+      setAllCommunities((prev) => prev.filter((c) => c.id !== data.community_id));
+      setMyCommunities((prev) => prev.filter((c) => c.id !== data.community_id));
+    },
+    onCommunityUpdated(data) {
+      setAllCommunities((prev) => prev.map((c) => (c.id === data.community.id ? data.community : c)));
+      setMyCommunities((prev) => prev.map((c) => (c.id === data.community.id ? data.community : c)));
+    },
+    onNewConversation(data) {
+      toast("New message received", { duration: 3000 });
+    },
+  });
 
   const myGroupItems = useMemo(
     () => myCommunities.map((c) => apiToCommunityItem(c, currentUserId)),
@@ -610,14 +742,18 @@ export default function CommunityPage() {
     }
   }, [messages]);
 
+  const readTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>[]>>({});
+  const processedReadIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
     messages.forEach((msg) => {
-      if (!messageReadStates[msg.id]) {
-        setMessageReadStates((prev) => ({ ...prev, [msg.id]: "sent" }));
-        setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "delivered" })), 1200);
-        setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "read" })), 2800);
-      }
+      if (processedReadIdsRef.current.has(msg.id)) return;
+      processedReadIdsRef.current.add(msg.id);
+      setMessageReadStates((prev) => ({ ...prev, [msg.id]: "sent" }));
+      timers.push(setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "delivered" })), 1200));
+      timers.push(setTimeout(() => setMessageReadStates((prev) => ({ ...prev, [msg.id]: "read" })), 2800));
     });
+    return () => timers.forEach(clearTimeout);
   }, [messages]);
 
   useEffect(() => {
@@ -645,6 +781,10 @@ export default function CommunityPage() {
       setSelectedDiscoGroup(item);
       setIsJoinModalOpen(true);
     } else {
+      if (item.myStatus === 'pending') {
+        toast.info("Your request is still pending admin approval.");
+        return;
+      }
       setSelectedGroupId(item.id);
       setSelectedDM(null);
     }
@@ -660,25 +800,85 @@ export default function CommunityPage() {
     setSelectedDM(null);
   };
 
+  const handleOpenProfile = (userId: string, name: string, avatar: string, role?: string) => {
+    if (!userId || userId === String(currentUserIdRef.current)) return;
+    setQuickViewUser({ id: userId, name, avatar, role });
+  };
+
+  const handleMessageUser = async (userId: string) => {
+    if (!userId || userId === String(currentUserIdRef.current)) {
+      toast.error("You can't message yourself.");
+      return;
+    }
+    try {
+      const conversation = await startConversation({
+        recipient_id: userId,
+        initial_message: "Hi! I saw you in the community.",
+      }).unwrap();
+      setQuickViewUser(null);
+      toast.success("Chat opened!");
+      router.push(`/dashboard/community?tab=messages&conversation=${conversation.id}`);
+    } catch {
+      toast.error("Could not open conversation. Please try again.");
+    }
+  };
+
   const handleJoinConfirm = async (groupId: string) => {
     try {
-      await joinCommunity(groupId).unwrap();
-      setActiveTab("groups");
-      setSelectedGroupId(groupId);
-      toast.success("Joined community successfully!");
+      const result = await joinCommunity(groupId).unwrap();
+      if (result.status === 'pending') {
+        toast.info("Request sent! Waiting for admin approval.");
+      } else {
+        setActiveTab("groups");
+        setSelectedGroupId(groupId);
+        toast.success("Joined community successfully!");
+      }
     } catch {
       toast.error("Failed to join. Please try again.");
     }
     setIsJoinModalOpen(false);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed) return;
-    sendCommunityMessageWS(trimmed, replyingTo?.id ?? null);
+    const replyToId = replyingTo?.id ?? null;
+    const replyToSnapshot = replyingTo;
     setNewMessage("");
     setReplyingTo(null);
+    if (isConnected) {
+      sendCommunityMessageWS(trimmed, replyToId);
+    } else if (wsGroupId) {
+      const tempId = `temp_${Date.now()}`;
+      const optimistic: CommunityMessage = {
+        id: tempId,
+        community: wsGroupId,
+        sender: String(currentUserId),
+        sender_username: user?.username ?? "",
+        sender_avatar: user?.avatar ?? null,
+        content: trimmed,
+        reply_to: replyToSnapshot,
+        attachment: null,
+        attachment_url: null,
+        attachment_name: "",
+        attachment_type: "",
+        attachment_size: 0,
+        reactions: {},
+        created_at: new Date().toISOString(),
+      };
+      appendCommunityMessage(optimistic);
+      try {
+        const formData = new FormData();
+        formData.append("content", trimmed);
+        const uploaded = await sendCommunityMessage({ id: wsGroupId, body: formData }).unwrap();
+        removeCommunityMessage(tempId);
+        appendCommunityMessage(uploaded);
+      } catch {
+        removeCommunityMessage(tempId);
+        toast.error("Message failed to send. Please try again.");
+      }
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -720,6 +920,17 @@ export default function CommunityPage() {
     if (!wsGroupId) return;
     removeCommunityMessage(messageId);
     sendCommunityDeleteMessage(messageId);
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!wsGroupId) return;
+    setEmojiPickerMsgId(null);
+    try {
+      const result = await toggleReaction({ communityId: wsGroupId, messageId, emoji }).unwrap();
+      updateCommunityMessageReactions(messageId, result.reactions);
+    } catch {
+      toast.error("Could not update reaction.");
+    }
   };
 
   const handleMediaClick = (url: string, type: string, name: string, size: number) => {
@@ -834,7 +1045,12 @@ export default function CommunityPage() {
                       <ArrowLeft size={20} />
                     </Button>
                     <div className="h-10 w-10 shrink-0">
-                      <SafeImage src={chatHeader.avatar} alt={chatHeader.title} width={40} height={40} className="rounded-full object-cover ring-1 ring-black/5" />
+                      <CommunityAvatar
+                        name={chatHeader.title}
+                        src={chatHeader.avatar}
+                        className="h-full w-full rounded-full ring-1 ring-black/5"
+                        textClassName="text-[15px]"
+                      />
                     </div>
                     <div className="min-w-0" onClick={() => setIsInfoBarOpen(true)}>
                       <h3 className="font-semibold text-[15px] text-slate-800 leading-tight truncate hover:underline cursor-pointer">{chatHeader.title}</h3>
@@ -904,7 +1120,10 @@ export default function CommunityPage() {
                                 )}
 
                                 {!isMe && !isConsecutive && (
-                                  <p className="text-[12px] font-bold text-blue-700 mb-0.5 hover:underline cursor-pointer select-none">
+                                  <p
+                                    onClick={() => handleOpenProfile(String(msg.sender), msg.sender_username, msg.sender_avatar ?? "", undefined)}
+                                    className="text-[12px] font-bold text-blue-700 mb-0.5 hover:underline cursor-pointer select-none"
+                                  >
                                     {msg.sender_username}
                                   </p>
                                 )}
@@ -917,7 +1136,7 @@ export default function CommunityPage() {
                                 )}
 
                                 <div className="text-[14px] leading-relaxed pr-12 whitespace-pre-wrap break-words">
-                                  {msg.content}
+                                  <MessageContent text={msg.content} />
                                 </div>
 
                                 {msg.attachment_url && (
@@ -930,8 +1149,45 @@ export default function CommunityPage() {
                                   />
                                 )}
 
-                                <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none">
-                                  <span className="text-[9px] text-slate-500 font-normal leading-none">
+                                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1 mt-1.5 mb-1">
+                                    {Object.entries(msg.reactions).map(([emoji, users]) => {
+                                      const hasReacted = currentUserId !== null && users.includes(String(currentUserId));
+                                      return (
+                                        <button
+                                          key={emoji}
+                                          onClick={() => handleToggleReaction(msg.id, emoji)}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] leading-none border transition-colors ${
+                                            hasReacted
+                                              ? "bg-blue-100 border-blue-200 text-blue-700"
+                                              : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                                          }`}
+                                        >
+                                          <span className="text-[13px]">{emoji}</span>
+                                          <span className="font-medium">{users.length}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                <div className="relative flex items-center gap-1 select-none mt-0.5">
+                                  <div className="relative">
+                                    {emojiPickerMsgId === msg.id && (
+                                      <EmojiPicker
+                                        onSelect={(emoji) => handleToggleReaction(msg.id, emoji)}
+                                        onClose={() => setEmojiPickerMsgId(null)}
+                                      />
+                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id); }}
+                                      className="h-5 w-5 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors text-[11px] leading-none"
+                                      title="Add reaction"
+                                    >
+                                      <Plus size={10} />
+                                    </button>
+                                  </div>
+                                  <span className="text-[9px] text-slate-500 font-normal leading-none ml-auto">
                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                   </span>
                                   {isMe && (
@@ -1005,15 +1261,22 @@ export default function CommunityPage() {
                       {isUploadingFile ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
                     </Button>
                     <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-3">
-                      <input
-                        ref={inputRef}
-                        value={newMessage}
-                        onChange={(e) => { setNewMessage(e.target.value); sendCommunityTyping(); }}
-                        placeholder={isConnected ? (replyingTo ? `Reply to ${replyingTo.sender_username}…` : "Type a message") : "Connecting to chat..."}
-                        disabled={!isConnected}
-                        className="flex-1 bg-slate-100 rounded-lg px-4 py-2.5 text-[14px] text-slate-800 placeholder-slate-400 outline-none border-none shadow-sm focus:ring-1 focus:ring-blue-300"
-                      />
-                      <Button type="submit" size="icon" disabled={!newMessage.trim() || !isConnected} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
+                      <div className="flex-1 relative">
+                        <input
+                          ref={inputRef}
+                          value={newMessage}
+                          onChange={(e) => { setNewMessage(e.target.value); if (isConnected) sendCommunityTyping(); }}
+                          placeholder={replyingTo ? `Reply to ${replyingTo.sender_username}…` : "Type a message"}
+                          className="flex-1 bg-slate-100 rounded-lg px-4 py-2.5 text-[14px] text-slate-800 placeholder-slate-400 outline-none border-none shadow-sm focus:ring-1 focus:ring-blue-300 w-full"
+                        />
+                        {!isConnected && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                            <span className="text-[10px] text-amber-600 font-medium">Reconnecting...</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button type="submit" size="icon" disabled={!newMessage.trim()} className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md shrink-0 transition-all active:scale-95 disabled:bg-slate-300">
                         <Send size={18} className="translate-x-[1px]" />
                       </Button>
                     </form>
@@ -1058,6 +1321,17 @@ export default function CommunityPage() {
               group={communities.find((c) => c.id === selectedGroupId)}
               currentUserId={currentUserIdRef.current}
               onlineUsers={onlineUsers}
+              onUserClick={(member) => {
+                const memberId = String(member.user ?? member.id ?? "");
+                const memberName = member.user?.username ?? member.username ?? "Community Member";
+                const memberAvatar = member.profile_picture ?? member.user?.profile_picture ?? "";
+                const memberRole = member.role === "admin"
+                  ? "Admin"
+                  : member.role === "moderator"
+                    ? "Moderator"
+                    : "Community Member";
+                handleOpenProfile(memberId, memberName, memberAvatar, memberRole);
+              }}
             />
           )}
         </main>
@@ -1067,6 +1341,14 @@ export default function CommunityPage() {
       <CreateCommunityDialog
         isOpen={showCreateCommunity}
         onOpenChange={setShowCreateCommunity}
+      />
+
+      {/* Profile Quick View */}
+      <ProfileQuickView
+        user={quickViewUser}
+        isOpen={!!quickViewUser}
+        onClose={() => setQuickViewUser(null)}
+        onMessage={handleMessageUser}
       />
 
       {/* Media Viewer */}

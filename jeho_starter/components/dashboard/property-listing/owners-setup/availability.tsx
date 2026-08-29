@@ -19,9 +19,10 @@ interface OwnerStep3Props {
   onNext: (data: OwnerStep3Values) => void;
   onBack: () => void;
   initialData: Partial<OwnerStep3Values>;
+  currency?: string;
 }
 
-export default function AvailabilityStep({ onNext, onBack, initialData }: OwnerStep3Props) {
+export default function AvailabilityStep({ onNext, onBack, initialData, currency = "USD" }: OwnerStep3Props) {
   
   const form = useForm<OwnerStep3Values>({
     resolver: zodResolver(ownerStep3Schema),
@@ -75,7 +76,7 @@ export default function AvailabilityStep({ onNext, onBack, initialData }: OwnerS
                     <FormLabel className="font-semibold">Listing Price</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currency}</span>
                         <Input 
                           type="number" 
                           placeholder="0.00" 

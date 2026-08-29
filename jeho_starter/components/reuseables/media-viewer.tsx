@@ -64,14 +64,19 @@ export function MediaViewer({
       originalOverflow.current = document.body.style.overflow;
       document.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
-      setIsLoading(true);
+      // Only show loading spinner for types that load asynchronously
+      const needsLoading =
+        isMediaType(mediaType, "image") ||
+        isMediaType(mediaType, "video") ||
+        isMediaType(mediaType, "audio");
+      setIsLoading(needsLoading);
       setError(null);
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = originalOverflow.current;
     };
-  }, [isOpen, handleKeyDown]);
+  }, [isOpen, handleKeyDown, mediaType]);
 
   if (!isOpen) return null;
 
@@ -136,19 +141,38 @@ export function MediaViewer({
 
     if (isMediaType(mediaType, "pdf")) {
       return (
-        <iframe
-          src={mediaUrl}
-          className="w-full h-full border-0"
-          onLoad={() => setIsLoading(false)}
-          onError={() => {
-            setError("Failed to load PDF");
-            setIsLoading(false);
-          }}
-        />
+        <div className="relative w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+          <div className="w-24 h-24 bg-red-100 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+            <FileText size={48} className="text-red-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">{mediaName}</h3>
+          <p className="text-sm text-slate-500 mb-6">
+            PDF • {mediaSize > 0 ? formatFileSize(mediaSize) : "Document"}
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href={mediaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-md"
+            >
+              <FileText size={16} />
+              Open PDF
+            </a>
+            <a
+              href={mediaUrl}
+              download={mediaName}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold text-sm transition-colors"
+            >
+              <Download size={16} />
+              Download
+            </a>
+          </div>
+        </div>
       );
     }
 
-    // For other document types
+    // For other document types (Word, Excel, etc.)
     return (
       <div className="relative w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="w-24 h-24 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
@@ -158,13 +182,25 @@ export function MediaViewer({
         <p className="text-sm text-slate-500 mb-6">
           {mediaSize > 0 ? formatFileSize(mediaSize) : "Document"}
         </p>
-        <Button
-          onClick={() => window.open(mediaUrl, "_blank")}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Download size={16} className="mr-2" />
-          Download to view
-        </Button>
+        <div className="flex items-center gap-3">
+          <a
+            href={mediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-md"
+          >
+            <File size={16} />
+            Open file
+          </a>
+          <a
+            href={mediaUrl}
+            download={mediaName}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold text-sm transition-colors"
+          >
+            <Download size={16} />
+            Download
+          </a>
+        </div>
       </div>
     );
   };
