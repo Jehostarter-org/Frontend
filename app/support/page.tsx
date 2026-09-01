@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-    Send, Loader2, Wifi, WifiOff, Headphones, ArrowLeft, MessageCircle,
+    Send, Loader2, Wifi, WifiOff, Headphones, ArrowLeft,
     RefreshCw, Paperclip, Check, CheckCheck, Reply, Trash2, X,
     File, FileText, Play, Music,
 } from "lucide-react";
@@ -27,6 +27,23 @@ import { SafeImage } from "@/components/reuseables/SafeImage";
 // When a support thread has been idle for this long, the user's view resets to
 // a fresh chat (the admin portal still keeps the full history).
 const INACTIVE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+// Introductory greeting shown at the start of EVERY support session (including
+// after the chat clears and a new session begins).
+const SUPPORT_INTRO_TEXT =
+    "Hi there, thanks for contacting Jehostarter Support! " +
+    "Our team typically responds within 2 hours. " +
+    "Please describe your issue and we'll get back to you as soon as possible.";
+
+const SUPPORT_INTRO_MESSAGE: DMMessage = {
+    id: -1,
+    body: SUPPORT_INTRO_TEXT,
+    sender: { id: -1, full_name: "Jehostarter Support", avatar_url: null },
+    reply_to: null,
+    service_card: null,
+    is_read: true,
+    created_at: new Date().toISOString(),
+};
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
@@ -185,6 +202,13 @@ export default function SupportPage() {
     const visibleMessages = (resetAt === null
         ? allMessages
         : allMessages.filter((m) => new Date(m.created_at).getTime() >= resetAt)) as DMMessage[];
+
+    // Prepend the intro greeting to the current session whenever it isn't
+    // already visible, so it appears again at the start of every new session.
+    const hasIntroVisible = visibleMessages.some((m) => m.body === SUPPORT_INTRO_TEXT);
+    const displayMessages = hasIntroVisible
+        ? visibleMessages
+        : [SUPPORT_INTRO_MESSAGE, ...visibleMessages];
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -387,25 +411,6 @@ export default function SupportPage() {
                         <div className="h-full flex items-center justify-center">
                             <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
-                    ) : visibleMessages.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center px-6">
-                            <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4">
-                                <MessageCircle className="h-8 w-8 text-slate-400" />
-                            </div>
-                            {resetAt !== null && allMessages.length > 0 ? (
-                                <>
-                                    <p className="text-sm text-slate-600">New support session</p>
-                                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                                        Your previous conversation was closed. Describe your issue below and our team will get back to you.
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-sm text-slate-600">No messages yet</p>
-                                    <p className="text-xs text-slate-400 mt-1 max-w-xs">Describe your issue below and our team will get back to you.</p>
-                                </>
-                            )}
-                        </div>
                     ) : (
                         <div className="w-full flex flex-col justify-end px-3 sm:px-8 py-4 space-y-1.5">
                             {resetAt !== null && (
@@ -415,9 +420,9 @@ export default function SupportPage() {
                                     </span>
                                 </div>
                             )}
-                            {visibleMessages.map((msg, idx) => {
+                            {displayMessages.map((msg, idx) => {
                                 const mine = isMe(msg);
-                                const prevMsg = idx > 0 ? visibleMessages[idx - 1] : null;
+                                const prevMsg = idx > 0 ? displayMessages[idx - 1] : null;
                                 const isConsecutive = prevMsg && String(prevMsg.sender?.id) === String(msg.sender?.id);
                                 const simulated = messageReadStates[msg.id];
                                 const readState = msg.is_read ? "read" : simulated || null;
