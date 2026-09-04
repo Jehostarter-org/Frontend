@@ -1,8 +1,27 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PROTECTED_PREFIXES = ['/dashboard', '/dashboard-legacy', '/support']
+
 export function middleware(request: NextRequest) {
-  return NextResponse.next()
+  const { pathname } = request.nextUrl
+
+  const isProtected = PROTECTED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  )
+
+  if (!isProtected) {
+    return NextResponse.next()
+  }
+
+  const hasSession = request.cookies.get('__session')?.value === '1'
+  if (hasSession) {
+    return NextResponse.next()
+  }
+
+  const url = new URL('/auth/login', request.url)
+  url.searchParams.set('next', pathname)
+  return NextResponse.redirect(url)
 }
 
 export const config = {
