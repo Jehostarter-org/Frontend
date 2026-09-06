@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { ArrowRight, MessageSquare } from "lucide-react";
 import CommunityWidget from "../shop/community-widget";
+import { useNotifications } from "@/components/contexts/notification-context";
 import {
   useGetCommunityFeedQuery,
   useGetMyCommunitiesQuery,
@@ -36,8 +38,32 @@ function timeAgo(value?: string): string {
 }
 
 export default function CommunityLiveFeed() {
-  const { data: feed = [] } = useGetCommunityFeedQuery(undefined);
+  const { data: feed = [], refetch } = useGetCommunityFeedQuery(undefined, {
+    pollingInterval: 15000,
+    refetchOnMountOrArgChange: true,
+  });
   const { data: myCommunities = [] } = useGetMyCommunitiesQuery(undefined);
+  const { notifications } = useNotifications();
+  const seenNotifIdsRef = useRef<Set<string>>(new Set());
+  const lastRefetchAtRef = useRef(0);
+
+  useEffect(() => {
+    if (notifications.length === 0) return;
+    const newest = notifications[0];
+    if (!newest || seenNotifIdsRef.current.has(newest.id)) return;
+    if (
+      newest.notificationType !== "community_message" &&
+      newest.notificationType !== "community_post"
+    ) {
+      seenNotifIdsRef.current.add(newest.id);
+      return;
+    }
+    seenNotifIdsRef.current.add(newest.id);
+    const now = Date.now();
+    if (now - lastRefetchAtRef.current < 3000) return;
+    lastRefetchAtRef.current = now;
+    refetch();
+  }, [notifications, refetch]);
 
   const communityNames: Record<string, string> = {};
   myCommunities.forEach((c) => {

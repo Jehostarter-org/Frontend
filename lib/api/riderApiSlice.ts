@@ -12,6 +12,14 @@ export interface Airport {
     lng: number;
 }
 
+export interface ImmigrationOfficer {
+    id: string;
+    full_name: string;
+    phone_number: string;
+    city: string;
+    country_code: string;
+}
+
 export interface AirportsResponse {
     airports: Airport[];
     supported_countries: string[];
@@ -402,6 +410,12 @@ export const riderApiSlice = apiSlice.injectEndpoints({
             query: () => "/services/my-jobs/",
             providesTags: ["Service"],
         }),
+
+        // GET /api/services/immigration-officers/ — approved immigration officers
+        getImmigrationOfficers: builder.query<ImmigrationOfficer[], void>({
+            query: () => "/services/immigration-officers/",
+            transformResponse: (response: any) => response.results ?? response,
+        }),
     }),
 });
 
@@ -425,4 +439,5 @@ export const {
     useClaimServiceRequestMutation,
     useGetMyProviderProfilesQuery,
     useGetMyProviderJobsQuery,
+    useGetImmigrationOfficersQuery,
 } = riderApiSlice;

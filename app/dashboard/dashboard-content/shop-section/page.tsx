@@ -3,12 +3,13 @@
 import { useState } from "react";
 import ServiceCards from "../service-cards/page";
 import WelcomeBanner from "@/components/dashboard/shop/welcome-banner";
+import ActivityAnalytics from "@/components/dashboard/shop/activity-analytics";
 import ShopHighlights from "@/components/dashboard/shop/shop-highlight";
 import ProgressTracker from "@/components/dashboard/shop/progress-tracker";
 import LocalNavigation from "@/components/dashboard/shop/local-navigation";
 import { SystemAlertsBanner } from "@/components/reuseables/system-alert-banner";
 import CommunityLiveFeed from "@/components/dashboard/community/communityLiveFeed";
-import MigrationSpecialistCard from "@/components/dashboard/shop/migration-specialist-card";
+import MigrationOfficeCard from "@/components/dashboard/shop/migration-office-card";
 
 
 export default function ShopSection() {
@@ -25,7 +26,11 @@ export default function ShopSection() {
         <div className="flex-1 space-y-6 min-w-0">
           <WelcomeBanner />
 
+          <ActivityAnalytics />
+
           <ServiceCards />
+
+          <MigrationOfficeCard />
 
           <div className="xl:hidden gap-5 flex flex-col">
             <SystemAlertsBanner />
@@ -37,17 +42,12 @@ export default function ShopSection() {
             <ShopHighlights />
           </div>
 
-          <div className="xl:hidden">
-            <MigrationSpecialistCard />
-          </div>
-
           <CommunityLiveFeed />
         </div>
 
         <aside className="hidden xl:block w-80 space-y-6 shrink-0">
           <SystemAlertsBanner />
           <ProgressTracker />
-          <MigrationSpecialistCard />
         </aside>
 
       </div>
