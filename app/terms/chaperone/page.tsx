@@ -14,7 +14,7 @@ export default function ChaperoneTermsPage() {
   const handleAccept = () => {
     setIsAccepting(true);
     toast.success("Terms accepted");
-    router.push("/dashboard");
+    router.push("/dashboard/chaperone");
   };
 
   return (

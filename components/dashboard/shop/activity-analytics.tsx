@@ -75,9 +75,9 @@ export default function ActivityAnalytics() {
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${stat.accent}`}>
               {stat.icon}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-2xl font-black text-slate-900 leading-none">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
+              <p className="mt-1 text-[11px] leading-tight font-semibold text-slate-400 uppercase tracking-wider break-words">
                 {stat.label}
               </p>
             </div>
