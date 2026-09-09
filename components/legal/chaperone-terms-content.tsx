@@ -29,11 +29,23 @@ export function ChaperoneTermsContent() {
         </p>
         <p>Services may include:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Tax File Number (TFN) application assistance;</li>
+          <li>
+            Tax File Number (TFN) and CRM application assistance – supporting you
+            in obtaining the official identification number that every country
+            issues to migrants on arrival;
+          </li>
           <li>bank account opening assistance;</li>
-          <li>CV and employment preparation;</li>
-          <li>job-search and interview preparation;</li>
-          <li>genuine reference assistance;</li>
+          <li>
+            job search, CV and employment preparation – advising on suitable
+            temporary roles that help keep your bills paid while you pursue your
+            desired job;
+          </li>
+          <li>interview preparation;</li>
+          <li>
+            genuine reference assistance – arranging bank, employment or other
+            references according to the convenience of the Chaprone and your
+            needs;
+          </li>
           <li>general settlement and administrative assistance; and</li>
           <li>other reasonable services offered through Jehostarter.</li>
         </ul>
@@ -278,7 +290,7 @@ export function ChaperoneTermsContent() {
         </ul>
       </section>
 
-      <p className="text-sm text-gray-500">Last Updated: [Insert Date]</p>
+      <p className="text-sm text-gray-500">Last Updated: 9th of September 2026</p>
     </div>
   );
 }
