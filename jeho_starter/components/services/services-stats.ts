@@ -23,6 +23,6 @@ export const services = [
     description: "Click and fill the necessary details",
     bgColor: "bg-amber-100",
     iconColor: "text-amber-500",
-    href: "/dashboard/chaperone"
+    href: "/terms/chaperone"
   },
 ]

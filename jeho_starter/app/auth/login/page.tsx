@@ -7,14 +7,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
-import { Input }     from '@/components/ui/input';
-import { Label }     from '@/components/ui/label';
-import { Button }    from '@/components/ui/button';
-import { Checkbox }  from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 
 import logo2 from '@/public/images/small logo WHITE.png';
-import loginImg from '@/public/images/background-1.jpeg';
+import loginImg from '@/public/images/background-2.png';
 import { useLogin } from '@/hooks/use-login';
 import { loginSchema, type LoginInput } from '@/lib/validations/loginAuth';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
@@ -27,8 +27,8 @@ export default function LoginPage() {
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email:      '',
-      password:   '',
+      email: '',
+      password: '',
       rememberMe: false,
     },
   });
@@ -48,10 +48,10 @@ export default function LoginPage() {
             src={loginImg}
             alt="Welcome"
             fill
-            className="object-cover opacity-80 scale-110"
+            className="object-contain opacity-90"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-900/90 via-teal-800/60 to-emerald-700/50" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-emerald-600/80 via-emerald-600/40 to-transparent" />
 
           <div className="absolute top-6 left-6 hidden lg:block">
             <Image src={logo2} alt="logo" className="w-16 h-auto drop-shadow-lg" priority />

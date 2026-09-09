@@ -16,6 +16,8 @@ export interface ChaperoneRegistrationData {
   taxFileNumberReference: string
   offersTranslationService: boolean
   offersRegistrationService: boolean
+  isImmigrationOfficer: boolean
+  phoneNumber: string
 }
 
 interface ChaperoneRegistrationFormProps {
@@ -102,15 +104,28 @@ export function ChaperoneRegistrationForm({ data, onUpdate }: ChaperoneRegistrat
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>SIM Card Reference <span className="text-red-500">*</span></Label>
-              <Input
-                placeholder="SIM card registration reference number"
-                value={data.simCardReference}
-                onChange={handleInput("simCardReference")}
-                className="h-12"
-              />
-              <p className="text-xs text-gray-400">Enter the reference number from your SIM card registration</p>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>SIM Card Reference <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="SIM card registration reference number"
+                  value={data.simCardReference}
+                  onChange={handleInput("simCardReference")}
+                  className="h-12"
+                />
+                <p className="text-xs text-gray-400">Enter the reference number from your SIM card registration</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number <span className="text-red-500">*</span></Label>
+                <Input
+                  type="tel"
+                  placeholder="Your contact phone number"
+                  value={data.phoneNumber}
+                  onChange={handleInput("phoneNumber")}
+                  className="h-12"
+                />
+                <p className="text-xs text-gray-400">Your phone number so customers can reach you</p>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Tax File Number Reference <span className="text-red-500">*</span></Label>
@@ -155,6 +170,25 @@ export function ChaperoneRegistrationForm({ data, onUpdate }: ChaperoneRegistrat
               </Label>
               <p className="text-sm text-gray-500 mt-1">
                 Check this if you can assist with various registration processes (government, school, medical, etc.).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg mt-3">
+            <Checkbox
+              id="isImmigrationOfficer"
+              checked={data.isImmigrationOfficer}
+              onCheckedChange={(checked) => onUpdate("isImmigrationOfficer", checked === true)}
+              className="mt-1"
+            />
+            <div>
+              <Label htmlFor="isImmigrationOfficer" className="font-medium text-gray-900 cursor-pointer">
+                I am an Immigration Officer
+              </Label>
+              <p className="text-sm text-gray-500 mt-1">
+                Check this if you are currently or have previously worked as an
+                immigration officer and can help immigrants with their
+                immigration-related processes and paperwork.
               </p>
             </div>
           </div>

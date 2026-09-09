@@ -5,20 +5,26 @@ import { cn } from "@/lib/utils";
 import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { useUpdateUserProfileMutation } from "@/lib/api/userProfileApiSlice";
+import {
+  useUpdateUserProfileMutation,
+  useSaveGeolocationMutation,
+} from "@/lib/api/userProfileApiSlice";
 import { useAuth } from "@/components/contexts/auth-context";
 
 export default function LocationSection() {
   const { user } = useAuth();
   const { requestLocation, isLocating, location, error } = useGeolocation();
 
-  // PATCH /api/users/me/ with { current_country }
-  const [updateUserProfile, { isLoading: isSaving }] = useUpdateUserProfileMutation();
+  // PATCH /api/users/me/ with { current_country, city }
+  const [updateUserProfile, { isLoading: isSavingProfile }] = useUpdateUserProfileMutation();
+  // POST /api/users/location/ with the live GPS coordinates
+  const [saveGeolocation, { isLoading: isSavingGeo }] = useSaveGeolocationMutation();
 
-  const isLoading = isLocating || isSaving;
+  const isLoading = isLocating || isSavingProfile || isSavingGeo;
 
   const handleUpdateLocation = async () => {
-    const data = await requestLocation();
+    // Force a fresh GPS read every time — never reuse the cached (stale) location
+    const data = await requestLocation(true);
 
     if (!data) {
       toast.error("Could not get location", {
@@ -27,16 +33,45 @@ export default function LocationSection() {
       return;
     }
 
+    // GPS was denied/unavailable → only a profile fallback came back (no real coords)
+    const hasRealCoords =
+      Number.isFinite(data.lat) &&
+      Number.isFinite(data.lng) &&
+      (data.lat !== 0 || data.lng !== 0);
+
+    if (!hasRealCoords) {
+      toast.error("Could not fetch your current location", {
+        description: "Allow location access in your browser, then tap Update again.",
+      });
+      return;
+    }
+
+    let saved = false;
+
+    // 1) Send the live GPS coordinates to the backend
+    try {
+      await saveGeolocation({ latitude: data.lat, longitude: data.lng }).unwrap();
+      saved = true;
+    } catch (err) {
+      console.error("Failed to save geolocation:", err);
+    }
+
+    // 2) Sync the reverse-geocoded country + city onto the profile
     try {
       await updateUserProfile({
         current_country: data.country_code || user?.currentCountry,
+        city: data.city || user?.city,
       }).unwrap();
+      saved = true;
+    } catch (err) {
+      console.error("Failed to save profile location:", err);
+    }
 
+    if (saved) {
       toast.success("Location updated", {
         description: data.address,
       });
-    } catch (err) {
-      console.error(err);
+    } else {
       toast.error("Failed to save location to your profile.");
     }
   };

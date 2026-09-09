@@ -3,13 +3,18 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Loader2, X, Users, ShoppingBag, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { SafeImage } from "@/components/reuseables/SafeImage";
 import { CommunityAvatar } from "@/components/reuseables/CommunityAvatar";
-import { useGetCommunitiesQuery } from "@/lib/api/communityApiSlice";
+import { JoinGroupModal } from "@/components/dashboard/community/joinGroupModal";
+import {
+  useGetCommunitiesQuery,
+  useJoinCommunityMutation,
+  type Community,
+} from "@/lib/api/communityApiSlice";
 import { useGetAllProductsQuery } from "@/lib/api/productsApiSlice";
 import { useCurrency } from "@/components/contexts/currencyContext";
-import { useAuth } from "@/components/contexts/auth-context";
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_GROUPS = 5;
@@ -17,14 +22,14 @@ const MAX_ITEMS = 5;
 
 export default function GlobalSearch() {
   const router = useRouter();
-  const { formatPrice, countryCode } = useCurrency();
-  const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
+  const [joinGroup, setJoinGroup] = useState<Community | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const country = user?.current_country || countryCode || undefined;
+  const [joinCommunity] = useJoinCommunityMutation();
 
   const trimmed = query.trim();
 
@@ -36,12 +41,12 @@ export default function GlobalSearch() {
   const searching = debounced.length >= MIN_QUERY_LENGTH;
 
   const { data: communities = [], isFetching: isGroupsFetching } = useGetCommunitiesQuery(
-    { search: debounced, country },
+    { search: debounced },
     { skip: !searching },
   );
 
   const { data: products = [], isFetching: isProductsFetching } = useGetAllProductsQuery(
-    { search: debounced, country },
+    { search: debounced },
     { skip: !searching },
   );
 
@@ -71,9 +76,30 @@ export default function GlobalSearch() {
     setQuery("");
   };
 
-  const goGroup = (id: string) => {
+  const goGroup = (c: Community) => {
     close();
-    router.push(`/dashboard/community?group=${id}`);
+    // Already a member → straight into the chat
+    if (c.is_member) {
+      router.push(`/dashboard/community?group=${c.id}`);
+      return;
+    }
+    // Not a member → same join flow as the discovery page
+    setJoinGroup(c);
+  };
+
+  const handleJoinConfirm = async (groupId: string) => {
+    try {
+      const result = await joinCommunity(groupId).unwrap();
+      if (result.status === "pending") {
+        toast.info("Request sent! Waiting for admin approval.");
+      } else {
+        toast.success("Joined community successfully!");
+        router.push(`/dashboard/community?group=${groupId}`);
+      }
+    } catch {
+      toast.error("Failed to join. Please try again.");
+    }
+    setJoinGroup(null);
   };
 
   const goItem = (id: string) => {
@@ -146,7 +172,7 @@ export default function GlobalSearch() {
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => goGroup(c.id)}
+                      onClick={() => goGroup(c)}
                       className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 text-left transition-colors cursor-pointer"
                     >
                       <div className="h-9 w-9 shrink-0">
@@ -227,6 +253,26 @@ export default function GlobalSearch() {
           )}
         </div>
       )}
+
+      <JoinGroupModal
+        isOpen={!!joinGroup}
+        onClose={() => setJoinGroup(null)}
+        group={
+          joinGroup
+            ? {
+                id: joinGroup.id,
+                title: joinGroup.name,
+                avatar: joinGroup.cover_image || "",
+                description: joinGroup.description,
+                memberCount: joinGroup.member_count,
+                isPrivate: joinGroup.visibility === "private",
+                requireApproval: joinGroup.require_approval,
+                myStatus: joinGroup.my_status,
+              }
+            : null
+        }
+        onJoin={handleJoinConfirm}
+      />
     </div>
   );
 }

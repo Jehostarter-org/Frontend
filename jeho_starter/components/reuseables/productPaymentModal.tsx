@@ -10,22 +10,40 @@ import { CheckCircle2, Wallet, Layers, ExternalLink, ArrowRight } from "lucide-r
 import Link from "next/link";
 import { Card } from "../ui/card";
 import { useCurrency } from "@/components/contexts/currencyContext";
+import { useGetEligibilitySubmittedQuery } from "@/lib/api/plansApiSlice";
+import { toast } from "sonner";
 
 export function PaymentModal({ isOpen, onClose, product }: any) {
   const router = useRouter();
   const [method, setMethod] = useState("full");
   const { formatPrice } = useCurrency();
+  const { data: eligibilityStatus } = useGetEligibilitySubmittedQuery();
 
   const installmentPrice = product.price / 4;
 
   // --- Dynamic Routing Logic ---
   const handleProceed = () => {
-    // Define your paths here
-    const path = method === "full" 
-      ? `/dashboard/payment/`
-      : `/dashboard/eligibility-check`
-    
-    router.push(path);
+    if (method === "full") {
+      router.push(`/dashboard/payment/`);
+      onClose();
+      return;
+    }
+
+    // Installment path — buyer must complete the eligibility check first
+    if (!eligibilityStatus?.submitted) {
+      toast.info("Complete your eligibility check to use installment payment.");
+      router.push("/dashboard/eligibility-check");
+      onClose();
+      return;
+    }
+
+    const params = new URLSearchParams({
+      productId: product?.id ?? "",
+      productName: product?.title ?? "Product",
+      price: String(product?.price ?? 0),
+      plan: "weekly",
+    });
+    router.push(`/dashboard/payment?${params.toString()}`);
     onClose();
   };
 

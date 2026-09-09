@@ -8,7 +8,7 @@ import {
   Bell, MessageSquare, Heart, ShoppingCart,
   User, Inbox, Trash2, MoreVertical, Loader2,
   Plane, MapPin, Clock, Users, Briefcase, CheckCircle2,
-  Car, AlertCircle, RotateCcw, ChevronRight, Shield,
+  Car, AlertCircle, RotateCcw, ChevronRight, Shield, Headphones,
 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ function NotifIcon({ type }: { type: string }) {
     case "comment":          return <MessageSquare className="w-4 h-4 text-blue-500" />;
     case "like":             return <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />;
     case "shop_inquiry":     return <ShoppingCart className="w-4 h-4 text-emerald-500" />;
+    case "support_message":  return <Headphones className="w-4 h-4 text-teal-500" />;
     case "service_accepted":
     case "service_updated":
     case "service_completed":
@@ -122,6 +123,10 @@ function resolveNotifLink(notification: GqlNotification): string | null {
   // Other community notifications (post/invite) → community page
   if (notificationType === "community_post" || notificationType === "community_invite") {
     return "/dashboard/community";
+  }
+  // Support reply → straight to the support chat
+  if (notificationType === "support_message") {
+    return "/support";
   }
   // Direct message → straight to the person's chat thread (backend link: /messages/<id>/)
   if (notificationType === "direct_message") {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PROTECTED_PREFIXES = ['/dashboard', '/dashboard-legacy']
+const PROTECTED_PREFIXES = ['/dashboard', '/dashboard-legacy', '/support']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

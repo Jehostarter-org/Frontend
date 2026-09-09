@@ -68,6 +68,8 @@ export const apiSlice = createApi({
     'AdminShopDetail',
     'AdminProviders',
     'AdminProviderDetail',
+    'AdminEligibility',
+    'AdminEligibilityDetail',
     'SavedListing',
     // Messaging
     'Conversation',

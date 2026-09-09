@@ -53,6 +53,11 @@ function toMessage(n: Notification): Message {
 
 // Resolve the frontend route a notification should deep-link to.
 function resolveHref(n: Notification): string | undefined {
+  // Support replies go straight to the support chat
+  if (n.notification_type === "support_message") {
+    return "/support";
+  }
+
   // Direct messages arrive with link like "/messages/{conversationId}/"
   if (n.notification_type === "direct_message") {
     const match = n.link.match(/\/messages\/(\d+)\/?/);

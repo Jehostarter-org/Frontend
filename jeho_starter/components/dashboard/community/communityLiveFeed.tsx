@@ -1,24 +1,80 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { ArrowRight, MessageSquare } from "lucide-react";
 import CommunityWidget from "../shop/community-widget";
-import { useGetCommunityFeedQuery, type Post } from "@/lib/api/communityApiSlice";
+import { useNotifications } from "@/components/contexts/notification-context";
+import {
+  useGetCommunityFeedQuery,
+  useGetMyCommunitiesQuery,
+  type Post,
+} from "@/lib/api/communityApiSlice";
 
-function toWidgetItem(post: Post) {
+function toWidgetItem(post: Post, communityNames: Record<string, string>) {
   return {
     id: post.id,
-    groupName: post.community,
-    senderName: post.author_username,
+    groupName: communityNames[post.community] || post.community,
+    senderName: post.author_username || "Community member",
     senderAvatar: post.author_username ? `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author_username)}&background=0D9488&color=fff` : undefined,
     lastMessage: post.content,
-    timestamp: post.created_at,
+    timestamp: timeAgo(post.created_at),
   };
 }
 
+function timeAgo(value?: string): string {
+  if (!value) return "";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 export default function CommunityLiveFeed() {
-  const { data: feed = [] } = useGetCommunityFeedQuery(undefined);
-  const latestActivity = feed.slice(-3).reverse().map(toWidgetItem);
+  const { data: feed = [], refetch } = useGetCommunityFeedQuery(undefined, {
+    pollingInterval: 15000,
+    refetchOnMountOrArgChange: true,
+  });
+  const { data: myCommunities = [] } = useGetMyCommunitiesQuery(undefined);
+  const { notifications } = useNotifications();
+  const seenNotifIdsRef = useRef<Set<string>>(new Set());
+  const lastRefetchAtRef = useRef(0);
+
+  useEffect(() => {
+    if (notifications.length === 0) return;
+    const newest = notifications[0];
+    if (!newest || seenNotifIdsRef.current.has(newest.id)) return;
+    if (
+      newest.notificationType !== "community_message" &&
+      newest.notificationType !== "community_post"
+    ) {
+      seenNotifIdsRef.current.add(newest.id);
+      return;
+    }
+    seenNotifIdsRef.current.add(newest.id);
+    const now = Date.now();
+    if (now - lastRefetchAtRef.current < 3000) return;
+    lastRefetchAtRef.current = now;
+    refetch();
+  }, [notifications, refetch]);
+
+  const communityNames: Record<string, string> = {};
+  myCommunities.forEach((c) => {
+    communityNames[c.id] = c.name;
+  });
+
+  const latestActivity = feed
+    .filter((post) => post.content)
+    .slice(-3)
+    .reverse()
+    .map((post) => toWidgetItem(post, communityNames));
 
   return (
     <div className="space-y-8">

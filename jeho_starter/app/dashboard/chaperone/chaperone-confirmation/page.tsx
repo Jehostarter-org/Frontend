@@ -12,10 +12,11 @@ import {
 } from "@/lib/api/riderApiSlice";
 
 const HELP_TYPE_LABELS: Record<string, string> = {
-  tax_file: "Tax File Number (TFN)",
-  registration: "General Registration",
-  bank_account: "Bank Account Opening",
-  other: "Other",
+  bank_account: "Bank Account Opening Assistance",
+  tax_file: "Tax File Number Reference",
+  cv_job_readiness: "CV & Job-Readiness Assistance",
+  reference: "Reference Assistance",
+  settlement: "Other Settlement Assistance",
 };
 
 export default function ChaperoneConfirmation() {

@@ -86,6 +86,21 @@ export interface SendMessagePayload {
     reply_to?: number | null;
 }
 
+export interface SupportStartPayload {
+    initial_message?: string;
+    subject?: string;
+}
+
+export interface SupportStartResponse {
+    conversation_id: number;
+    subject: string;
+    customer: {
+        id: number;
+        full_name: string;
+        email: string;
+    } | null;
+}
+
 // ─── API Slice ────────────────────────────────────────────────────────────────
 
 export const messagesApiSlice = apiSlice.injectEndpoints({
@@ -117,6 +132,16 @@ export const messagesApiSlice = apiSlice.injectEndpoints({
         startConversation: builder.mutation<Conversation, StartConversationPayload>({
             query: (body) => ({
                 url: '/messaging/start/',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: [{ type: 'Conversation' as const, id: 'LIST' }],
+        }),
+
+        // POST /api/messaging/support/start/
+        startSupport: builder.mutation<SupportStartResponse, SupportStartPayload>({
+            query: (body) => ({
+                url: '/messaging/support/start/',
                 method: 'POST',
                 body,
             }),
@@ -207,6 +232,7 @@ export const {
     useGetInboxQuery,
     useGetMessagingUnreadCountQuery,
     useStartConversationMutation,
+    useStartSupportMutation,
     useGetConversationQuery,
     useGetMessagesQuery,
     useSendMessageMutation,

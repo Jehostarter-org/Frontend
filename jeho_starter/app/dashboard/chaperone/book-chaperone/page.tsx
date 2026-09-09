@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, UserCheck } from "lucide-react"
 
 const HELP_TYPES = [
-  { value: "sim_card", label: "SIM Card Reference" },
+  { value: "bank_account", label: "Bank Account Opening Assistance" },
   { value: "tax_file", label: "Tax File Number Reference" },
-  { value: "registration", label: "All Forms of Registration" },
-  { value: "translation", label: "Translation Service" },
+  { value: "cv_job_readiness", label: "CV & Job-Readiness Assistance" },
+  { value: "reference", label: "Reference Assistance" },
+  { value: "settlement", label: "Other Settlement Assistance" },
 ]
 
 interface ChaperoneProfile {
@@ -48,7 +49,7 @@ export default function BookChaperonePage() {
   const [loadingChaperones, setLoadingChaperones] = useState(true)
 
   const [formData, setFormData] = useState({
-    helpType: "registration",
+    helpType: "bank_account",
     location: "",
     description: "",
     notes: "",
@@ -168,7 +169,7 @@ export default function BookChaperonePage() {
       }
 
       toast.success("Chaperone service request submitted successfully!")
-      router.push("/dashboard/chaperone")
+      router.push("/terms/chaperone")
 
     } catch (error) {
       console.error("Booking error:", error)

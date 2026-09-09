@@ -401,11 +401,13 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
               name="destination"
               render={({ field }) => (
                 <LocationSearch
-                  label="Drop-off Location"
+                  label="Drop-off Address"
                   value={field.value}
                   onChange={field.onChange}
                   onCoordinatesChange={setDestinationCoords}
                   error={errors.destination?.message}
+                  placeholder="Enter your house / street address, e.g. 14 Marina Road"
+                  countryCode={detectedCountry || user?.current_country}
                 />
               )}
             />
