@@ -53,8 +53,10 @@ export default function LoginPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-tr from-emerald-600/80 via-emerald-600/40 to-transparent" />
 
-          <div className="absolute top-6 left-6 hidden lg:block">
-            <Image src={logo2} alt="logo" className="w-16 h-auto drop-shadow-lg" priority />
+          <div className="absolute top-6 left-6 z-10">
+            <div className="bg-teal-900 rounded-xl px-3 py-2 shadow-2xl ring-1 ring-white/20">
+              <Image src={logo2} alt="Jehostarter logo" className="w-28 sm:w-32 h-auto" priority />
+            </div>
           </div>
 
           <div className="absolute inset-0 flex flex-col items-start justify-end p-8 lg:p-10">
