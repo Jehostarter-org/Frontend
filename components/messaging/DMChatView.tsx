@@ -8,6 +8,7 @@ import MessageContent from "@/components/reuseables/MessageContent";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useDeleteMessageMutation, useGetMessagesQuery, useMarkConversationReadMutation, useSendMessageMutation, useSendMessageWithAttachmentsMutation } from "@/lib/api/messagesApiSlice";
+import { useNotifications } from "@/components/contexts/notification-context";
 import { useDirectMessage, type DMMessage } from "@/hooks/useDirectMessage";
 import type { Conversation } from "@/lib/api/messagesApiSlice";
 
@@ -200,6 +201,13 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
 
     const otherParticipant = conversation.other_participant;
 
+    // Real-time presence: live events win, serializer value is the fallback.
+    const { onlineUsers } = useNotifications();
+    const otherParticipantId = otherParticipant?.id ? String(otherParticipant.id) : null;
+    const otherIsOnline = otherParticipant
+        ? onlineUsers[otherParticipantId ?? ""] ?? otherParticipant.is_online ?? false
+        : false;
+
     const handleDeleteMessage = async (messageId: number) => {
         setDeletedIds((prev) => new Set([...prev, messageId]));
         removeMessage(messageId);
@@ -260,14 +268,14 @@ export function DMChatView({ conversation, onBack, onInfoClick }: DMChatViewProp
                                 {otherParticipant.full_name.charAt(0).toUpperCase()}
                             </div>
                         )}
-                        <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${isConnected ? "bg-green-500" : "bg-slate-400"}`} />
+                        <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${otherIsOnline ? "bg-green-500" : "bg-slate-400"}`} />
                     </div>
                     <div className="min-w-0">
                         <h3 className="font-semibold text-[15px] text-slate-800 truncate">
                             {otherParticipant.full_name}
                         </h3>
                         <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                            {isConnected ? (
+                            {otherIsOnline ? (
                                 <>
                                     <Wifi size={10} /> Online
                                 </>

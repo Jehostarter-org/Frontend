@@ -10,6 +10,7 @@ export interface Participant {
     email: string;
     is_gold: boolean;
     avatar_url: string | null;
+    is_online?: boolean;
 }
 
 export interface MessageAttachment {
