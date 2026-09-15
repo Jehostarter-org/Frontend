@@ -121,6 +121,7 @@ const INITIAL_DATA: ChaperoneRegistrationData = {
   offersRegistrationService: false,
   isImmigrationOfficer: false,
   phoneNumber: "",
+  homeBaseAddress: "",
 }
 
 export default function ChaperoneRegistrationPage() {
@@ -150,6 +151,7 @@ export default function ChaperoneRegistrationPage() {
     const requiredFields = [
       "firstName", "lastName", "nationalIdentityNumber",
       "phoneNumber", "simCardReference", "taxFileNumberReference",
+      "homeBaseAddress",
     ]
 
     const missingFields = requiredFields.filter(
@@ -178,6 +180,7 @@ export default function ChaperoneRegistrationPage() {
       profileFormData.append("sim_card_reference", formData.simCardReference)
       profileFormData.append("phone_number", formData.phoneNumber)
       profileFormData.append("tax_file_number_reference", formData.taxFileNumberReference)
+      profileFormData.append("home_base_location", formData.homeBaseAddress)
       profileFormData.append("offers_translation_service", formData.offersTranslationService ? "true" : "false")
       profileFormData.append("offers_registration_service", formData.offersRegistrationService ? "true" : "false")
       profileFormData.append("is_immigration_officer", formData.isImmigrationOfficer ? "true" : "false")
