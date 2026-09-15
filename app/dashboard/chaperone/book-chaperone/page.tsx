@@ -61,8 +61,9 @@ export default function BookChaperonePage() {
   const [loadingChaperones, setLoadingChaperones] = useState(true)
 
   const [formData, setFormData] = useState({
-    helpType: "arrival",
+    helpTypes: ["arrival"] as string[],
     location: "",
+    address: "",
     description: "",
     notes: "",
     selectedChaperoneId: "",
@@ -70,6 +71,15 @@ export default function BookChaperonePage() {
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const toggleHelpType = (value: string) => {
+    setFormData((prev) => {
+      const selected = prev.helpTypes.includes(value)
+        ? prev.helpTypes.filter((v) => v !== value)
+        : [...prev.helpTypes, value]
+      return { ...prev, helpTypes: selected }
+    })
   }
 
   useEffect(() => {
@@ -108,17 +118,29 @@ export default function BookChaperonePage() {
       return
     }
 
+    if (!formData.helpTypes.length) {
+      toast.error("Please select at least one help type.")
+      return
+    }
+
     if (!formData.location) {
       toast.error("Please enter your location.")
+      return
+    }
+
+    if (!formData.address) {
+      toast.error("Please enter your address.")
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const selectedHelp = HELP_TYPES.find((h) => h.value === formData.helpType)
+      const selectedHelpLabels = formData.helpTypes
+        .map((value) => HELP_TYPES.find((h) => h.value === value)?.label || value)
+        .join(", ")
       const description = [
-        `Help needed: ${selectedHelp?.label || formData.helpType}`,
+        `Help needed: ${selectedHelpLabels}`,
         formData.description && `Details: ${formData.description}`,
       ].filter(Boolean).join("\n")
 
@@ -129,8 +151,9 @@ export default function BookChaperonePage() {
         city: formData.location,
         notes: formData.notes,
         chaperone_details: {
-          help_type: formData.helpType,
+          help_type: formData.helpTypes,
           location: formData.location,
+          address: formData.address,
         },
       }
 
@@ -217,7 +240,7 @@ export default function BookChaperonePage() {
           <section className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">1</span>
-              <h3 className="font-semibold text-gray-900">What do you need help with?</h3>
+              <h3 className="font-semibold text-gray-900">What do you need help with? (select all that apply)</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -228,19 +251,21 @@ export default function BookChaperonePage() {
                 >
                   <button
                     type="button"
-                    onClick={() => updateField("helpType", help.value)}
+                    onClick={() => toggleHelpType(help.value)}
                     className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                      formData.helpType === help.value
+                      formData.helpTypes.includes(help.value)
                         ? "border-teal-500 bg-teal-50"
                         : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        formData.helpType === help.value ? "border-teal-500" : "border-gray-300"
+                      <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                        formData.helpTypes.includes(help.value) ? "border-teal-500 bg-teal-500" : "border-gray-300"
                       }`}>
-                        {formData.helpType === help.value && (
-                          <div className="w-2 h-2 rounded-full bg-teal-500" />
+                        {formData.helpTypes.includes(help.value) && (
+                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 10" fill="none">
+                            <path d="M1 5.5L4 8.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
                         )}
                       </div>
                       <span className="font-medium text-sm text-gray-900">{help.label}</span>
@@ -271,6 +296,17 @@ export default function BookChaperonePage() {
                 onChange={(e) => updateField("location", e.target.value)}
                 className="h-12"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Full Address <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="e.g., 123 Main Street, Victoria Island, Lagos"
+                value={formData.address}
+                onChange={(e) => updateField("address", e.target.value)}
+                className="h-12"
+              />
+              <p className="text-xs text-gray-400">Street address, apartment/unit number, suburb or landmark</p>
             </div>
 
             <div className="space-y-2">

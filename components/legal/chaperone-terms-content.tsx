@@ -6,10 +6,6 @@ export function ChaperoneTermsContent() {
           CHAPRONE SERVICES – TERMS &amp; CONDITIONS
         </h2>
         <p className="text-sm text-gray-500 mt-1">Effective Date: 29th of August 2026</p>
-        <p className="mt-2">
-          <span className="font-semibold">Service Provider:</span> Jehostarter,
-          operated by [Legal Name], ABN [ABN]
-        </p>
         <p className="mt-1">
           <span className="font-semibold">Service:</span> Chaprone Services
         </p>

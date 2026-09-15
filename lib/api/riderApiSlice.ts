@@ -81,8 +81,9 @@ export interface ServiceRequest {
     updated_at: string;
     airport_pickup_details: AirportPickupDetails | null;
     chaperone_details?: {
-        help_type: string;
+        help_type: string[];
         location?: string;
+        address?: string;
     } | null;
     driver_details: DriverDetails | null;
     review: { id: string; rating: number; comment: string; created_at: string } | null;
