@@ -267,6 +267,12 @@ export const communityApiSlice = apiSlice.injectEndpoints({
       providesTags: (_r, _e, id) => [{ type: 'CommunityMessages' as const, id }],
     }),
 
+    getCommunityActivity: builder.query<CommunityMessage[], void>({
+      query: () => '/community/messages/activity/',
+      transformResponse: (raw: any) =>
+        Array.isArray(raw) ? raw : (raw?.results ?? []),
+    }),
+
     sendCommunityMessage: builder.mutation<CommunityMessage, { id: string; body: FormData }>({
       query: ({ id, body }) => ({ url: `/community/${id}/messages/`, method: 'POST', body, formData: true }),
       invalidatesTags: (_r, _e, { id }) => [{ type: 'CommunityMessages' as const, id }],
@@ -332,6 +338,7 @@ export const {
   useInviteByEmailMutation,
   useAcceptInviteMutation,
   useGetCommunityMessagesQuery,
+  useGetCommunityActivityQuery,
   useSendCommunityMessageMutation,
   useDeleteCommunityMessageMutation,
   useToggleReactionMutation,
