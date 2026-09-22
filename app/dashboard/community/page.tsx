@@ -833,8 +833,17 @@ export default function CommunityPage() {
         setSelectedGroupId(groupId);
         toast.success("Joined community successfully!");
       }
-    } catch {
-      toast.error("Failed to join. Please try again.");
+    } catch (err: any) {
+      const detail = err?.data?.detail as string | undefined;
+      if (detail === 'Request already pending.') {
+        toast.info("Request already pending — waiting for admin approval.");
+      } else if (detail === 'Already a member.') {
+        setActiveTab("groups");
+        setSelectedGroupId(groupId);
+        toast.success("You're already a member.");
+      } else {
+        toast.error("Failed to join. Please try again.");
+      }
     }
     setIsJoinModalOpen(false);
   };

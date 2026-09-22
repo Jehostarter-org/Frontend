@@ -96,8 +96,16 @@ export default function GlobalSearch() {
         toast.success("Joined community successfully!");
         router.push(`/dashboard/community?group=${groupId}`);
       }
-    } catch {
-      toast.error("Failed to join. Please try again.");
+    } catch (err: any) {
+      const detail = err?.data?.detail as string | undefined;
+      if (detail === "Request already pending.") {
+        toast.info("Request already pending — waiting for admin approval.");
+      } else if (detail === "Already a member.") {
+        toast.success("You're already a member.");
+        router.push(`/dashboard/community?group=${groupId}`);
+      } else {
+        toast.error("Failed to join. Please try again.");
+      }
     }
     setJoinGroup(null);
   };
