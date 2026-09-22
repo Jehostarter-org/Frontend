@@ -129,7 +129,9 @@ function RideCard({
             {ride.chaperone_details?.help_type && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Shield className="h-4 w-4 text-purple-500 flex-shrink-0" />
-                <span>Help: {ride.chaperone_details.help_type.replace(/_/g, " ")}</span>
+                <span>Help: {ride.chaperone_details.help_type
+                  .map((h: string) => h.replace(/_/g, " "))
+                  .join(", ")}</span>
               </div>
             )}
             {ride.description && (

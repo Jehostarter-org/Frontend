@@ -1,25 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, MessageSquare } from "lucide-react";
 import CommunityWidget from "../shop/community-widget";
 import { useNotifications } from "@/components/contexts/notification-context";
+import { useCommunityEvents, type CommunityEventMap } from "@/hooks/useCommunityEvents";
 import {
-  useGetCommunityFeedQuery,
+  useGetCommunityActivityQuery,
   useGetMyCommunitiesQuery,
-  type Post,
+  type CommunityMessage,
 } from "@/lib/api/communityApiSlice";
 
-function toWidgetItem(post: Post, communityNames: Record<string, string>) {
-  return {
-    id: post.id,
-    groupName: communityNames[post.community] || post.community,
-    senderName: post.author_username || "Community member",
-    senderAvatar: post.author_username ? `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author_username)}&background=0D9488&color=fff` : undefined,
-    lastMessage: post.content,
-    timestamp: timeAgo(post.created_at),
-  };
+type LiveMessage = CommunityEventMap["community_message"];
+
+type MessageLike = {
+  id: string;
+  community?: string;
+  community_id?: string;
+  community_name?: string;
+  sender_username: string;
+  sender_avatar?: string | null;
+  content?: string;
+  attachment_name?: string;
+  created_at: string;
+};
+
+interface ActivityItem {
+  id: string;
+  communityId: string;
+  groupName: string;
+  senderName: string;
+  senderAvatar?: string;
+  lastMessage: string;
+  createdAtMs: number;
+  timestamp: string;
+}
+
+function avatarFor(username: string, avatar?: string | null): string | undefined {
+  if (avatar && /^https?:\/\//.test(avatar)) return avatar;
+  return username
+    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0D9488&color=fff`
+    : undefined;
 }
 
 function timeAgo(value?: string): string {
@@ -37,44 +59,65 @@ function timeAgo(value?: string): string {
   return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+function preview(content: string): string {
+  return content.replace(/\s+/g, " ").trim();
+}
+
 export default function CommunityLiveFeed() {
-  const { data: feed = [], refetch } = useGetCommunityFeedQuery(undefined, {
+  const { data: activity = [], refetch } = useGetCommunityActivityQuery(undefined, {
     pollingInterval: 15000,
     refetchOnMountOrArgChange: true,
   });
   const { data: myCommunities = [] } = useGetMyCommunitiesQuery(undefined);
   const { notifications } = useNotifications();
-  const seenNotifIdsRef = useRef<Set<string>>(new Set());
-  const lastRefetchAtRef = useRef(0);
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
 
-  useEffect(() => {
-    if (notifications.length === 0) return;
-    const newest = notifications[0];
-    if (!newest || seenNotifIdsRef.current.has(newest.id)) return;
-    if (
-      newest.notificationType !== "community_message" &&
-      newest.notificationType !== "community_post"
-    ) {
-      seenNotifIdsRef.current.add(newest.id);
-      return;
-    }
-    seenNotifIdsRef.current.add(newest.id);
-    const now = Date.now();
-    if (now - lastRefetchAtRef.current < 3000) return;
-    lastRefetchAtRef.current = now;
-    refetch();
-  }, [notifications, refetch]);
+  const onCommunityMessage = useCallback((msg: CommunityEventMap["community_message"]) => {
+    setLiveMessages((prev) => {
+      const rest = prev.filter((m) => m.id !== msg.id);
+      return [msg, ...rest].slice(0, 8);
+    });
+  }, []);
+
+  useCommunityEvents({ onCommunityMessage });
+
+  // Live refetch when a community activity notification arrives (keeps the
+  // REST snapshot fresh even if the socket missed an event).
+  useNotificationsAwareRefetch(notifications, refetch);
 
   const communityNames: Record<string, string> = {};
   myCommunities.forEach((c) => {
     communityNames[c.id] = c.name;
   });
 
-  const latestActivity = feed
-    .filter((post) => post.content)
-    .slice(-3)
-    .reverse()
-    .map((post) => toWidgetItem(post, communityNames));
+  const items = useMemo<ActivityItem[]>(() => {
+    const toItem = (m: MessageLike): ActivityItem => {
+      const communityId = m.community_id ?? m.community ?? "";
+      return {
+        id: m.id,
+        communityId,
+        groupName: m.community_name || communityNames[communityId] || communityId,
+        senderName: m.sender_username || "Community member",
+        senderAvatar: avatarFor(m.sender_username || "", m.sender_avatar),
+        lastMessage: preview(m.content || "") || m.attachment_name || "Sent a file",
+        createdAtMs: Date.parse(m.created_at) || 0,
+        timestamp: timeAgo(m.created_at),
+      };
+    };
+
+    const seeded: CommunityMessage[] = activity.filter((m) => m.content || m.attachment_name);
+    const combined = [...liveMessages, ...seeded].map(toItem);
+
+    const seen = new Set<string>();
+    return combined
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      })
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+      .slice(0, 3);
+  }, [liveMessages, activity, communityNames]);
 
   return (
     <div className="space-y-8">
@@ -86,35 +129,57 @@ export default function CommunityLiveFeed() {
           </div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase italic">Community Live Activity</h2>
         </div>
-        <Link href="/dashboard/community" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors flex items-center gap-2">
-          View All 
+        <Link href="/dashboard/community?tab=messages" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors flex items-center gap-2">
+          View All
           <ArrowRight size={14} />
         </Link>
       </div>
 
-      {latestActivity.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
             <MessageSquare className="w-6 h-6 text-slate-300" />
           </div>
           <p className="text-sm font-medium text-slate-400">No community activity yet</p>
-          <p className="text-xs text-slate-300 mt-1">Join a community to see live posts here.</p>
+          <p className="text-xs text-slate-300 mt-1">Join a community to see live conversations here.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {latestActivity.map((msg, index) => (
-            <div key={msg.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
-              <CommunityWidget 
+          {items.map((msg, index) => (
+            <Link
+              key={msg.id}
+              href={`/dashboard/community?group=${msg.communityId}`}
+              className="block animate-fade-in-up group"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <CommunityWidget
                 groupName={msg.groupName}
                 senderName={msg.senderName}
                 senderAvatar={msg.senderAvatar}
                 lastMessage={msg.lastMessage}
                 timestamp={msg.timestamp}
               />
-            </div>
+            </Link>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function useNotificationsAwareRefetch(notifications: unknown[], refetch: () => void) {
+  const seenNotifIdsRef = useRef(new Set<string>());
+  const lastRefetchAtRef = useRef(0);
+
+  useEffect(() => {
+    if (notifications.length === 0) return;
+    const newest = notifications[0] as { id: string; notificationType?: string };
+    if (!newest || seenNotifIdsRef.current.has(newest.id)) return;
+    seenNotifIdsRef.current.add(newest.id);
+    if (newest.notificationType !== "community_message" && newest.notificationType !== "community_post") return;
+    const now = Date.now();
+    if (now - lastRefetchAtRef.current < 3000) return;
+    lastRefetchAtRef.current = now;
+    refetch();
+  }, [notifications, refetch]);
 }

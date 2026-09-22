@@ -128,6 +128,8 @@ export function createGqlSubscription<T = any>(
 export interface RawNotificationEvent {
   type:           string;
   unread_count?:  number;
+  user_id?:       string | number;
+  is_online?:     boolean;
   payload?: {
     notification_id: string;
     type:            string;

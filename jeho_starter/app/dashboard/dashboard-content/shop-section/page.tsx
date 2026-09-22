@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from "react";
 import ServiceCards from "../service-cards/page";
 import WelcomeBanner from "@/components/dashboard/shop/welcome-banner";
 import ActivityAnalytics from "@/components/dashboard/shop/activity-analytics";
@@ -13,12 +12,6 @@ import MigrationOfficeCard from "@/components/dashboard/shop/migration-office-ca
 
 
 export default function ShopSection() {
-  const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | undefined>();
-
-  const handleLocationChange = (location: { lat: number; lng: number }) => {
-    setMapLocation(location);
-  };
-
   return (
     <div className="bg-gray-50/50 w-full">
       <div className="flex flex-col xl:flex-row gap-6 max-w-7xl mx-auto">
@@ -32,15 +25,14 @@ export default function ShopSection() {
 
           <MigrationOfficeCard />
 
+          <LocalNavigation />
+
           <div className="xl:hidden gap-5 flex flex-col">
             <SystemAlertsBanner />
             <ProgressTracker />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LocalNavigation onLocationChange={handleLocationChange}  mapLocation={mapLocation} />
-            <ShopHighlights />
-          </div>
+          <ShopHighlights />
 
           <CommunityLiveFeed />
         </div>

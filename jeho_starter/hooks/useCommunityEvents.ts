@@ -7,6 +7,16 @@ export interface CommunityEventMap {
   community_deleted: { community_id: string };
   community_updated: { community: any };
   new_conversation: { conversation: any };
+  community_message: {
+    id: string;
+    community_id: string;
+    community_name: string;
+    sender_username: string;
+    sender_avatar: string | null;
+    content: string;
+    attachment_name: string;
+    created_at: string;
+  };
 }
 
 type CommunityEventCallback<T extends keyof CommunityEventMap> = (data: CommunityEventMap[T]) => void;
@@ -16,6 +26,7 @@ interface UseCommunityEventsOptions {
   onCommunityDeleted?: CommunityEventCallback<"community_deleted">;
   onCommunityUpdated?: CommunityEventCallback<"community_updated">;
   onNewConversation?: CommunityEventCallback<"new_conversation">;
+  onCommunityMessage?: CommunityEventCallback<"community_message">;
 }
 
 export function useCommunityEvents(options: UseCommunityEventsOptions) {
@@ -52,6 +63,9 @@ export function useCommunityEvents(options: UseCommunityEventsOptions) {
               break;
             case "new_conversation":
               opts.onNewConversation?.(data);
+              break;
+            case "community_message":
+              opts.onCommunityMessage?.(data);
               break;
           }
         } catch {}

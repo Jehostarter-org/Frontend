@@ -67,6 +67,7 @@ export function GroupInfoSidebar({
   const [updateCommunity] = useUpdateCommunityMutation();
   const [approveMember, { isLoading: isApproving }] = useApproveMemberMutation();
   const [rejectMember, { isLoading: isRejecting }] = useRejectMemberMutation();
+  const [isSavingApproval, setIsSavingApproval] = useState(false);
 
   const { data: members = [], isLoading: isLoadingMembers } = useGetCommunityMembersQuery(
     group?.id ?? "",
@@ -120,6 +121,26 @@ export function GroupInfoSidebar({
       refetchPending();
     } catch {
       toast.error("Failed to reject member.");
+    }
+  };
+
+  const handleToggleApproval = async () => {
+    if (!group?.id || isSavingApproval) return;
+    setIsSavingApproval(true);
+    try {
+      await updateCommunity({
+        id: group.id,
+        body: { require_approval: !group.requireApproval } as any,
+      }).unwrap();
+      toast.success(
+        group.requireApproval
+          ? "Approval turned off — new members join instantly."
+          : "Approval on — new members now wait for your approval.",
+      );
+    } catch {
+      toast.error("Failed to update approval setting. Please try again.");
+    } finally {
+      setIsSavingApproval(false);
     }
   };
 
@@ -419,14 +440,12 @@ export function GroupInfoSidebar({
                   <span className="text-[12px] font-medium text-slate-600">Require approval to join</span>
                 </div>
                 <button
-                  onClick={() => {
-                    if (!group?.id) return;
-                    updateCommunity({
-                      id: group.id,
-                      body: { require_approval: !group.requireApproval } as any,
-                    });
-                  }}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  type="button"
+                  role="switch"
+                  aria-checked={group.requireApproval}
+                  disabled={isSavingApproval}
+                  onClick={handleToggleApproval}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
                     group.requireApproval ? "bg-teal-600" : "bg-slate-300"
                   }`}
                 >

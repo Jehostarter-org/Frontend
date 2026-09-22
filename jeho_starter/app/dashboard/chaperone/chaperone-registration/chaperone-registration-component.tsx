@@ -18,6 +18,7 @@ export interface ChaperoneRegistrationData {
   offersRegistrationService: boolean
   isImmigrationOfficer: boolean
   phoneNumber: string
+  homeBaseAddress: string
 }
 
 interface ChaperoneRegistrationFormProps {
@@ -93,6 +94,17 @@ export function ChaperoneRegistrationForm({ data, onUpdate }: ChaperoneRegistrat
                 className="h-12"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Home Base Address <span className="text-red-500">*</span></Label>
+            <Input
+              placeholder="e.g., 45 Adeola Odeku Street, Victoria Island, Lagos"
+              value={data.homeBaseAddress}
+              onChange={handleInput("homeBaseAddress")}
+              className="h-12"
+            />
+            <p className="text-xs text-gray-400">Your street address so customers know where you're based</p>
           </div>
         </section>
 

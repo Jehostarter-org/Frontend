@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Globe, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, Globe, ShieldCheck, UserCheck, UserPlus } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
@@ -28,6 +28,7 @@ export default function CreateCommunityDialog({
   const router = useRouter();
   const [communityName, setCommunityName] = useState("");
   const [description, setDescription] = useState("");
+  const [requireApproval, setRequireApproval] = useState(true);
 
   const [createCommunity, { isLoading: isSubmitting }] = useCreateCommunityMutation();
 
@@ -36,6 +37,7 @@ export default function CreateCommunityDialog({
     if (!isOpen) {
       setCommunityName("");
       setDescription("");
+      setRequireApproval(true);
     }
   }, [isOpen]);
 
@@ -52,6 +54,7 @@ export default function CreateCommunityDialog({
       formData.append("name", communityName.trim());
       formData.append("description", description.trim());
       formData.append("visibility", "public");
+      formData.append("require_approval", String(requireApproval));
 
       const created = await createCommunity(formData).unwrap();
 
@@ -130,6 +133,41 @@ export default function CreateCommunityDialog({
                   className="bg-slate-50 border-none rounded-xl focus:ring-teal-500/10 resize-none"
                   rows={3}
                 />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 bg-teal-50 border border-teal-100 rounded-xl p-3">
+                <div className="flex items-start gap-2.5">
+                  {requireApproval ? (
+                    <UserCheck size={16} className="text-teal-700 mt-0.5 shrink-0" />
+                  ) : (
+                    <UserPlus size={16} className="text-slate-400 mt-0.5 shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-[12px] font-bold text-slate-700 leading-tight">
+                      Require approval to join
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium leading-snug">
+                      {requireApproval
+                        ? "New members are approved by you before joining."
+                        : "Anyone can join the group instantly."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={requireApproval}
+                  onClick={() => setRequireApproval((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
+                    requireApproval ? "bg-teal-600" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                      requireApproval ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 

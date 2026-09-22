@@ -15,6 +15,7 @@ import { ArrowLeft, Send, Paperclip, MoreVertical, Check, CheckCheck } from 'luc
 import MessageContent from '@/components/reuseables/MessageContent';
 import { useSelector } from 'react-redux';
 import { selectCurrentToken } from '@/lib/features/auth/authSlice';
+import { useNotifications } from '@/components/contexts/notification-context';
 import {
     useGetConversationQuery,
     useGetMessagesQuery,
@@ -333,6 +334,10 @@ export default function ChatPage() {
   };
 
 const other = conversation?.other_participant;
+    const { onlineUsers } = useNotifications();
+    const otherIsOnline = other?.id != null
+        ? (onlineUsers[String(other.id)] ?? other.is_online ?? false)
+        : false;
 
 return (
     <div className= "flex flex-col h-[calc(100vh-64px)] bg-gray-50" >
@@ -356,9 +361,11 @@ className = "p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
 </p>
     < p className = "text-xs text-gray-400" >
         {
-            connected
-                ?<span className = "text-green-500">● Online</ span >
-              : 'Connecting…'}
+            other
+                ? otherIsOnline
+                    ? <span className = "text-green-500">● Online</span>
+                    : <span className = "text-slate-400">● Offline</span>
+                : 'Connecting…'}
 </p>
     </div>
 

@@ -37,6 +37,8 @@ interface NotificationContextType {
   totalUnreadCount: number;
   isConnected: boolean;
   isLoading: boolean;
+  onlineUsers: Record<string, boolean>;
+  isUserOnline: (userId: string | number) => boolean;
   getInboxCount: () => number;
   getNotificationCount: () => number;
   getCommunityCount: () => number;
@@ -92,6 +94,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [localInboxUnread, setLocalInboxUnread] = useState(0);
   const [communityUnread, setCommunityUnread] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
+  const currentUserId = user?.id ? String(user.id) : null;
 
   const unsubRef = useRef<UnsubscribeFn | null>(null);
 
@@ -143,6 +147,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       (event) => {
         if (event.type === "connection_established") {
           setIsConnected(true);
+          return;
+        }
+
+        if (event.type === "presence" && event.user_id != null) {
+          const id = String(event.user_id);
+          setOnlineUsers((prev) => ({ ...prev, [id]: !!event.is_online }));
           return;
         }
 
@@ -255,12 +265,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const getInboxCount = useCallback(() => inboxUnread, [inboxUnread]);
   const getCommunityCount = useCallback(() => communityUnread, [communityUnread]);
 
+  const isUserOnline = useCallback(
+    (userId: string | number) => {
+      return onlineUsers[String(userId)] ?? false;
+    },
+    [onlineUsers],
+  );
+
+  // Forget other users' status when the session changes.
+  React.useEffect(() => {
+    setOnlineUsers({});
+  }, [currentUserId]);
+
   const value = useMemo(
     () => ({
       notifications,
       totalUnreadCount,
       isConnected,
       isLoading,
+      onlineUsers,
+      isUserOnline,
       getInboxCount,
       getNotificationCount,
       getCommunityCount,
@@ -274,6 +298,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       totalUnreadCount,
       isConnected,
       isLoading,
+      onlineUsers,
+      isUserOnline,
       getInboxCount,
       getNotificationCount,
       getCommunityCount,

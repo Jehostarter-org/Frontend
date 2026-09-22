@@ -39,10 +39,13 @@ export default function ChaperoneConfirmation() {
     useClaimServiceRequestMutation();
 
   const chaperoneDetails = serviceRequest?.chaperone_details;
-  const helpType = chaperoneDetails?.help_type
-    ? HELP_TYPE_LABELS[chaperoneDetails.help_type] || chaperoneDetails.help_type
+  const rawHelp: unknown = chaperoneDetails?.help_type;
+  const helpList = Array.isArray(rawHelp) ? rawHelp : rawHelp ? [rawHelp] : [];
+  const helpType = helpList.length
+    ? helpList.map((h) => HELP_TYPE_LABELS[h] || h.replace(/_/g, " ")).join(", ")
     : "—";
   const location = chaperoneDetails?.location || serviceRequest?.city || "—";
+  const address = chaperoneDetails?.address || "—";
 
   const price = serviceRequest?.price
     ? new Intl.NumberFormat("en", {
@@ -175,6 +178,12 @@ export default function ChaperoneConfirmation() {
                       <span className="font-medium text-gray-500 text-sm">Location</span>
                       <span className="font-semibold text-gray-900 text-sm text-right max-w-[60%]">{location}</span>
                     </div>
+                    {address !== "—" && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="font-medium text-gray-500 text-sm">Address</span>
+                        <span className="font-semibold text-gray-900 text-sm text-right max-w-[60%]">{address}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center py-2">
                       <span className="font-medium text-gray-500 text-sm">City</span>
                       <span className="font-semibold text-gray-900 text-sm text-right max-w-[60%]">

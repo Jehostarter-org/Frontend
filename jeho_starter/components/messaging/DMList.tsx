@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { MessageCircle, Loader2 } from "lucide-react";
 import { useGetInboxQuery } from "@/lib/api/messagesApiSlice";
+import { useNotifications } from "@/components/contexts/notification-context";
 import type { Conversation } from "@/lib/api/messagesApiSlice";
 
 interface DMListProps {
@@ -16,6 +17,7 @@ export function DMList({ selectedId, onSelect }: DMListProps) {
         refetchOnMountOrArgChange: true,
         refetchOnFocus: true,
     });
+    const { onlineUsers } = useNotifications();
 
     if (isLoading) {
         return (
@@ -71,6 +73,9 @@ export function DMList({ selectedId, onSelect }: DMListProps) {
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg">
                                 {conv.other_participant?.full_name?.charAt(0).toUpperCase() || "?"}
                             </div>
+                        )}
+                        {conv.other_participant && (
+                            <div className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${onlineUsers[String(conv.other_participant.id)] ?? conv.other_participant.is_online ? "bg-emerald-500" : "bg-slate-300"}`} />
                         )}
                         {conv.other_participant?.is_gold && (
                             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full border-2 border-white" />
