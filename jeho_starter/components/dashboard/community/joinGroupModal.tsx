@@ -125,7 +125,7 @@ export function JoinGroupModal({ isOpen, onClose, group, onJoin }: JoinGroupModa
                 : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20"
             }`}
           >
-            {group.myStatus === 'pending' ? "Request Pending" : isJoining ? "Joining..." : group.requireApproval ? "Request to Join" : "Join Now"}
+            {group.myStatus === 'pending' ? "Request Pending" : isJoining ? "Joining..." : "Request to Join"}
           </Button>
         </DialogFooter>
       </DialogContent>
