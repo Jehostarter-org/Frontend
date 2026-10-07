@@ -12,6 +12,8 @@ export interface Notification {
   is_read:           boolean;
   read_at:           string | null;
   link:              string;
+  // Optional structured payload (e.g. join requests carry community_id/member_id)
+  data?:             Record<string, any> | null;
   created_at:        string;
   actor?:            string | null;
   actor_username?:   string | null;

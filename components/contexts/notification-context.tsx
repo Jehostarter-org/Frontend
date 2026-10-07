@@ -28,6 +28,7 @@ export interface GqlNotification {
   message: string;
   isRead: boolean;
   link: string;
+  data?: Record<string, any> | null;
   createdAt: string;
   actor?: { username: string; avatar?: string } | null;
 }
@@ -74,6 +75,7 @@ function toContextNotification(n: Notification): GqlNotification {
     message: n.message,
     isRead: n.is_read,
     link: n.link,
+    data: n.data ?? null,
     createdAt: n.created_at,
     actor: n.actor_username ? { username: n.actor_username } : null,
   };
@@ -164,6 +166,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             message: event.payload.message,
             isRead: false,
             link: event.payload.link ?? "",
+            data: event.payload.data ?? null,
             createdAt: event.payload.created_at,
           };
           setLiveNotifications((prev) => mergeById([n, ...prev]));
