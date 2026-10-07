@@ -529,9 +529,7 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState<TabType>(
     () => (searchParams.get("tab") === "messages" ? "messages" : "groups"),
   );
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
-    () => searchParams.get("group"),
-  );
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedDM, setSelectedDM] = useState<Conversation | null>(null);
   const [showDMInfo, setShowDMInfo] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -568,12 +566,6 @@ export default function CommunityPage() {
     const tab = searchParams.get("tab");
     if (tab === "messages") {
       setActiveTab("messages");
-    }
-
-    const groupId = searchParams.get("group");
-    if (groupId) {
-      setSelectedGroupId(groupId);
-      setActiveTab("groups");
     }
   }, [searchParams]);
 
@@ -628,6 +620,44 @@ export default function CommunityPage() {
     selectedGroupId!,
     { skip: !selectedGroupId || isDM || communityInList },
   );
+  // ── ?group= deep link (notification links): enter the group only when the
+  //    user is an approved member. Pending/rejected applicants must never
+  //    land in the group shell as if they had joined. ──────────────────────
+  useEffect(() => {
+    const groupId = searchParams.get("group");
+    if (!groupId || searchParams.get("conversation") || isLoading || !token) return;
+    const stripGroupParam = () => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("group");
+      const qs = next.toString();
+      router.replace(qs ? `/dashboard/community?${qs}` : "/dashboard/community");
+    };
+    if (myCommunitiesRaw.some((c) => c.id === groupId)) {
+      setSelectedGroupId(groupId);
+      setActiveTab("groups");
+      stripGroupParam();
+      return;
+    }
+    const target = allCommunitiesRaw.find((c) => c.id === groupId);
+    setSelectedGroupId(null);
+    setIsInfoBarOpen(false);
+    stripGroupParam();
+    if (!target) {
+      toast.error("This group is no longer available.");
+      return;
+    }
+    const item = apiToCommunityItem(target, currentUserId);
+    setActiveTab("discovery");
+    if (item.myStatus === "pending") {
+      toast.info("Your request is still pending admin approval.");
+      return;
+    }
+    setSelectedDiscoGroup(item);
+    setIsJoinModalOpen(true);
+    if (item.myStatus === "rejected") {
+      toast.info("Your join request was rejected — you can request again.");
+    }
+  }, [searchParams, isLoading, token, myCommunitiesRaw, allCommunitiesRaw, currentUserId, router]);
 
   const {
     messages,
@@ -783,6 +813,12 @@ export default function CommunityPage() {
     } else {
       if (item.myStatus === 'pending') {
         toast.info("Your request is still pending admin approval.");
+        return;
+      }
+      if (item.type !== "active_group" && item.type !== "suggestion") {
+        // not an approved member (e.g. rejected) — offer to re-request
+        setSelectedDiscoGroup(item);
+        setIsJoinModalOpen(true);
         return;
       }
       setSelectedGroupId(item.id);
