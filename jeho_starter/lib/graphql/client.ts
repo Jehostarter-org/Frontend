@@ -137,6 +137,7 @@ export interface RawNotificationEvent {
     message:         string;
     link?:           string;
     created_at:      string;
+    data?:           Record<string, any> | null;
   };
 }
 

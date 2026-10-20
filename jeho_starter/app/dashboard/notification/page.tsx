@@ -9,6 +9,7 @@ import {
   User, Inbox, Trash2, MoreVertical, Loader2,
   Plane, MapPin, Clock, Users, Briefcase, CheckCircle2,
   Car, AlertCircle, RotateCcw, ChevronRight, Shield, Headphones,
+  UserPlus, X,
 } from "lucide-react";
 import DashboardShell from "@/components/dashboard/dashboard-layout";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNotifications, type GqlNotification } from "@/components/contexts/notification-context";
 import { useDismissNotificationMutation } from "@/lib/api/notificationsApiSlice";
+import { useApproveMemberMutation, useRejectMemberMutation } from "@/lib/api/communityApiSlice";
 import { useAuth } from "@/components/contexts/auth-context";
 import { useDriverJobSocket } from "@/hooks/Usedriverjobsocket";
 import { useGetMyServiceRequestsQuery, useGetMyProviderProfilesQuery, useGetAvailableServiceRequestsQuery, type ServiceRequest } from "@/lib/api/riderApiSlice";
@@ -64,6 +66,7 @@ function NotifIcon({ type }: { type: string }) {
     case "like":             return <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />;
     case "shop_inquiry":     return <ShoppingCart className="w-4 h-4 text-emerald-500" />;
     case "support_message":  return <Headphones className="w-4 h-4 text-teal-500" />;
+    case "community_join_request": return <UserPlus className="w-4 h-4 text-teal-500" />;
     case "service_accepted":
     case "service_updated":
     case "service_completed":
@@ -106,6 +109,66 @@ function formatCurrencyConverted(
   }
 }
 
+// ── Join-request actions (accept/decline from the notification page) ─────────
+
+interface JoinDecisionState {
+  pending: "approve" | "reject" | null;
+  result: "approved" | "rejected" | "stale" | null;
+  onDecide: (decision: "approve" | "reject") => void;
+}
+
+function JoinRequestActions({
+  notification,
+  decision,
+}: {
+  notification: GqlNotification;
+  decision: JoinDecisionState;
+}) {
+  if (decision.result) {
+    const cfg =
+      decision.result === "approved"
+        ? { label: "Approved", cls: "text-emerald-700 bg-emerald-50 border-emerald-200", icon: <CheckCircle2 className="w-3.5 h-3.5" /> }
+        : decision.result === "rejected"
+          ? { label: "Declined", cls: "text-red-600 bg-red-50 border-red-200", icon: <X className="w-3.5 h-3.5" /> }
+          : { label: "Already handled", cls: "text-slate-500 bg-slate-50 border-slate-200", icon: <AlertCircle className="w-3.5 h-3.5" /> };
+    return (
+      <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-widest ${cfg.cls}`}>
+        {cfg.icon} {cfg.label}
+      </div>
+    );
+  }
+
+  const communityId = notification.data?.community_id;
+  const memberId = notification.data?.member_id;
+  if (!communityId || !memberId) return null; // incomplete payload → fall back to the View link
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <Button
+        onClick={() => decision.onDecide("approve")}
+        disabled={decision.pending !== null}
+        className="px-5 py-2 rounded-xl font-bold text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-sm active:scale-[0.98]"
+      >
+        {decision.pending === "approve"
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : <CheckCircle2 className="w-3.5 h-3.5" />}
+        Accept
+      </Button>
+      <Button
+        onClick={() => decision.onDecide("reject")}
+        disabled={decision.pending !== null}
+        variant="outline"
+        className="px-5 py-2 rounded-xl font-bold text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 active:scale-[0.98]"
+      >
+        {decision.pending === "reject"
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : <X className="w-3.5 h-3.5" />}
+        Decline
+      </Button>
+    </div>
+  );
+}
+
 // ── Notification item ───────────────────────────────────────────────────────
 
 // ── Map notification types/links to correct frontend routes ────────────────
@@ -113,8 +176,13 @@ function resolveNotifLink(notification: GqlNotification): string | null {
   const { notificationType, link } = notification;
   // If no link at all, nothing to view
   if (!link) return null;
-  // Community message → straight to the group chat (backend link has ?group=<id>)
-  if (notificationType === "community_message") {
+  // Community message / join request / join result → straight to the group
+  // (backend links carry ?group=<id>)
+  if (
+    notificationType === "community_message" ||
+    notificationType === "community_join_request" ||
+    notificationType === "community_join_result"
+  ) {
     const groupMatch = link.match(/[?&]group=([^&]+)/);
     return groupMatch
       ? `/dashboard/community?group=${encodeURIComponent(groupMatch[1])}`
@@ -153,11 +221,13 @@ function NotificationItem({
   onMarkRead,
   onDelete,
   onView,
+  joinDecision,
 }: {
   notification: GqlNotification;
   onMarkRead: () => void;
   onDelete: () => void;
   onView: (link: string) => void;
+  joinDecision?: JoinDecisionState | null;
 }) {
   return (
     <div
@@ -209,6 +279,10 @@ function NotificationItem({
               {notification.message}
             </p>
           </div>
+        )}
+
+        {joinDecision && (
+          <JoinRequestActions notification={notification} decision={joinDecision} />
         )}
 
         {(() => {
@@ -556,6 +630,12 @@ export default function NotificationPage() {
   const [localReadIds, setLocalReadIds] = useState<Set<string>>(() => new Set());
   const [dismissNotification] = useDismissNotificationMutation();
 
+  // ── Join-request decisions (accept/decline from this page) ────────────
+  const [approveMember] = useApproveMemberMutation();
+  const [rejectMember] = useRejectMemberMutation();
+  const [joinResults, setJoinResults] = useState<Record<string, "approved" | "rejected" | "stale">>({});
+  const [joinPending, setJoinPending] = useState<{ id: string; decision: "approve" | "reject" } | null>(null);
+
   // ── Check if user is a registered driver ────────────────────────────
   const { data: providerProfiles } = useGetMyProviderProfilesQuery();
   const isDriver = useMemo(
@@ -743,6 +823,45 @@ export default function NotificationPage() {
     }
   };
 
+  const handleJoinDecision = async (
+    notification: GqlNotification,
+    decision: "approve" | "reject",
+  ) => {
+    const communityId = notification.data?.community_id;
+    const memberId = notification.data?.member_id;
+    if (!communityId || !memberId) {
+      toast.error("This request can no longer be acted on.");
+      return;
+    }
+
+    setJoinPending({ id: notification.id, decision });
+    try {
+      if (decision === "approve") {
+        await approveMember({ communityId, memberId }).unwrap();
+        toast.success(`${notification.data?.username ?? "Member"} approved.`);
+        setJoinResults((prev) => ({ ...prev, [notification.id]: "approved" }));
+      } else {
+        await rejectMember({ communityId, memberId }).unwrap();
+        toast.success("Join request declined.");
+        setJoinResults((prev) => ({ ...prev, [notification.id]: "rejected" }));
+      }
+      await markAsRead("notifications", notification.id);
+    } catch (err: any) {
+      if (err?.status === 404) {
+        // another admin already handled this request
+        toast.info("This request was already handled.");
+        setJoinResults((prev) => ({ ...prev, [notification.id]: "stale" }));
+        await markAsRead("notifications", notification.id);
+      } else {
+        toast.error(
+          decision === "approve" ? "Failed to approve member." : "Failed to decline request.",
+        );
+      }
+    } finally {
+      setJoinPending(null);
+    }
+  };
+
   const handleAcceptRide = (serviceRequestId: string, serviceType?: string) => {
     sessionStorage.setItem("activeDriverServiceId", serviceRequestId);
     if (serviceType === "chaperone") {
@@ -849,13 +968,24 @@ export default function NotificationPage() {
             <div className="space-y-4">
               {feedItems.map((item) => {
                 if (item.kind === "notification" && item.notification) {
+                  const n = item.notification;
+                  const result = joinResults[n.id];
+                  const joinDecision: JoinDecisionState | undefined =
+                    n.notificationType === "community_join_request" && (result || !n.isRead)
+                      ? {
+                          pending: joinPending && joinPending.id === n.id ? joinPending.decision : null,
+                          result: result ?? null,
+                          onDecide: (decision) => handleJoinDecision(n, decision),
+                        }
+                      : undefined;
                   return (
                     <NotificationItem
                       key={item.id}
-                      notification={item.notification}
-                      onMarkRead={() => handleMarkRead(item.notification!.id)}
-                      onDelete={() => handleDelete(item.id)}
+                      notification={n}
+                      onMarkRead={() => handleMarkRead(n.id)}
+                      onDelete={() => handleDelete(n.id)}
                       onView={(link) => router.push(link)}
+                      joinDecision={joinDecision}
                     />
                   );
                 }
