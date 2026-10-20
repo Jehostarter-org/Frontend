@@ -57,7 +57,7 @@ export default function DashboardShell({ children, onClose }: DashboardLayoutPro
 
           <div className="px-1">
             <Button asChild className="w-full bg-[#2C4E5B] hover:bg-[#23404a] text-white shadow-md transition-all active:scale-[0.98]">
-              <Link href="/dashboard/my-products">
+              <Link href="/dashboard/add-products?tab=list">
                 <Plus className="w-4 h-4 mr-2" />
                 My Product
               </Link>
