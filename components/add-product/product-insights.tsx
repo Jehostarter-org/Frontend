@@ -110,9 +110,9 @@ export function ProductInsights() {
   ]
 
   const DonutCenter = ({ value, label }: { value: string; label: string }) => (
-    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-      <p className="text-2xl font-black text-gray-900">{value}</p>
-      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2">
+      <p className="text-lg sm:text-2xl font-black text-gray-900 text-center break-words max-w-full">{value}</p>
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide text-center">{label}</p>
     </div>
   )
 
@@ -158,12 +158,18 @@ export function ProductInsights() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.label} className="border-gray-200 overflow-hidden">
-            <CardContent className="p-4">
+          <Card key={kpi.label} className="border-gray-200 overflow-hidden min-w-0">
+            <CardContent className="p-3 sm:p-4 min-w-0">
               <div className={`inline-flex p-2 rounded-lg mb-3 ${kpi.color}`}>
                 <kpi.icon className="w-4 h-4" />
               </div>
-              <p className={`font-black text-gray-900 ${kpi.small ? "text-base leading-tight" : "text-2xl"}`}>{kpi.value}</p>
+              <p
+                className={`font-black text-gray-900 break-words min-w-0 ${
+                  kpi.small ? "text-sm sm:text-base lg:text-lg leading-tight" : "text-lg sm:text-2xl"
+                }`}
+              >
+                {kpi.value}
+              </p>
               <p className="text-xs text-gray-500 mt-1">{kpi.label}</p>
             </CardContent>
           </Card>

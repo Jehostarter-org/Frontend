@@ -24,7 +24,7 @@ interface ProductDetailViewProps {
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { isInCart, toggleBookmark } = useCart();
   const { formatPrice } = useCurrency();
   const [startConversation, { isLoading: isStartingConversation }] = useStartConversationMutation();
@@ -52,6 +52,8 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const sellerName: string = product?.sellerName ?? product?.shop_name ?? "Seller";
   const sellerId: string | number | null =
     product?.seller_id ?? product?.sellerId ?? product?.shop?.owner_id ?? product?.shop?.owner ?? null;
+  const isOwner =
+    isLoggedIn && user?.id != null && sellerId != null && Number(user.id) === Number(sellerId);
   const createdAt: string  = product?.createdAt  ?? product?.created_at ?? "";
   const location: string   = product?.location   ?? product?.city       ?? "";
   const condition: string  = product?.condition  ?? "";
@@ -150,6 +152,10 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   };
 
   const handleMessageSeller = async () => {
+    if (isOwner) {
+      toast.info("This is your own listing");
+      return;
+    }
     if (!isLoggedIn) {
       toast.error("Sign in to chat with the seller");
       return;
@@ -352,21 +358,23 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
               </div>
             )}
 
-            <div className="border-t pt-6">
-              <div className="space-y-3">
-                <h3 className="font-bold flex items-center gap-2 text-gray-900 text-sm">
-                  <MessageCircle className="h-5 w-5 text-teal-600" />
-                  Chat with Seller
-                </h3>
-                <Button
-                  className="w-full bg-teal-600 text-white hover:bg-teal-700 h-11"
-                  onClick={handleMessageSeller}
-                  disabled={isStartingConversation}
-                >
-                  {isStartingConversation ? "Opening chat..." : "Send Message"}
-                </Button>
+            {!isOwner && (
+              <div className="border-t pt-6">
+                <div className="space-y-3">
+                  <h3 className="font-bold flex items-center gap-2 text-gray-900 text-sm">
+                    <MessageCircle className="h-5 w-5 text-teal-600" />
+                    Chat with Seller
+                  </h3>
+                  <Button
+                    className="w-full bg-teal-600 text-white hover:bg-teal-700 h-11"
+                    onClick={handleMessageSeller}
+                    disabled={isStartingConversation}
+                  >
+                    {isStartingConversation ? "Opening chat..." : "Send Message"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {location && (
               <div className="space-y-2 border-t pt-6">
