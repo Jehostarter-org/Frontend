@@ -50,8 +50,9 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   }, [product]);
 
   const sellerName: string = product?.sellerName ?? product?.shop_name ?? "Seller";
-  const sellerId: string | number | null =
+  const rawSellerId: string | number | null =
     product?.seller_id ?? product?.sellerId ?? product?.shop?.owner_id ?? product?.shop?.owner ?? null;
+  const sellerId = rawSellerId === "" || rawSellerId === undefined ? null : rawSellerId;
   const isOwner =
     isLoggedIn && user?.id != null && sellerId != null && Number(user.id) === Number(sellerId);
   const createdAt: string  = product?.createdAt  ?? product?.created_at ?? "";
