@@ -271,7 +271,8 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
             </div>
           </section>
 
-          {/* Action Card */}
+          {/* Action Card — buyers only */}
+          {!isOwner && (
           <Card className="border-teal-100 bg-teal-50/30 overflow-hidden shadow-sm shrink-0">
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-3 text-teal-800">
@@ -349,6 +350,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Details */}
           <div className="space-y-6">

@@ -121,8 +121,8 @@ export function ProductInsights() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="border-gray-200 overflow-hidden">
-            <CardHeader><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></CardHeader>
-            <CardContent><div className="h-64 bg-gray-100 rounded animate-pulse" /></CardContent>
+            <CardHeader className="px-4 pt-4 sm:px-6 sm:pt-6"><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></CardHeader>
+            <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6"><div className="h-64 bg-gray-100 rounded animate-pulse" /></CardContent>
           </Card>
         ))}
       </div>
@@ -159,7 +159,7 @@ export function ProductInsights() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {kpis.map((kpi) => (
           <Card key={kpi.label} className="border-gray-200 overflow-hidden min-w-0">
-            <CardContent className="p-3 sm:p-4 min-w-0">
+            <CardContent className="p-4 sm:p-5 min-w-0">
               <div className={`inline-flex p-2 rounded-lg mb-3 ${kpi.color}`}>
                 <kpi.icon className="w-4 h-4" />
               </div>
@@ -179,13 +179,13 @@ export function ProductInsights() {
       {/* Row: Listings over time + Price distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-gray-200">
-          <CardHeader className="pb-2">
+          <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-3">
             <CardTitle className="text-gray-900 text-base flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-teal-600" /> Listings Added
             </CardTitle>
             <CardDescription>Products you posted in the last 6 months</CardDescription>
           </CardHeader>
-          <CardContent className="relative h-72">
+          <CardContent className="relative h-64 px-2 pb-4 sm:h-72 sm:px-6 sm:pb-6">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -205,13 +205,13 @@ export function ProductInsights() {
         </Card>
 
         <Card className="border-gray-200">
-          <CardHeader className="pb-2">
+          <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-3">
             <CardTitle className="text-gray-900 text-base flex items-center gap-2">
               <PieIcon className="w-4 h-4 text-teal-600" /> Price Distribution
             </CardTitle>
             <CardDescription>How your listing prices are spread</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-5 sm:px-6 sm:pb-6">
             <div className="relative h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -234,7 +234,7 @@ export function ProductInsights() {
               </ResponsiveContainer>
               <DonutCenter value={String(products.length)} label="Listings" />
             </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 justify-center">
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 justify-center">
               {priceData.map((entry, i) => (
                 <span key={entry.name} className="inline-flex items-center gap-1.5 text-[11px] text-gray-500">
                   <span className="w-2 h-2 rounded-full" style={{ background: TEAL_PALETTE[i % TEAL_PALETTE.length] }} />
@@ -249,13 +249,13 @@ export function ProductInsights() {
       {/* Row: Category bar chart + Availability donut */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-gray-200">
-          <CardHeader className="pb-2">
+          <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-3">
             <CardTitle className="text-gray-900 text-base flex items-center gap-2">
               <Package className="w-4 h-4 text-teal-600" /> Products by Category
             </CardTitle>
             <CardDescription>Where your listings live</CardDescription>
           </CardHeader>
-          <CardContent className="h-72">
+          <CardContent className="h-64 px-2 pb-4 sm:h-72 sm:px-6 sm:pb-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categoryData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
@@ -275,13 +275,13 @@ export function ProductInsights() {
         </Card>
 
         <Card className="border-gray-200">
-          <CardHeader className="pb-2">
+          <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-3">
             <CardTitle className="text-gray-900 text-base flex items-center gap-2">
               <BadgeCheck className="w-4 h-4 text-teal-600" /> Listing Availability
             </CardTitle>
             <CardDescription>Available vs unavailable right now</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-5 sm:px-6 sm:pb-6">
             <div className="relative h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -304,7 +304,7 @@ export function ProductInsights() {
               </ResponsiveContainer>
               <DonutCenter value={`${products.length ? Math.round((available / products.length) * 100) : 0}%`} label="available" />
             </div>
-            <div className="mt-2 flex gap-4 justify-center">
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 justify-center">
               {statusData.map((entry) => (
                 <span key={entry.name} className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
