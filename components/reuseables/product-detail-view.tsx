@@ -54,7 +54,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     product?.seller_id ?? product?.sellerId ?? product?.shop?.owner_id ?? product?.shop?.owner ?? null;
   const sellerId = rawSellerId === "" || rawSellerId === undefined ? null : rawSellerId;
   const isOwner =
-    isLoggedIn && user?.id != null && sellerId != null && Number(user.id) === Number(sellerId);
+    isLoggedIn && user?.id != null && sellerId != null && String(user.id) === String(sellerId);
   const createdAt: string  = product?.createdAt  ?? product?.created_at ?? "";
   const location: string   = product?.location   ?? product?.city       ?? "";
   const condition: string  = product?.condition  ?? "";
@@ -168,9 +168,9 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
     }
 
     try {
-      const recipientId = sellerId ? Number(sellerId) : null;
+      const recipientId = sellerId ? String(sellerId) : null;
       const conversation = await startConversation({
-        ...(recipientId && Number.isFinite(recipientId) ? { recipient_id: recipientId } : {}),
+        ...(recipientId ? { recipient_id: recipientId } : {}),
         initial_message: `Hi, I am interested in ${product?.title ?? "your listing"}.`,
         linked_object_type: "shop_listing",
         linked_object_id: listingId || null,
