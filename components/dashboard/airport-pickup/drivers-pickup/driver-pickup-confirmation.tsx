@@ -72,7 +72,7 @@ export function StepFiveConfirmation({ serviceRequest }: StepFiveProps) {
   const formattedPrice = price
     ? (() => {
         try {
-          return convertPrice(Number(price), currency || "NGN");
+          return convertPrice(Number(price), currency || "AUD");
         } catch {
           return `${currency} ${price}`;
         }

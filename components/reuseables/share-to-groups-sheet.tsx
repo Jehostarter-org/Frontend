@@ -36,7 +36,7 @@ export default function ShareToGroupsSheet({
   listingTitle,
   listingImage,
   listingPrice,
-  listingCurrency = "NGN",
+  listingCurrency = "AUD",
   listingLocation,
 }: ShareToGroupsSheetProps) {
   const [search, setSearch] = useState("");

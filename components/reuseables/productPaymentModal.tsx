@@ -24,7 +24,13 @@ export function PaymentModal({ isOpen, onClose, product }: any) {
   // --- Dynamic Routing Logic ---
   const handleProceed = () => {
     if (method === "full") {
-      router.push(`/dashboard/payment/`);
+      const fullParams = new URLSearchParams({
+        productId: product?.id ?? "",
+        productName: product?.title ?? "Product",
+        price: String(product?.price ?? 0),
+        plan: "full",
+      });
+      router.push(`/dashboard/payment?${fullParams.toString()}`);
       onClose();
       return;
     }
@@ -140,7 +146,7 @@ export function PaymentModal({ isOpen, onClose, product }: any) {
         </Button>
 
         <p className="text-center text-[11px] text-gray-400 mt-4 leading-relaxed">
-          Secure encrypted payments processed by Paystack. Terms and conditions apply.
+          Secure encrypted payments processed by Stripe. Terms and conditions apply.
         </p>
       </DialogContent>
     </Dialog>

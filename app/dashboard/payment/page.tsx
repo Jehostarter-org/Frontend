@@ -1,236 +1,224 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { ArrowLeft, CheckCircle2, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  ArrowLeft, CreditCard, Wallet, ShieldCheck, Loader2, 
-  Lock, CheckCircle2, ExternalLink 
-} from "lucide-react";
-import { toast } from "sonner";
-import { useInitializePaymentMutation } from "@/lib/api/paymentsApiSlice";
 import DashboardShell from "@/components/dashboard/dashboard-layout.tsx";
+import { useAuth } from "@/components/contexts/auth-context";
+import { useCurrency } from "@/components/contexts/currencyContext";
+import { CardField, StripeProvider, useStripeCard } from "@/components/payment/stripe-card";
+import {
+  useAttachOrderPaymentMethodMutation,
+  useCreateOrderMutation,
+} from "@/lib/api/ordersApiSlice";
+
+type Plan = "full" | "weekly" | "monthly";
+
+const PLAN_CONFIG: Record<Plan, { label: string; splits: number; period: string }> = {
+  full: { label: "Pay in full", splits: 1, period: "once" },
+  weekly: { label: "Weekly payment", splits: 4, period: "week" },
+  monthly: { label: "Monthly payment", splits: 3, period: "month" },
+};
+
+function errorText(err: unknown, fallback: string): string {
+  const data = (err as { data?: { detail?: string; message?: string } | string })?.data;
+  if (typeof data === "string") return data;
+  return data?.detail || data?.message || fallback;
+}
+
+function CheckoutForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const { user } = useAuth();
+  const { formatPrice } = useCurrency();
+  const { ready, saveCard } = useStripeCard();
+
+  const [createOrder] = useCreateOrderMutation();
+  const [attachPaymentMethod] = useAttachOrderPaymentMethodMutation();
+
+  const productId = params.get("productId") ?? "";
+  const productName = params.get("productName") ?? "Product";
+  const price = parseFloat(params.get("price") ?? "0") || 0;
+  const currency = params.get("currency") ?? "USD";
+  const rawPlan = params.get("plan");
+  const plan: Plan = rawPlan === "weekly" || rawPlan === "monthly" ? rawPlan : "full";
+  const cfg = PLAN_CONFIG[plan];
+
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<null | { full: boolean; message: string }>(null);
+
+  const perPayment = cfg.splits > 0 ? price / cfg.splits : price;
+  const isInstallment = plan !== "full";
+
+  const handlePay = async () => {
+    if (!productId || price <= 0) {
+      toast.error("This product could not be found. Please go back and try again.");
+      return;
+    }
+    setBusy(true);
+    try {
+      // 1. Create the order (backend also creates a SetupIntent for the card)
+      const created = await createOrder({
+        listing_id: productId,
+        payment_type: isInstallment ? "installment" : "full",
+        installments_count: cfg.splits,
+        interval: plan === "weekly" ? "weekly" : "monthly",
+      }).unwrap();
+
+      const secret = created.client_secret;
+      if (!secret || secret.includes("mock")) {
+        toast.error("The payment service could not prepare your card. Please try again later.");
+        return;
+      }
+
+      // 2. Save the card with Stripe
+      const saved = await saveCard(secret, user?.email);
+      if (saved.error || !saved.paymentMethodId) {
+        toast.error(saved.error ?? "Card could not be saved.");
+        return;
+      }
+
+      // 3. Attach it to the order. A full payment is charged right here;
+      //    an installment order waits for admin approval before the first charge.
+      const attached = await attachPaymentMethod({
+        orderId: created.order.id,
+        payment_method_id: saved.paymentMethodId,
+        customer_id: created.customer_id || undefined,
+      }).unwrap();
+
+      setDone({
+        full: !isInstallment,
+        message: attached.message,
+      });
+    } catch (err) {
+      toast.error(errorText(err, "Payment failed. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <Card className="rounded-2xl border-none shadow-xl">
+        <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
+          <CheckCircle2 className="h-14 w-14 text-teal-600" />
+          <h2 className="text-2xl font-bold text-gray-900">
+            {done.full ? "Payment successful" : "Order submitted"}
+          </h2>
+          <p className="max-w-md text-sm text-gray-600">
+            {done.full
+              ? `You paid ${formatPrice(price, currency)} for ${productName}.`
+              : `Your card is saved. Once your order is approved, the first payment of ${formatPrice(
+                  perPayment,
+                  currency
+                )} is charged automatically.`}
+          </p>
+          <Button
+            onClick={() => router.push("/dashboard/orders")}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            View my orders
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="rounded-2xl border-none shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-lg">Order summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Item</span>
+            <span className="font-semibold text-gray-900">{productName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Plan</span>
+            <span className="font-semibold text-gray-900">{cfg.label}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Total</span>
+            <span className="font-semibold text-gray-900">{formatPrice(price, currency)}</span>
+          </div>
+          {isInstallment && (
+            <div className="flex justify-between border-t pt-3 text-teal-700">
+              <span className="font-semibold">
+                {cfg.splits} payments of
+              </span>
+              <span className="text-lg font-black">{formatPrice(perPayment, currency)}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-none shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CreditCard className="h-5 w-5" /> Card details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CardField />
+          <p className="flex items-center gap-2 text-xs text-gray-500">
+            <Lock className="h-3.5 w-3.5" />
+            {isInstallment
+              ? "Your card is saved securely with Stripe and charged for each installment."
+              : "Your card is charged securely by Stripe."}
+          </p>
+          <Button
+            onClick={handlePay}
+            disabled={busy || !ready}
+            className="h-12 w-full bg-teal-600 text-base font-bold hover:bg-teal-700"
+          >
+            {busy ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isInstallment ? (
+              "Save card & place order"
+            ) : (
+              `Pay ${formatPrice(price, currency)}`
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <p className="flex items-center justify-center gap-2 text-xs text-gray-400">
+        <ShieldCheck className="h-4 w-4" /> Secured by Stripe. Your card details never touch our servers.
+      </p>
+    </div>
+  );
+}
 
 export default function PaymentPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [initializePayment, { isLoading }] = useInitializePaymentMutation();
-  
-  // Get product info from URL params (passed from product modal)
-  const productId = searchParams.get("productId");
-  const productName = searchParams.get("productName");
-  const productPrice = searchParams.get("price");
-  const plan = searchParams.get("plan");
-
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "transfer">("card");
-  const [email, setEmail] = useState("");
-
-  const price = productPrice ? parseFloat(productPrice) : 0;
-
-  const PLAN_CONFIG: Record<string, { label: string; period: string; splits: number }> = {
-    weekly: { label: "Weekly Payment", period: "week", splits: 4 },
-    monthly: { label: "Monthly Payment", period: "month", splits: 3 },
-  };
-  const selectedPlan = plan ? PLAN_CONFIG[plan] : null;
-  const installmentAmount = selectedPlan ? price / selectedPlan.splits : 0;
-
-  const handlePayment = async () => {
-    if (!email) {
-      toast.error("Please enter your email address");
-      return;
-    }
-
-    try {
-      const response = await initializePayment({
-        email,
-        amount: price * 100, // Convert to kobo/cents
-        product_id: productId,
-        callback_url: `${window.location.origin}/dashboard/payment/verify`,
-      }).unwrap();
-
-      if (response?.data?.authorization_url) {
-        // Redirect to Paystack payment page
-        window.location.href = response.data.authorization_url;
-      } else {
-        toast.success("Payment initialized successfully");
-      }
-    } catch (error) {
-      toast.error("Failed to initialize payment. Please try again.");
-    }
-  };
 
   return (
     <DashboardShell>
-      <div className="min-h-screen bg-gray-50 p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <header className="flex items-center gap-4 mb-8">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="bg-gray-100 rounded-full h-10 w-10" 
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="mx-auto max-w-2xl">
+          <header className="mb-8 flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Secure Checkout</h2>
-              <p className="text-sm text-gray-500 font-medium">Complete your payment</p>
+              <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
+              <Link href="/dashboard/orders" className="text-xs font-semibold text-teal-600">
+                My orders
+              </Link>
             </div>
           </header>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Order Summary */}
-            <Card className="border-gray-100 shadow-xl rounded-2xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-bold text-gray-900">Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-start p-4 bg-teal-50/50 rounded-xl border border-teal-100">
-                  <div>
-                    <p className="font-bold text-gray-900">{productName || "Product Purchase"}</p>
-                    <p className="text-xs text-gray-500 mt-1">ID: {productId || "N/A"}</p>
-                  </div>
-                  <span className="text-xl font-black text-teal-600">${price.toFixed(2)}</span>
-                </div>
-
-                {selectedPlan && (
-                  <div className="p-4 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
-                    <p className="text-sm font-bold text-teal-800 flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" /> {selectedPlan.label}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {selectedPlan.splits} × <span className="font-semibold text-teal-700">${installmentAmount.toFixed(2)}</span> per {selectedPlan.period}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Full amount: <span className="font-semibold text-gray-700">${price.toFixed(2)}</span> split over {selectedPlan.splits} {selectedPlan.period}s
-                    </p>
-                  </div>
-                )}
-                
-                <div className="border-t border-gray-100 pt-4 space-y-2">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Subtotal</span>
-                    <span>${price.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Service Fee</span>
-                    <span>$0.00</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
-                    <span>Total</span>
-                    <span className="text-teal-600">${price.toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Form */}
-            <Card className="border-gray-100 shadow-xl rounded-2xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-bold text-gray-900">Payment Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Email Input */}
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-bold text-gray-700">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 bg-white border-gray-200 focus:ring-teal-500"
-                  />
-                  <p className="text-xs text-gray-500">Receipt will be sent to this email</p>
-                </div>
-
-                {/* Payment Method Selection */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-bold text-gray-700">Payment Method</Label>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("card")}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                      paymentMethod === "card" 
-                        ? "border-teal-600 bg-teal-50/50 shadow-sm" 
-                        : "border-gray-100 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${paymentMethod === "card" ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-500"}`}>
-                        <CreditCard className="h-5 w-5" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-gray-900">Pay with Card</p>
-                        <p className="text-xs text-gray-500">Visa, Mastercard, Verve</p>
-                      </div>
-                    </div>
-                    {paymentMethod === "card" && <CheckCircle2 className="h-5 w-5 text-teal-600" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("transfer")}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                      paymentMethod === "transfer" 
-                        ? "border-teal-600 bg-teal-50/50 shadow-sm" 
-                        : "border-gray-100 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${paymentMethod === "transfer" ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-500"}`}>
-                        <Wallet className="h-5 w-5" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-gray-900">Bank Transfer</p>
-                        <p className="text-xs text-gray-500">Direct bank transfer</p>
-                      </div>
-                    </div>
-                    {paymentMethod === "transfer" && <CheckCircle2 className="h-5 w-5 text-teal-600" />}
-                  </button>
-                </div>
-
-                {/* Pay Button */}
-                <Button 
-                  onClick={handlePayment}
-                  disabled={isLoading || !email}
-                  className="w-full py-7 text-lg font-bold rounded-2xl transition-all shadow-lg bg-teal-700 hover:bg-teal-800 text-white disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <><Loader2 className="w-5 h-5 mr-3 animate-spin" /> Processing...</>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4 mr-2" />
-                      {selectedPlan
-                        ? `Pay $${installmentAmount.toFixed(2)} — 1st of ${selectedPlan.splits}`
-                        : `Pay $${price.toFixed(2)}`}
-                    </>
-                  )}
-                </Button>
-
-                {/* Security Notice */}
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <ShieldCheck className="h-4 w-4 text-teal-600" />
-                  <span>Secured by Paystack. Your payment is encrypted.</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Footer Info */}
-          <div className="mt-8 p-4 bg-gray-100 rounded-xl text-center">
-            <p className="text-xs text-gray-500">
-              By completing this payment, you agree to our{" "}
-              <a href="#" className="text-teal-600 hover:underline">Terms of Service</a>
-              {" "}and{" "}
-              <a href="#" className="text-teal-600 hover:underline">Privacy Policy</a>
-            </p>
-          </div>
+          <StripeProvider>
+            <Suspense fallback={<Loader2 className="mx-auto h-8 w-8 animate-spin text-teal-600" />}>
+              <CheckoutForm />
+            </Suspense>
+          </StripeProvider>
         </div>
       </div>
     </DashboardShell>

@@ -204,7 +204,10 @@ export default function BookChaperonePage() {
       }
 
       toast.success("Chaperone service request submitted successfully!")
-      router.push("/terms/chaperone")
+      // Hold the payment on the customer's card, then continue to the terms page
+      router.push(
+        `/dashboard/service-payment?id=${encodeURIComponent(serviceId)}&next=${encodeURIComponent("/terms/chaperone")}`
+      )
 
     } catch (error) {
       console.error("Booking error:", error)

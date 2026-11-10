@@ -28,7 +28,7 @@ export default function StepFiveArrival({ onNext }: StepFiveArrivalProps) {
   function formatPrice(amount: string | null, currency: string): string {
     if (!amount) return "—";
     try {
-      return convertPrice(Number(amount), currency || "NGN");
+      return convertPrice(Number(amount), currency || "AUD");
     } catch {
       return `${currency} ${amount}`;
     }

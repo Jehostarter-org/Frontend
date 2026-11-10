@@ -1,10 +1,13 @@
-import { Globe, Bell, Inbox, Package, ShoppingCart, Tag, Car, Building, Shirt, Laptop, Sofa, Baby, BookOpen, Wrench, Users, Zap, Boxes } from "lucide-react";
+import { Globe, Bell, Inbox, Package, ShoppingCart, Tag, Car, Building, Shirt, Laptop, Sofa, Baby, BookOpen, Wrench, Users, Zap, Boxes, Landmark } from "lucide-react";
+
+export const payoutsNavItem = { icon: Landmark, label: "Payouts", href: "/dashboard/payouts" };
 
 export const navigationItems = [
   { icon: Globe, label: "Shop", href: "/dashboard/product/marketplace" },
   { icon: Bell, label: "Activity", href: "/dashboard/notification" },
   { icon: Inbox, label: "Inbox", href: "/dashboard/inbox" },
   { icon: Package, label: "Membership", href: "/customer-details/packages" },
+  { icon: ShoppingCart, label: "Orders", href: "/dashboard/orders" },
   // { icon: ShoppingCart, label: "Buying", href: "/dashboard/buyers-cart" },
   // { icon: Tag, label: "Selling", href: "/dashboard/sellers-product" },
   { icon: Users, label: "Community Groups", href: "/dashboard/community", },

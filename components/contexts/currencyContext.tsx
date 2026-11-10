@@ -58,7 +58,7 @@ const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
 export { COUNTRY_TO_CURRENCY };
 
 const SUPPORTED      = Object.keys(EXCHANGE_RATES) as CurrencyCode[];
-const DEFAULT: CurrencyCode = "NGN";
+const DEFAULT: CurrencyCode = "AUD";
 const API_URL        = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -227,9 +227,9 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (SUPPORTED.includes(code)) setCurrencyState(code);
   }, []);
 
-  const formatPrice = useCallback((amount: number, originalCurrency: string = "NGN") => {
+  const formatPrice = useCallback((amount: number, originalCurrency: string = "AUD") => {
     const safeOriginal = SUPPORTED.includes(originalCurrency as CurrencyCode)
-      ? originalCurrency : "NGN";
+      ? originalCurrency : "AUD";
 
     const rateFrom = EXCHANGE_RATES[safeOriginal] ?? 1;
     const rateTo   = EXCHANGE_RATES[currency]     ?? 1;

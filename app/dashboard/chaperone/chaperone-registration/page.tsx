@@ -45,15 +45,15 @@ function useUserLocation(token: string | null) {
         if (detectRes.ok) {
           const locationData = await detectRes.json()
           setLocation({
-            country_code: locationData.country_code || "NG",
+            country_code: locationData.country_code || "AU",
             city: locationData.city || "Lagos",
             ip: locationData.ip || "",
           })
         } else {
-          setLocation({ country_code: "NG", city: "Lagos", ip: "" })
+          setLocation({ country_code: "AU", city: "Sydney", ip: "" })
         }
       } catch {
-        setLocation({ country_code: "NG", city: "Lagos", ip: "" })
+        setLocation({ country_code: "AU", city: "Sydney", ip: "" })
       } finally {
         setLoading(false)
       }
