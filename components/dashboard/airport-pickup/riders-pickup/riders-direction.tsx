@@ -84,7 +84,7 @@ export default function StepThreeDirections({ onNext, serviceRequestId }: StepTh
   const price = selectedVehicle?.price ?? Number(serviceRequest?.price ?? 0);
 
   const formatCurrency = (amount: number) =>
-    convertPrice(amount, serviceRequest?.currency || "NGN");
+    convertPrice(amount, serviceRequest?.currency || "AUD");
 
   const handleContinue = () => {
     if (onNext) {

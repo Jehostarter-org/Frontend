@@ -85,7 +85,7 @@ export default function StepOneBookPickup({ onNext, defaultValues }: StepOneProp
         (a) => a.label === data.airport || a.value === data.airport
       );
       const bookingCountry =
-        airportInfo?.country || detectedCountry || user?.current_country || "NG";
+        airportInfo?.country || detectedCountry || user?.current_country || "AU";
       const bookingCurrency = COUNTRY_TO_CURRENCY[bookingCountry] ?? detectedCurrency;
       const isCrossCountry = !!airportInfo && user?.current_country !== bookingCountry;
       const bookingCity = isCrossCountry ? "" : user?.city || "";

@@ -54,15 +54,15 @@ function useUserLocation(token: string | null) {
           const locationData = await detectRes.json();
           console.log("Detected location:", locationData);
           setLocation({
-            country_code: locationData.country_code || "NG",
+            country_code: locationData.country_code || "AU",
             city: locationData.city || "Lagos",
             ip: locationData.ip || "",
           });
         } else {
           // Fallback to default
           setLocation({
-            country_code: "NG",
-            city: "Lagos",
+            country_code: "AU",
+            city: "Sydney",
             ip: "",
           });
         }
@@ -71,8 +71,8 @@ function useUserLocation(token: string | null) {
         setError("Could not detect location");
         // Set default location
         setLocation({
-          country_code: "NG",
-          city: "Lagos",
+          country_code: "AU",
+          city: "Sydney",
           ip: "",
         });
       } finally {

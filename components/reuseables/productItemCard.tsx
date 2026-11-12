@@ -18,7 +18,7 @@ export function ProductItemCard({ product, tool, item, babyKids, electronics, pr
     "/placeholder.svg";
   const condition = data.productCondition || data.condition;
   const price = data.price || 0;
-  const currency = data.currency || "NGN";
+  const currency = data.currency || "AUD";
   const boosted = data.is_boosted || false;
 
   return (

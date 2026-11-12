@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { usePathname, useRouter } from "next/navigation";
 import { NavLink } from "@/components/reuseables/navLink";
 import { useAuth } from "@/components/contexts/auth-context";
-import { navigationItems, categories } from "./dashboard-stats";
+import { navigationItems, payoutsNavItem, categories } from "./dashboard-stats";
+import { useGetMyShopQuery } from "@/lib/api/productsApiSlice";
+import { useGetMyProviderProfilesQuery } from "@/lib/api/riderApiSlice";
 import { SidebarHeader } from "@/components/reuseables/sideHeader";
 import DashboardNavbar from "@/components/dashboard/dashboard-navbar";
 import LocationSection from "@/components/dashboard/location-section";
@@ -23,6 +25,14 @@ export default function DashboardShell({ children, onClose }: DashboardLayoutPro
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // "Payouts" only matters to people who get paid: shop owners, drivers and chaperones.
+  const { data: myShop } = useGetMyShopQuery(undefined, { skip: !user });
+  const { data: myProviderProfiles } = useGetMyProviderProfilesQuery(undefined, { skip: !user });
+  const canGetPaid =
+    Boolean(myShop?.id) ||
+    (Array.isArray(myProviderProfiles) && myProviderProfiles.length > 0);
+  const visibleNavItems = canGetPaid ? [...navigationItems, payoutsNavItem] : navigationItems;
   const handleSidebarToggle = useCallback((isOpen: boolean) => { setSidebarOpen(isOpen); }, []);
 
   const handleLogout = async () => {
@@ -45,7 +55,7 @@ export default function DashboardShell({ children, onClose }: DashboardLayoutPro
 
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-gray-200 custom-scrollbar">
           <nav className="space-y-1">
-            {navigationItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.href}
                 {...item}

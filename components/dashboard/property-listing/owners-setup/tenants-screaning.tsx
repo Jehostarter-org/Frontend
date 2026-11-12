@@ -33,7 +33,7 @@ export default function ReviewStep({ onNext, onBack, initialData, isSubmitting =
     onNext(initialData); 
   };
 
-  const formatPrice = (price?: number, currency = "NGN") => {
+  const formatPrice = (price?: number, currency = "AUD") => {
     if (!price) return "N/A";
     return new Intl.NumberFormat("en-NG", { style: "currency", currency }).format(price);
   };

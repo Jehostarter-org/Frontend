@@ -58,7 +58,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
   const createdAt: string  = product?.createdAt  ?? product?.created_at ?? "";
   const location: string   = product?.location   ?? product?.city       ?? "";
   const condition: string  = product?.condition  ?? "";
-  const currency: string   = product?.currency   ?? "NGN";
+  const currency: string   = product?.currency   ?? "AUD";
   const rawPrice           = product?.price ?? 0;
   const price: number      = typeof rawPrice === "string" ? parseFloat(rawPrice) : rawPrice;
 
@@ -326,6 +326,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                             productId: listingId,
                             productName: product?.title ?? "Product",
                             price: price.toString(),
+                            currency,
                             plan: opt.plan,
                           });
                           router.push(`/dashboard/payment?${params.toString()}`);
@@ -342,9 +343,23 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                         </div>
                       </button>
                     ))}
-                    <p className="text-[11px] text-gray-400 leading-snug">
-                      Or pay in full — {formatPrice(price, currency)} once.
-                    </p>
+                    <button
+                      onClick={() => {
+                        setPayMenuOpen(false);
+                        if (!listingId) { toast.error("Product not available"); return; }
+                        const params = new URLSearchParams({
+                          productId: listingId,
+                          productName: product?.title ?? "Product",
+                          price: price.toString(),
+                          currency,
+                          plan: "full",
+                        });
+                        router.push(`/dashboard/payment?${params.toString()}`);
+                      }}
+                      className="w-full text-left text-[12px] font-semibold text-teal-700 underline underline-offset-2"
+                    >
+                      Or pay in full — {formatPrice(price, currency)} once
+                    </button>
                   </div>
                 )}
               </div>

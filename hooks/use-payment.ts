@@ -23,15 +23,19 @@ export function usePaymentInitialization() {
 
     try {
       // 2. Initialize Transaction on Backend
-      // Expected response: { authorization_url: "https://checkout.paystack.com/...", reference: "..." }
+      // Expected response: { checkout_url / authorization_url: "https://checkout.stripe.com/...", reference: "..." }
       const response = await initializePayment({
         amount: 2500, // $25 USD
         email: user.email,
         plan: "gold",
-        callback_url: `${window.location.origin}/payment/verify`,
+        callback_url: `${window.location.origin}/customer-details/payment/verify`,
       }).unwrap();
 
-      const redirectUrl = response?.authorization_url || response?.data?.authorization_url;
+      const redirectUrl =
+        response?.checkout_url ||
+        response?.authorization_url ||
+        response?.data?.checkout_url ||
+        response?.data?.authorization_url;
 
       if (!redirectUrl) {
         throw new Error("No authorization URL returned from payment provider.");

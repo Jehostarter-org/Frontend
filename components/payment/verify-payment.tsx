@@ -13,7 +13,10 @@ export default function VerifyPayment() {
   const router = useRouter();
   const dispatch = useDispatch();
   const searchParams = useSearchParams();
-  const reference = searchParams.get("reference");
+  const reference =
+    searchParams.get("reference") ||
+    searchParams.get("session_id") ||
+    searchParams.get("payment_id");
   const processedRef = useRef(false); 
   const [hasProcessed, setHasProcessed] = useState(false);
 
@@ -28,7 +31,7 @@ export default function VerifyPayment() {
 
       if (isVerifyError || verifyData.status !== "success") {
         toast.error("Payment verification failed.");
-        router.push("/package-selection");
+        router.push("/customer-details/packages");
         return;
       }
 
@@ -54,7 +57,7 @@ export default function VerifyPayment() {
       } catch (error) {
         console.error("Upgrade failed:", error);
         toast.error("Payment successful but upgrade failed. Contact support.");
-        router.push("/package-selection");
+        router.push("/customer-details/packages");
       }
     };
 

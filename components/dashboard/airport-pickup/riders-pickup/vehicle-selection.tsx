@@ -29,7 +29,7 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
   const router = useRouter();
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [backendPrice, setBackendPrice] = useState<number | null>(null);
-  const [backendCurrency, setBackendCurrency] = useState<string>("NGN");
+  const [backendCurrency, setBackendCurrency] = useState<string>("AUD");
   const [fareBreakdown, setFareBreakdown] = useState<{
     flag_drop_fee: number;
     per_km_rate: number;
@@ -71,7 +71,7 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
       // These values come DIRECTLY from the backend - NO frontend calculation
       // Ensure all numeric values are actual numbers (API may return strings)
       let price = serviceRequest.price ? parseFloat(String(serviceRequest.price)) : 0;
-      let currency = serviceRequest.currency || "NGN";
+      let currency = serviceRequest.currency || "AUD";
       let distanceKm = Number(serviceRequest.distance_km) || 0;
       let durationMin = Number(serviceRequest.estimated_duration_min) || 0;
 
@@ -171,8 +171,11 @@ export default function StepTwoVehicleSelection({ onNext, onBack }: StepTwoProps
         if (onNext) {
           onNext();
         } else {
+          // Hold the fare on the rider's card first, then continue to the direction step
+          const nextUrl =
+            "/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/direction";
           router.push(
-            "/dashboard/airport-pickup/riders-airport-pickup/riders-pickup/direction"
+            `/dashboard/service-payment?id=${encodeURIComponent(serviceRequestId)}&next=${encodeURIComponent(nextUrl)}`
           );
         }
       }, 1000);
