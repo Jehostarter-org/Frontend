@@ -3,6 +3,11 @@ import { apiSlice } from "./apiSlice";
 export const plansApiSlice = apiSlice.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
+    getMyMembership: builder.query<MembershipStatus | null, void>({
+      query: () => "/memberships/my/",
+      providesTags: ["Membership"],
+    }),
+
     getApartmentPlans: builder.query({
       query: () => "/plans/apartment",
       providesTags: ["Plan"],
@@ -108,6 +113,7 @@ export const plansApiSlice = apiSlice.injectEndpoints({
 });
 
 export const {
+  useGetMyMembershipQuery,
   useGetApartmentPlansQuery,
   useSelectPackagePlanQuery,
   useSetupAirportPlanMutation,
@@ -122,6 +128,15 @@ export const {
   useAdminProcessEligibilityMutation,
   useAdminGetEligibilityStatsQuery,
 } = plansApiSlice;
+
+export interface MembershipStatus {
+  id: string;
+  plan: "free" | "silver" | "gold";
+  country_code: string;
+  started_at: string;
+  expires_at: string;
+  is_active: boolean;
+}
 
 // ── Admin eligibility types ───────────────────────────────────────────────────
 
