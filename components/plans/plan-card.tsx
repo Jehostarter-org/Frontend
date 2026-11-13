@@ -9,24 +9,38 @@ interface PlanCardProps {
   plan: PlanConfig;
   isSelected: boolean;
   isLoading: boolean;
+  isCurrentPlan?: boolean;
+  isDisabled?: boolean;
+  disabledLabel?: string;
   onSelect: (id: string) => void;
   onAction: () => void;
 }
 
-export const PlanCard = ({ plan, isSelected, isLoading, onSelect, onAction }: PlanCardProps) => {
+export const PlanCard = ({
+  plan,
+  isSelected,
+  isLoading,
+  isCurrentPlan = false,
+  isDisabled = false,
+  disabledLabel = "Membership status unavailable",
+  onSelect,
+  onAction,
+}: PlanCardProps) => {
   const isGold = plan.theme === "dark";
 
   return (
     <div
-      onClick={() => onSelect(plan.id)}
-      className={cn( "relative rounded-3xl p-8 cursor-pointer transition-all duration-300 border h-full flex flex-col group", isGold 
+      onClick={() => {
+        if (!isCurrentPlan) onSelect(plan.id);
+      }}
+      className={cn( "relative rounded-3xl p-8 transition-all duration-300 border h-full flex flex-col group", isCurrentPlan ? "cursor-not-allowed" : "cursor-pointer", isGold 
           ? "bg-slate-950 text-white border-transparent hover:shadow-2xl shadow-xl" : "bg-white text-slate-900 border-gray-200 hover:shadow-lg",
         isSelected && isGold && "ring-2 ring-yellow-500 scale-[1.02]", isSelected && !isGold && "ring-2 ring-teal-600 scale-[1.02]"
       )}
     >
-      {isSelected && (
+      {(isCurrentPlan || isSelected) && (
         <div className={cn(  "absolute top-4 right-4 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm animate-in zoom-in", isGold ? "bg-yellow-500 text-black" : "bg-teal-600 text-white" )}>
-          <CheckCircle2 className="w-3.5 h-3.5" /> Selected
+          <CheckCircle2 className="w-3.5 h-3.5" /> {isCurrentPlan ? "Current Plan" : "Selected"}
         </div>
       )}
 
@@ -53,7 +67,7 @@ export const PlanCard = ({ plan, isSelected, isLoading, onSelect, onAction }: Pl
 
       <div className="mt-auto pt-4">
         <Button onClick={(e) => { e.stopPropagation(); onAction(); }}
-          disabled={!isSelected || isLoading}
+          disabled={!isSelected || isLoading || isCurrentPlan || isDisabled}
           className={cn( "w-full h-12 text-base font-semibold rounded-xl transition-all shadow-lg", isGold 
               ? "bg-yellow-500 text-black hover:bg-yellow-400 disabled:bg-gray-800 disabled:text-gray-500" 
               : "bg-teal-700 text-white hover:bg-teal-800 disabled:bg-gray-100 disabled:text-gray-400"
@@ -61,6 +75,10 @@ export const PlanCard = ({ plan, isSelected, isLoading, onSelect, onAction }: Pl
         >
           {isLoading && isSelected ? (
             <Loader2 className="animate-spin w-5 h-5" />
+          ) : isCurrentPlan ? (
+            "Current Plan"
+          ) : isDisabled ? (
+            disabledLabel
           ) : (
             "Continue"
           )}
